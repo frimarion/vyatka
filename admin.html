@@ -320,6 +320,7 @@
   } = window.VP;
 
   const TBL = window.VP_TABLES;
+  const ROOMS_BRANCH = window.VP_ROOMS_BRANCH ?? null;   // null — комнаты только свои
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
   const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
   const CLIENT_ID = genRoomId(10);
@@ -332,7 +333,7 @@
   let editingStructure = false;
   let playerSearchQuery = "";
   let paySearchQuery = "";
-  let profile = null;                 // строка profiles: {id, email, role, branch}
+  let profile = null;                 // строка profiles: {id, email, role}
   let allowedRooms = null;            // для оператора — комнаты назначенных турниров; null = без ограничений
   let lastPayMethod = DEFAULT_PAY_METHOD;   // способ прошлой оплаты — подставляется в модалку
 
@@ -343,7 +344,7 @@
 
   async function fetchProfile(userId) {
     try {
-      const { data } = await sb.from(TBL.profiles).select("id,email,role,branch").eq("id", userId).maybeSingle();
+      const { data } = await sb.from(TBL.profiles).select("id,email,role").eq("id", userId).maybeSingle();
       profile = data || null;
     } catch (e) { console.warn("fetchProfile", e); profile = null; }
   }
@@ -503,7 +504,9 @@
     const box = $("roomsList");
     box.innerHTML = '<div class="muted">Загрузка…</div>';
     try {
-      const { data, error } = await sb.from(TBL.rooms).select("room_id,state").eq("branch", BRANCH).limit(50);
+      let q = sb.from(TBL.rooms).select("room_id,state").limit(50);
+      if (ROOMS_BRANCH) q = q.eq("branch", ROOMS_BRANCH);
+      const { data, error } = await q;
       if (error) throw error;
       await loadAllowedRooms();
       const visible = allowedRooms ? (data || []).filter((r) => allowedRooms.has(r.room_id)) : (data || []);
@@ -584,7 +587,9 @@
       if (linkedFee != null) st.tournament.defaultBuyIn = linkedFee;
       if (regPlayers.length) st = mergePlayers(st, regPlayers, "add");
       try {
-        const { error } = await sb.from(TBL.rooms).insert({ room_id: id, state: st, branch: BRANCH });
+        const row = { room_id: id, state: st };
+        if (ROOMS_BRANCH) row.branch = ROOMS_BRANCH;     // в своей базе колонки branch нет
+        const { error } = await sb.from(TBL.rooms).insert(row);
         if (error) throw error;
         if (linkTid) {
           const { error: linkErr } = await sb.from(TBL.tournaments).update({ room_id: id }).eq("id", linkTid).is("room_id", null);

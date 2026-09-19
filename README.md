@@ -65,6 +65,27 @@ python3 -m http.server 4173
   1–3 эмодзи-цифрами, ноки в скобках (в ПКО — с очками за головы), призовая
   зона отбита пустой строкой.
 
+## Своя база
+
+Вятка переезжает на **собственный Supabase-проект**: Дойл — другой клуб, общих
+таблиц быть не должно. Схема лежит в `migrations/`:
+
+- `001_init.sql` — таблицы (`rooms`, `profiles`, `players`, `tournaments`,
+  `registrations`, `tournament_operators`), аренда ведущего, `server_time_ms`,
+  счётчик записавшихся, доезд новой регистрации в открытую комнату и
+  RLS-политики под роли. Применять целиком в SQL Editor на чистой базе.
+- `002_first_admin.sql` — поднять первому аккаунту роль до `admin`.
+
+Пока переезда не было, фронт ходит в дойловскую инсталляцию. Всё, что нужно
+переключить, собрано в [js/config.js](js/config.js):
+
+| Настройка | Сейчас | После переезда |
+|---|---|---|
+| `SUPABASE_HOSTS` / `SUPABASE_ANON_KEY` | хосты и ключ Дойла | свои |
+| `VP_TABLES` | `doyle_tournaments`, `doyle_registrations`, `doyle_players` | `tournaments`, `registrations`, `players` |
+| `VP_ROOMS_BRANCH` | `"VYATKA"` — отбор своих комнат в общей таблице | `null` |
+| домен логина в [admin.html](admin.html) | `@doyle.ru` | свой |
+
 ## Роли и права
 
 Две роли, берутся из `profiles.role` по `auth.uid()`:
