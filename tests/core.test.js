@@ -1,5 +1,5 @@
 global.window={};global.crypto=require('crypto').webcrypto;
-require('/Users/alexander/Desktop/vyatka/js/core.js');
+require(require('path').join(__dirname,'..','js','core.js'));
 const VP=window.VP; const A=require('assert');
 
 let st=VP.normalizeState(VP.initialState());
