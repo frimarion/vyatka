@@ -12,6 +12,18 @@ window.SUPABASE_URL = (() => {
 })();
 window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzEzMjI1NjAwLCJleHAiOjE4Njg5OTIwMDB9.JEHfDm5ghdB_UgORrAXZzjcT8TFdecTPs88C77sm5MA";
 
+// ── Карта таблиц ──────────────────────────────────────────────────────────────
+// Вятка переезжает на собственный Supabase-проект: пока часть таблиц ещё
+// дойловская (общая инсталляция), после переезда здесь меняются только имена.
+window.VP_TABLES = {
+  rooms: "rooms",
+  profiles: "profiles",
+  operators: "tournament_operators",
+  tournaments: "doyle_tournaments",
+  registrations: "doyle_registrations",
+  players: "doyle_players",
+};
+
 // Drop-in fetch for supabase-js: createClient(url, key, { global: { fetch: window.sbFetchFailover } }).
 // Tries the current host, fails over to the other on a timeout / connection error, swapping the
 // host in the request URL. The whole BODY is read under the timeout (the throttle slows the body,

@@ -31,6 +31,7 @@
     <div class="headSide">
       <span class="badge" id="badgeRoom"><span class="dot gold"></span><span class="mono" id="metaRoom">—</span></span>
       <span class="badge" id="badgeRole"><span class="dot" id="roleDot"></span><span id="roleText">…</span></span>
+      <span class="badge" id="badgeUser" style="display:none"><span id="userText">—</span></span>
       <span class="badge" id="badgeSync"><span id="syncText">sync: —</span></span>
       <button class="ghost tiny" id="logoutBtn" type="button" style="display:none">Выйти</button>
     </div>
@@ -42,9 +43,9 @@
   <section id="screenCreate" class="card" style="display:none">
     <div class="cardHead"><h2>Комнаты</h2>
       <button id="btnRefreshRooms" class="ghost tiny" type="button">↻ Обновить</button></div>
-    <div class="field"><label>Название турнира</label>
+    <div class="field" id="newRoomNameField"><label>Название турнира</label>
       <input id="newRoomName" type="text" maxlength="80" placeholder="Вятский Фриз-аут, 19:00"/></div>
-    <div class="field"><label>Привязать к турниру</label>
+    <div class="field" id="newRoomTournamentField"><label>Привязать к турниру</label>
       <select id="newRoomTournament"><option value="">— без привязки —</option></select>
       <div class="muted">Записавшиеся через приложение попадут в рум сразу, новые — по кнопке «Загрузить из TG».</div></div>
     <button id="btnCreate" type="button">+ Создать комнату</button>
@@ -154,6 +155,17 @@
     <div class="btnrow">
       <button id="btnSaveInfo" type="button">Сохранить</button>
       <button id="btnClearInfo" class="ghost" type="button">Очистить</button>
+    </div>
+  </section>
+
+  <!-- ── Операторы ─────────────────────────────────────────────────────── -->
+  <section id="screenOperators" class="card" style="display:none">
+    <div class="cardHead"><h2>Операторы</h2><span class="tag" id="opsInfo">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Кто может открыть этот турнир в админке. Назначения общие с Дойлом — таблица <span class="mono">tournament_operators</span>.</div>
+    <div id="opsList" class="list"></div>
+    <div class="row2" style="margin-top:10px">
+      <select id="opsPick"><option value="">— выбери оператора —</option></select>
+      <button id="btnOpsAdd" type="button">Назначить</button>
     </div>
   </section>
 
@@ -307,6 +319,7 @@
     payStatus, tariffOf, buyInForTariff, calcPayTotals,
   } = window.VP;
 
+  const TBL = window.VP_TABLES;
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
   const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
   const CLIENT_ID = genRoomId(10);
@@ -319,14 +332,51 @@
   let editingStructure = false;
   let playerSearchQuery = "";
   let paySearchQuery = "";
+  let profile = null;                 // строка profiles: {id, email, role, branch}
+  let allowedRooms = null;            // для оператора — комнаты назначенных турниров; null = без ограничений
   let lastPayMethod = DEFAULT_PAY_METHOD;   // способ прошлой оплаты — подставляется в модалку
+
+  // ── Роли ─────────────────────────────────────────────────────────────────
+  // admin — всё; operator — только комнаты назначенных ему турниров, без создания.
+  const isOperator = () => profile?.role === "operator";
+  const isAdmin = () => !!profile && !isOperator();
+
+  async function fetchProfile(userId) {
+    try {
+      const { data } = await sb.from(TBL.profiles).select("id,email,role,branch").eq("id", userId).maybeSingle();
+      profile = data || null;
+    } catch (e) { console.warn("fetchProfile", e); profile = null; }
+  }
+
+  // Комнаты назначенных турниров. Фильтруем по своему profile_id явно, а не
+  // надеемся на RLS: политика может отдать чужие назначения.
+  async function loadAllowedRooms() {
+    if (!isOperator()) { allowedRooms = null; return null; }
+    allowedRooms = new Set();
+    try {
+      const { data: assigned } = await sb.from(TBL.operators).select("tournament_id").eq("profile_id", profile.id);
+      const ids = (assigned || []).map((r) => r.tournament_id).filter((x) => x != null);
+      if (!ids.length) return allowedRooms;
+      const { data: tours } = await sb.from(TBL.tournaments).select("room_id").in("id", ids);
+      (tours || []).forEach((t) => { if (t.room_id) allowedRooms.add(t.room_id); });
+    } catch (e) { console.warn("loadAllowedRooms", e); }
+    return allowedRooms;
+  }
+
+  function setUserUi() {
+    const badge = $("badgeUser");
+    if (!profile) { badge.style.display = "none"; return; }
+    badge.style.display = "";
+    const role = isOperator() ? "оператор" : "админ";
+    $("userText").textContent = `${profile.email || "—"} · ${role}`;
+  }
 
   const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
   const setSync = (x) => { $("syncText").textContent = `sync: ${x}`; };
 
   // ── Хранилище: та же таблица rooms, что у Дойла ───────────────────────────
   async function loadStateFresh() {
-    const { data, error } = await sb.from("rooms").select("state").eq("room_id", roomId).maybeSingle();
+    const { data, error } = await sb.from(TBL.rooms).select("state").eq("room_id", roomId).maybeSingle();
     if (error) throw new Error(`Ошибка загрузки: ${error.message}`);
     if (!data) throw new Error(`Комната «${roomId}» не найдена`);
     return normalizeState(data.state);
@@ -335,7 +385,7 @@
   async function saveState(next) {
     // Метка записи — дисплей отбрасывает по ней состояния, доехавшие с опозданием.
     next._savedAt = Math.max(nowMs(), (Number(next._savedAt) || 0) + 1);
-    const { error } = await sb.from("rooms").update({ state: next }).eq("room_id", roomId);
+    const { error } = await sb.from(TBL.rooms).update({ state: next }).eq("room_id", roomId);
     if (error) throw error;
     // Мгновенный пуш на дисплей — быстрее, чем эхо postgres_changes.
     realtimeChannel?.send({ type: "broadcast", event: "timer_state", payload: { state: next } });
@@ -378,25 +428,31 @@
   // ── Экраны и вкладки ─────────────────────────────────────────────────────
   const TABS = {
     timer: ["screenTimer", "screenLinks"],
-    tour: ["screenQuick", "screenRating", "screenInfo"],
+    tour: ["screenQuick", "screenRating", "screenInfo", "screenOperators"],
     players: ["screenPlayers", "screenTgImport", "screenPost"],
     pay: ["screenPayments"],
     struct: ["screenPreset", "screenStructure"],
   };
   const ALL_SCREENS = ["screenCreate", "screenLinks", "screenTimer", "screenQuick", "screenRating", "screenInfo",
-    "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
+    "screenOperators", "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
 
   function showCreateOnly() {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     $("screenCreate").style.display = "";
     $("tabbar").style.display = "none";
-    $("headTitle").textContent = "Комнаты";
+    $("headTitle").textContent = isOperator() ? "Ваши турниры" : "Комнаты";
+    // Оператор комнаты не заводит — ему остаётся только список назначенных.
+    ["newRoomNameField", "newRoomTournamentField", "btnCreate"].forEach((id) => {
+      const el = $(id); if (el) el.style.display = isOperator() ? "none" : "";
+    });
     loadRooms();
-    loadLinkableTournaments();
+    if (!isOperator()) loadLinkableTournaments();
   }
   function switchTab(tab) {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     (TABS[tab] || TABS.timer).forEach((id) => { $(id).style.display = ""; });
+    if (isOperator()) $("screenOperators").style.display = "none";   // назначает только админ
+    if (tab === "tour" && !isOperator() && $("screenOperators").style.display === "") renderOperators();
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -447,10 +503,17 @@
     const box = $("roomsList");
     box.innerHTML = '<div class="muted">Загрузка…</div>';
     try {
-      const { data, error } = await sb.from("rooms").select("room_id,state").eq("branch", BRANCH).limit(50);
+      const { data, error } = await sb.from(TBL.rooms).select("room_id,state").eq("branch", BRANCH).limit(50);
       if (error) throw error;
-      if (!data?.length) { box.innerHTML = '<div class="muted">Комнат пока нет.</div>'; return; }
-      const rows = data.map((r) => {
+      await loadAllowedRooms();
+      const visible = allowedRooms ? (data || []).filter((r) => allowedRooms.has(r.room_id)) : (data || []);
+      if (!visible.length) {
+        box.innerHTML = isOperator()
+          ? '<div class="muted">На вас не назначен ни один турнир — попроси администратора.</div>'
+          : '<div class="muted">Комнат пока нет.</div>';
+        return;
+      }
+      const rows = visible.map((r) => {
         const st = r.state || {};
         const name = escHtml(st.tournament?.name || "Без названия");
         const created = st.tournament?.createdAt ? new Date(st.tournament.createdAt) : null;
@@ -472,7 +535,7 @@
     const sel = $("newRoomTournament"); if (!sel) return;
     try {
       const from = dateKey(new Date(Date.now() - 24 * 3600 * 1000)); // вчера — запас на таймзону
-      const { data, error } = await sb.from("doyle_tournaments")
+      const { data, error } = await sb.from(TBL.tournaments)
         .select("id,name,date,registered_count")
         .is("room_id", null).in("status", ["open", "draft"]).gte("date", from)
         .order("date", { ascending: true });
@@ -504,12 +567,12 @@
     let regPlayers = [], linkedFee = null;
     if (linkTid) {
       try {
-        const { data: regs, error } = await sb.from("doyle_registrations")
-          .select("player_id, doyle_players(name)").eq("tournament_id", linkTid)
+        const { data: regs, error } = await sb.from(TBL.registrations)
+          .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", linkTid)
           .order("created_at", { ascending: true });
         if (error) throw error;
-        regPlayers = (regs || []).map((r) => r.doyle_players ? { name: r.doyle_players.name, player_id: r.player_id } : null).filter(Boolean);
-        const { data: tour } = await sb.from("doyle_tournaments").select("entry_fee").eq("id", linkTid).maybeSingle();
+        regPlayers = (regs || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
+        const { data: tour } = await sb.from(TBL.tournaments).select("entry_fee").eq("id", linkTid).maybeSingle();
         if (tour?.entry_fee != null) linkedFee = clampInt(tour.entry_fee, 0);
       } catch (e) { setErr(e); return; }
     }
@@ -521,10 +584,10 @@
       if (linkedFee != null) st.tournament.defaultBuyIn = linkedFee;
       if (regPlayers.length) st = mergePlayers(st, regPlayers, "add");
       try {
-        const { error } = await sb.from("rooms").insert({ room_id: id, state: st, branch: BRANCH });
+        const { error } = await sb.from(TBL.rooms).insert({ room_id: id, state: st, branch: BRANCH });
         if (error) throw error;
         if (linkTid) {
-          const { error: linkErr } = await sb.from("doyle_tournaments").update({ room_id: id }).eq("id", linkTid).is("room_id", null);
+          const { error: linkErr } = await sb.from(TBL.tournaments).update({ room_id: id }).eq("id", linkTid).is("room_id", null);
           if (linkErr) setErr(new Error("Рум создан, но привязать турнир не удалось — привяжи вручную"));
         }
         location.href = `admin.html?room=${id}`;
@@ -536,10 +599,84 @@
   // ── Регистрации из Telegram Mini App ─────────────────────────────────────
   async function findLinkedTournament() {
     if (!roomId) return null;
-    const { data } = await sb.from("doyle_tournaments")
+    const { data } = await sb.from(TBL.tournaments)
       .select("id, name, date, registered_count").eq("room_id", roomId).maybeSingle();
     return data || null;
   }
+
+  // ── Операторы турнира ────────────────────────────────────────────────────
+  // Назначения хранятся на турнире, а не на комнате: комнату пересоздают,
+  // турнир остаётся. Поэтому без привязки к турниру назначать некого.
+  let opsTournament = null;
+
+  async function renderOperators() {
+    const box = $("opsList"), pick = $("opsPick"), info = $("opsInfo");
+    if (!isAdmin()) return;
+    box.innerHTML = '<div class="muted">Загрузка…</div>';
+    try {
+      opsTournament = await findLinkedTournament();
+      if (!opsTournament) {
+        info.textContent = "турнир не привязан";
+        box.innerHTML = '<div class="muted">Комната не привязана к турниру — привязка задаётся при создании.</div>';
+        pick.innerHTML = '<option value="">— нет турнира —</option>';
+        $("btnOpsAdd").disabled = true;
+        return;
+      }
+      info.textContent = `«${opsTournament.name}»`;
+      $("btnOpsAdd").disabled = false;
+      const [assignedRes, allRes] = await Promise.all([
+        sb.from(TBL.operators).select(`profile_id, ${TBL.profiles}(email)`).eq("tournament_id", opsTournament.id),
+        sb.from(TBL.profiles).select("id,email").eq("role", "operator"),
+      ]);
+      const assigned = assignedRes.data || [];
+      const all = allRes.data || [];
+      const assignedIds = new Set(assigned.map((r) => r.profile_id));
+      box.innerHTML = assigned.length
+        ? assigned.map((r) => {
+            const email = r[TBL.profiles]?.email || r.profile_id;
+            const j = JSON.stringify(r.profile_id).replace(/"/g, "&quot;");
+            return `<div class="listRow">
+              <span class="avatar">${escHtml(initials(email))}</span>
+              <span class="nm">${escHtml(email)}</span>
+              <button class="tiny ghost" onclick="_vp.opsRemove(${j})">Снять</button>
+            </div>`;
+          }).join("")
+        : '<div class="muted">Пока никто не назначен — турнир видят только админы.</div>';
+      const free = all.filter((p) => !assignedIds.has(p.id));
+      pick.innerHTML = free.length
+        ? '<option value="">— выбери оператора —</option>' + free.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.email || p.id)}</option>`).join("")
+        : '<option value="">— все назначены —</option>';
+      if (!all.length) {
+        box.insertAdjacentHTML("beforeend", '<div class="muted" style="margin-top:8px">Нет аккаунтов с ролью «operator».</div>');
+      }
+    } catch (e) {
+      box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`;
+    }
+  }
+
+  async function opsAdd() {
+    const id = $("opsPick").value;
+    if (!id || !opsTournament) return;
+    setErr(null);
+    try {
+      const { error } = await sb.from(TBL.operators).insert({ tournament_id: opsTournament.id, profile_id: id });
+      if (error) throw error;
+      await renderOperators();
+    } catch (e) { setErr(e); }
+  }
+  async function opsRemove(profileId) {
+    if (!opsTournament) return;
+    const ok = await confirm2("Снять оператора?", "Он перестанет видеть этот турнир в админке.");
+    if (!ok) return;
+    setErr(null);
+    try {
+      const { error } = await sb.from(TBL.operators).delete()
+        .eq("tournament_id", opsTournament.id).eq("profile_id", profileId);
+      if (error) throw error;
+      await renderOperators();
+    } catch (e) { setErr(e); }
+  }
+  $("btnOpsAdd").onclick = opsAdd;
 
   async function loadTgRegistrations(mode) {
     const out = $("tgImportResult");
@@ -551,11 +688,11 @@
         return;
       }
       $("tgRegInfo").textContent = `«${tour.name}»`;
-      const { data: regs, error } = await sb.from("doyle_registrations")
-        .select("player_id, doyle_players(name)").eq("tournament_id", tour.id)
+      const { data: regs, error } = await sb.from(TBL.registrations)
+        .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", tour.id)
         .order("created_at", { ascending: true });
       if (error) throw error;
-      const list = (regs || []).map((r) => r.doyle_players ? { name: r.doyle_players.name, player_id: r.player_id } : null).filter(Boolean);
+      const list = (regs || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
       if (!list.length) { out.textContent = "Никто ещё не записался."; return; }
       await saveWithReload((st) => mergePlayers(st, list, mode));
       out.textContent = `✓ Загружено ${list.length} игроков`;
@@ -818,7 +955,7 @@
     } catch (e) {}
   }
   window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, reentryPlayer, removePlayer,
-    payTariff, payFreeEntry, payAddonFree, payAdd, payUndo, payClear };
+    payTariff, payFreeEntry, payAddonFree, payAdd, payUndo, payClear, opsRemove };
 
   function renderPlayers() {
     const box = $("playersList");
@@ -1349,7 +1486,16 @@
     hideLock();
     $("logoutBtn").style.display = "";
     $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
-    if (!roomId) { showCreateOnly(); setRoleUi(); } else boot();
+    await fetchProfile(session.user.id);
+    setUserUi();
+    if (!roomId) { showCreateOnly(); setRoleUi(); return; }
+    // Прямая ссылка не должна обходить назначения: оператор без доступа — стоп.
+    await loadAllowedRooms();
+    if (allowedRooms && !allowedRooms.has(roomId)) {
+      setErr(new Error(`Комната «${roomId}» не назначена на твой аккаунт.`));
+      showCreateOnly(); setRoleUi(); return;
+    }
+    boot();
   }
 
   document.addEventListener("DOMContentLoaded", () => {
