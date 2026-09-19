@@ -193,6 +193,26 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .presetCard .pName{font-size:15px;font-weight:900}
 .presetCard .pMeta{font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
 
+/* ── Оплата ──────────────────────────────────────────────────── */
+.payRow{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--r-md);background:var(--surface)}
+.payRow+.payRow{border-top:1px solid var(--line)}
+.payRow.settled{background:var(--surface-2)}
+.payDot{width:10px;height:10px;border-radius:999px;background:var(--muted);margin-top:6px;flex:none}
+.payDot.none{background:var(--danger)}
+.payDot.part{background:var(--gold)}
+.payDot.paid{background:var(--ok)}
+.payDot.free{background:var(--muted)}
+.payMain{flex:1;min-width:0}
+.payTop{display:flex;align-items:baseline;gap:10px}
+.payName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.payRest{margin-left:auto;font-weight:900;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.payRest.debt{color:var(--accent)}
+.payRest.ok{color:var(--ok)}
+.payMeta{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35}
+.payBtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.payBtns button{padding:6px 10px;font-size:12px;border-radius:10px}
+button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
+
 /* ── Нижняя навигация (как в приложении) ─────────────────────── */
 .tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:40;

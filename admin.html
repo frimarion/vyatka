@@ -176,6 +176,24 @@
     <div id="playersList" class="list"></div>
   </section>
 
+  <!-- ── Оплата ────────────────────────────────────────────────────────── -->
+  <section id="screenPayments" class="card" style="display:none">
+    <div class="cardHead"><h2>Оплата</h2><span class="tag" id="payInfo">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос + аддон.</div>
+    <input id="paySearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
+    <div id="payList" class="list"></div>
+    <div class="kpis" id="paySummary" style="margin-top:12px">
+      <div class="kpi"><div class="kpiLabel">📲 Перевод</div><div class="kpiValue num" id="sumTransfer">0</div></div>
+      <div class="kpi"><div class="kpiLabel">💵 Наличные</div><div class="kpiValue num" id="sumCash">0</div></div>
+      <div class="kpi"><div class="kpiLabel">💳 Карта</div><div class="kpiValue num" id="sumCard">0</div></div>
+      <div class="kpi hot"><div class="kpiLabel">Собрано</div><div class="kpiValue num" id="sumTotal">0</div></div>
+    </div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="btnPaymentsReport" type="button">Отчёт в таблицу</button>
+      <span class="muted" id="paymentsReportInfo" style="align-self:center"></span>
+    </div>
+  </section>
+
   <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
   <section id="screenTgImport" class="card" style="display:none">
     <div class="cardHead"><h2>Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span></div>
@@ -227,6 +245,7 @@
   <button data-tab="timer" class="active" type="button"><span class="ic">★</span>Таймер</button>
   <button data-tab="tour" type="button"><span class="ic">♦</span>Турнир</button>
   <button data-tab="players" type="button"><span class="ic">♣</span>Игроки</button>
+  <button data-tab="pay" type="button"><span class="ic">₽</span>Оплата</button>
   <button data-tab="struct" type="button"><span class="ic">♠</span>Структура</button>
 </nav>
 
@@ -246,6 +265,18 @@
     <div class="field"><label>Нокаутов за этот вылет</label><input id="koCount" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
     <div class="field" id="koPtsField" style="display:none"><label>Очки за головы</label><input id="koPts" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
     <div class="btnrow"><button id="koOk" type="button">Подтвердить</button><button id="koCancel" class="ghost" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<div class="modal" id="payModal">
+  <div class="modalCard">
+    <h2 id="payModalTitle">Оплата</h2>
+    <div class="sub" id="payModalMeta" style="margin-bottom:14px"></div>
+    <div class="field"><label>Сумма, ₽</label>
+      <input id="payAmountInput" type="number" min="0" step="100" inputmode="numeric"/></div>
+    <div class="btnrow" id="payQuickRow" style="margin:-4px 0 14px"></div>
+    <div class="field"><label>Способ</label><div class="btnrow" id="payMethodRow"></div></div>
+    <div class="btnrow"><button id="payOk" type="button">Сохранить</button><button id="payCancel" class="ghost" type="button">Отмена</button></div>
   </div>
 </div>
 
@@ -270,7 +301,10 @@
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
     calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
-    genRoomId, PRESETS, BRANCH, buildTelegramPost, mergePlayers,
+    genRoomId, PRESETS, BRANCH, buildTelegramPost, mergePlayers, NF,
+    PAY_METHODS, DEFAULT_PAY_METHOD, payMethodLabel, getPayments, totalPaid, entriesOf,
+    effectiveBuyIn, effectiveFreeEntries, addonCostFor, calcExpected, remainingAmount,
+    payStatus, tariffOf, buyInForTariff, calcPayTotals,
   } = window.VP;
 
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
@@ -284,6 +318,8 @@
   let saveQueue = Promise.resolve();
   let editingStructure = false;
   let playerSearchQuery = "";
+  let paySearchQuery = "";
+  let lastPayMethod = DEFAULT_PAY_METHOD;   // способ прошлой оплаты — подставляется в модалку
 
   const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
   const setSync = (x) => { $("syncText").textContent = `sync: ${x}`; };
@@ -344,10 +380,11 @@
     timer: ["screenTimer", "screenLinks"],
     tour: ["screenQuick", "screenRating", "screenInfo"],
     players: ["screenPlayers", "screenTgImport", "screenPost"],
+    pay: ["screenPayments"],
     struct: ["screenPreset", "screenStructure"],
   };
   const ALL_SCREENS = ["screenCreate", "screenLinks", "screenTimer", "screenQuick", "screenRating", "screenInfo",
-    "screenPlayers", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
+    "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
 
   function showCreateOnly() {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
@@ -780,7 +817,8 @@
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, reentryPlayer, removePlayer };
+  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, reentryPlayer, removePlayer,
+    payTariff, payFreeEntry, payAddonFree, payAdd, payUndo, payClear };
 
   function renderPlayers() {
     const box = $("playersList");
@@ -824,6 +862,253 @@
       </div>`;
     }).join("");
   }
+
+  // ── Оплата ───────────────────────────────────────────────────────────────
+  // Модалка суммы: сумма + способ, способ по умолчанию — перевод (или прошлый).
+  function askPayment({ name, amount, method, meta, quick }) {
+    return new Promise((resolve) => {
+      let m = method || DEFAULT_PAY_METHOD;
+      $("payModalTitle").textContent = name;
+      $("payModalMeta").textContent = meta || "";
+      $("payAmountInput").value = String(clampInt(amount, 0));
+      const drawMethods = () => {
+        $("payMethodRow").innerHTML = PAY_METHODS
+          .map((x) => `<button type="button" class="ghost${x.key === m ? " on" : ""}" data-m="${x.key}">${x.label} ${escHtml(x.title)}</button>`)
+          .join("");
+        $("payMethodRow").querySelectorAll("[data-m]").forEach((b) => { b.onclick = () => { m = b.dataset.m; drawMethods(); }; });
+      };
+      drawMethods();
+      const qs = (quick || []).filter((q) => q.amount > 0);
+      $("payQuickRow").innerHTML = qs.map((q, i) => `<button type="button" class="ghost tiny" data-q="${i}">${escHtml(q.label)}</button>`).join("");
+      $("payQuickRow").querySelectorAll("[data-q]").forEach((b) => {
+        b.onclick = () => { $("payAmountInput").value = String(qs[Number(b.dataset.q)].amount); };
+      });
+      $("payModal").classList.add("show");
+      $("payAmountInput").focus(); $("payAmountInput").select();
+      const done = (r) => { $("payModal").classList.remove("show"); resolve(r); };
+      const ok = () => done({ amount: clampInt($("payAmountInput").value, 0), method: m });
+      $("payOk").onclick = ok;
+      $("payCancel").onclick = () => done(null);
+      $("payModal").onclick = (e) => { if (e.target === $("payModal")) done(null); };
+      $("payAmountInput").onkeydown = (e) => { if (e.key === "Enter") ok(); };
+    });
+  }
+
+  async function payTariff(name, tariff) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.buyIn = buyInForTariff(tariff, st.tournament);
+        // к оплате вышло 0 — держать за игроком внесённые деньги больше не за что
+        if (calcExpected(p, st.tournament) === 0) p.payments = [];
+        return st;
+      });
+    } catch (e) {}
+  }
+  async function payFreeEntry(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.freeEntries = effectiveFreeEntries(p) > 0 ? 0 : Math.min(1, entriesOf(p));
+        if (calcExpected(p, st.tournament) === 0) p.payments = [];
+        return st;
+      });
+    } catch (e) {}
+  }
+  // Комп аддона — про цену, а не про фишки: включение выдаёт аддон бесплатно,
+  // снятие возвращает его в платные (сам аддон убирается на экране «Игроки»).
+  async function payAddonFree(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.addonFree = !p.addonFree;
+        if (p.addonFree) p.addon = true;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  async function payAdd(name) {
+    const tour = state?.tournament;
+    const p = (state?.players || []).find((x) => keyName(x.name) === keyName(name));
+    if (!p) return;
+    const expected = calcExpected(p, tour), paid = totalPaid(p);
+    const rest = Math.max(0, expected - paid);
+    const res = await askPayment({
+      name: p.name,
+      amount: rest > 0 ? rest : expected,
+      method: lastPayMethod,
+      meta: `К оплате ${NF.format(expected)} ₽ · внесено ${NF.format(paid)} ₽`,
+      quick: [
+        { label: `Остаток ${NF.format(rest)}`, amount: rest },
+        { label: `Половина ${NF.format(Math.round(expected / 2))}`, amount: Math.round(expected / 2) },
+        { label: `Полностью ${NF.format(expected)}`, amount: expected },
+      ],
+    });
+    if (!res || res.amount <= 0) return;
+    lastPayMethod = res.method;
+    try {
+      await saveWithReload((st) => {
+        const pl = findPlayer(st, name); if (!pl) return st;
+        pl.payments = [...getPayments(pl), { method: res.method, amount: res.amount }];
+        return st;
+      });
+    } catch (e) {}
+  }
+  async function payUndo(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.payments = getPayments(p).slice(0, -1);
+        return st;
+      });
+    } catch (e) {}
+  }
+  async function payClear(name) {
+    const ok = await confirm2("Сбросить оплату?", `${name}: тариф, free entry и все платежи.`);
+    if (!ok) return;
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.buyIn = null; p.freeEntries = 0; p.payments = []; p.addonFree = false;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+
+  function payMetaHtml(p, tour) {
+    const bits = [];
+    const entries = entriesOf(p);
+    bits.push(entries === 1 ? "1 вход" : `${entries} входа`);
+    bits.push(`взнос ${NF.format(effectiveBuyIn(p, tour))} ₽`);
+    const free = effectiveFreeEntries(p);
+    if (free) bits.push(`free entry ×${free}`);
+    const addon = addonCostFor(p, tour);
+    if (addon) bits.push(`аддон ${NF.format(addon)} ₽`);
+    else if (p.addonFree && p.addon && tour?.addonEnabled) bits.push("аддон бесплатно");
+    const expected = calcExpected(p, tour), paid = totalPaid(p);
+    const parts = getPayments(p).map((x) => `${NF.format(x.amount)} ${payMethodLabel(x.method)}`).join(" + ");
+    let tail;
+    if (expected === 0) tail = "платить нечего";
+    else if (!paid) tail = `ожидается ${NF.format(expected)} ₽`;
+    else if (paid > expected) tail = `${parts} · переплата ${NF.format(paid - expected)} ₽`;
+    else tail = parts;
+    return `${escHtml(bits.join(" · "))}<br>${escHtml(tail)}`;
+  }
+
+  function renderPayments() {
+    const box = $("payList");
+    const tour = state?.tournament;
+    const present = (state?.players || []).filter((p) => p.present);
+    const totals = calcPayTotals(state || {});
+    $("payInfo").textContent = present.length
+      ? `${totals.settled}/${totals.players} рассчитались${totals.debt ? ` · долг ${NF.format(totals.debt)} ₽` : ""}`
+      : "нет пришедших";
+    $("sumTransfer").textContent = NF.format(totals.transfer);
+    $("sumCash").textContent = NF.format(totals.cash);
+    $("sumCard").textContent = NF.format(totals.card);
+    $("sumTotal").textContent = NF.format(totals.total);
+    if (!present.length) { box.innerHTML = '<div class="muted">Никто ещё не отмечен пришедшим.</div>'; return; }
+    const visible = present.filter((p) => !paySearchQuery || keyName(p.name).includes(paySearchQuery));
+    if (!visible.length) { box.innerHTML = '<div class="muted">Никого не нашли.</div>'; return; }
+    // Сначала те, кто ещё должен: экран нужен, чтобы закрывать долги.
+    const sorted = visible.slice().sort((a, b) => {
+      const ad = remainingAmount(a, tour) <= 0, bd = remainingAmount(b, tour) <= 0;
+      if (ad !== bd) return ad ? 1 : -1;
+      return a.name.localeCompare(b.name, "ru");
+    });
+    box.innerHTML = sorted.map((p) => {
+      const j = JSON.stringify(p.name).replace(/"/g, "&quot;");
+      const stt = payStatus(p, tour);
+      const rest = remainingAmount(p, tour);
+      const paid = totalPaid(p);
+      const tariff = tariffOf(p, tour);
+      const restHtml = stt === "free"
+        ? '<span class="payRest">бесплатно</span>'
+        : rest > 0
+          ? `<span class="payRest debt">−${NF.format(rest)} ₽</span>`
+          : '<span class="payRest ok">оплачено</span>';
+      const addonBtn = tour?.addonEnabled
+        ? `<button class="ghost${p.addonFree ? " on" : ""}" onclick="_vp.payAddonFree(${j})">Беспл. аддон</button>` : "";
+      return `<div class="payRow${rest <= 0 ? " settled" : ""}">
+        <span class="payDot ${stt}"></span>
+        <div class="payMain">
+          <div class="payTop"><span class="payName">${escHtml(p.name)}</span>${restHtml}</div>
+          <div class="payMeta">${payMetaHtml(p, tour)}</div>
+          <div class="payBtns">
+            <button class="ghost${tariff === "full" ? " on" : ""}" onclick="_vp.payTariff(${j},'full')">100%</button>
+            <button class="ghost${tariff === "half" ? " on" : ""}" onclick="_vp.payTariff(${j},'half')">50%</button>
+            <button class="ghost${tariff === "free" ? " on" : ""}" onclick="_vp.payTariff(${j},'free')">Free</button>
+            <button class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" onclick="_vp.payFreeEntry(${j})">Free entry</button>
+            ${addonBtn}
+          </div>
+          <div class="payBtns">
+            <button onclick="_vp.payAdd(${j})">${paid ? "Доплата" : "Оплатить"}</button>
+            ${paid ? `<button class="ghost" onclick="_vp.payUndo(${j})">↩ Снять платёж</button>` : ""}
+            <button class="ghost" onclick="_vp.payClear(${j})">Сброс</button>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+  }
+
+  $("paySearch").oninput = (e) => { paySearchQuery = keyName(e.target.value); renderPayments(); };
+
+  // Отчёт уходит в ту же edge-функцию, что у Дойла, но с бранчем клуба.
+  async function callGsheetsProxy(sheet_type, branch, payload) {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session?.access_token) throw new Error("Нет активной сессии");
+    const resp = await window.sbFetchFailover(`${window.SUPABASE_URL}/functions/v1/gsheets-proxy`, {
+      method: "POST",
+      headers: {
+        apikey: window.SUPABASE_ANON_KEY,
+        Authorization: `Bearer ${session.access_token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ sheet_type, branch, payload }),
+    });
+    const text = await resp.text();
+    let data = null;
+    try { data = JSON.parse(text); } catch (e) {}
+    if (!resp.ok) throw new Error(data?.error || text || `HTTP ${resp.status}`);
+    if (data && data.ok === false) throw new Error(data.error || "Ошибка выгрузки в таблицу");
+    return data;
+  }
+
+  $("btnPaymentsReport").onclick = async () => {
+    const btn = $("btnPaymentsReport"), info = $("paymentsReportInfo");
+    btn.disabled = true; info.textContent = "Отправка…"; setErr(null);
+    try {
+      const st = await loadStateFresh();
+      state = st; renderAll();
+      const tour = st.tournament;
+      const present = (st.players || []).filter((p) => p.present);
+      if (!present.length) throw new Error("Нет пришедших игроков для отчёта");
+      const created = new Date(tour?.createdAt || Date.now());
+      const date = Number.isNaN(created.getTime())
+        ? String(tour?.createdAt || "")
+        : created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
+      const rows = present.map((p) => {
+        const byMethod = { transfer: 0, cash: 0, card: 0 };
+        getPayments(p).forEach((x) => { if (x.method in byMethod) byMethod[x.method] += clampInt(x.amount, 0); });
+        const expected = calcExpected(p, tour), paid = totalPaid(p);
+        return {
+          date, tournament: roomId, player: p.name,
+          entries: entriesOf(p), buyIn: effectiveBuyIn(p, tour), freeEntry: effectiveFreeEntries(p),
+          total: expected, paid, debt: Math.max(0, expected - paid),
+          card: byMethod.card, cash: byMethod.cash, transfer: byMethod.transfer,
+          addon: addonCostFor(p, tour),
+        };
+      });
+      const reportId = `${roomId}__${tour?.createdAt || ""}`;
+      const data = await callGsheetsProxy("report", BRANCH, { type: "payments_report", reportId, rows });
+      const count = data?.count ?? data?.rowsWritten ?? data?.rows?.length;
+      info.textContent = count != null ? `Отчёт отправлен (${count})` : "Отчёт отправлен";
+    } catch (e) {
+      console.error("payments report", e);
+      info.textContent = "Ошибка";
+      setErr(e);
+    } finally { btn.disabled = false; }
+  };
 
   // ── Структура ────────────────────────────────────────────────────────────
   function readLevels() {
@@ -995,6 +1280,7 @@
     safe(renderTimerCard, "timer");
     safe(renderKpis, "kpis");
     safe(renderPlayers, "players");
+    safe(renderPayments, "payments");
     safe(renderRating, "rating");
     safe(buildPresetGrid, "presets");
     // Не перетираем таблицу уровней, пока её правят руками.

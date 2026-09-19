@@ -104,4 +104,53 @@ console.log('все проверки прошли');
   A.equal(s3.players.filter(p=>p.name==='Вылетел').length, 1, 'add не дублирует');
 }
 
-console.log('пост и слияние — проверки прошли');
+// ── Оплата ─────────────────────────────────────────────────────────────────
+{
+  const s4 = VP.normalizeState(VP.initialState());
+  s4.tournament.defaultBuyIn = 1000;
+  s4.tournament.addonEnabled = true;
+  s4.tournament.addonCost = 500;
+  s4.players = [{name:'Игрок', present:true, status:'registered'}];
+  VP.computeStatsFromPlayers(s4);
+  const t = s4.tournament;
+  const p = () => s4.players[0];
+
+  A.equal(VP.DEFAULT_PAY_METHOD, 'transfer', 'по умолчанию платят переводом');
+  A.equal(VP.PAY_METHODS[0].key, 'transfer', 'перевод — первый в списке способов');
+
+  A.equal(VP.calcExpected(p(), t), 1000, 'один вход по взносу турнира');
+  p().reentries = 1;
+  A.equal(VP.calcExpected(p(), t), 2000, 'реентри удваивает сумму');
+  p().freeEntries = 1;
+  A.equal(VP.calcExpected(p(), t), 1000, 'free entry снимает один вход');
+  p().addon = true;
+  A.equal(VP.calcExpected(p(), t), 1500, 'платный аддон прибавляется');
+  p().addonFree = true;
+  A.equal(VP.calcExpected(p(), t), 1000, 'бесплатный аддон не стоит ничего');
+
+  p().buyIn = VP.buyInForTariff('half', t);
+  A.equal(VP.tariffOf(p(), t), 'half', 'половинный тариф распознаётся');
+  A.equal(VP.calcExpected(p(), t), 500, 'половинный взнос');
+  p().buyIn = VP.buyInForTariff('free', t);
+  A.equal(VP.calcExpected(p(), t), 0, 'free-тариф обнуляет сумму');
+  p().buyIn = VP.buyInForTariff('full', t);
+  A.equal(p().buyIn, null, 'полный тариф = взнос турнира');
+
+  p().payments = [{method:'transfer', amount:600}];
+  A.equal(VP.totalPaid(p()), 600);
+  A.equal(VP.remainingAmount(p(), t), 400, 'остаток после частичной оплаты');
+  A.equal(VP.payStatus(p(), t), 'part');
+  p().payments.push({method:'cash', amount:400});
+  A.equal(VP.payStatus(p(), t), 'paid', 'две части закрывают сумму');
+
+  const totals = VP.calcPayTotals(s4);
+  A.equal(totals.transfer, 600); A.equal(totals.cash, 400); A.equal(totals.card, 0);
+  A.equal(totals.total, 1000); A.equal(totals.debt, 0); A.equal(totals.settled, 1);
+
+  // нормализация: битый способ чинится на перевод, нулевые платежи отбрасываются
+  s4.players[0].payments = [{method:'btc', amount:100}, {method:'card', amount:0}];
+  VP.normalizeState(s4);
+  A.deepEqual(s4.players[0].payments, [{method:'transfer', amount:100}], 'платежи нормализуются');
+}
+
+console.log('пост, слияние и оплата — проверки прошли');

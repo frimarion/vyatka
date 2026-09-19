@@ -175,6 +175,11 @@
           ? { ko: clampInt(p.koDelta.ko ?? 0, 0), koPts: clampInt(p.koDelta.koPts ?? 0, 0) }
           : null,
         addon: !!p?.addon,
+        // ── оплата ──
+        buyIn: p?.buyIn == null ? null : clampInt(p.buyIn, 0),   // null = взнос турнира
+        freeEntries: clampInt(p?.freeEntries ?? 0, 0),
+        addonFree: !!p?.addonFree,
+        payments: normalizePayments(p?.payments),
         player_id: p?.player_id ?? null,
       }))
       .filter((p) => p.name);
@@ -234,6 +239,99 @@
     } else { p.ko = 0; p.koPts = 0; }
     p.koDelta = null;
     return p;
+  }
+
+  // ── Оплата ────────────────────────────────────────────────────────────────
+  // Перевод идёт первым и стоит по умолчанию: в клубе платят переводом,
+  // карта и наличные — исключения.
+  const PAY_METHODS = [
+    { key: "transfer", label: "📲", title: "Перевод" },
+    { key: "cash", label: "💵", title: "Наличные" },
+    { key: "card", label: "💳", title: "Карта" },
+  ];
+  const DEFAULT_PAY_METHOD = "transfer";
+  const isPayMethod = (m) => PAY_METHODS.some((x) => x.key === m);
+  const payMethodTitle = (m) => PAY_METHODS.find((x) => x.key === m)?.title || m;
+  const payMethodLabel = (m) => PAY_METHODS.find((x) => x.key === m)?.label || "";
+
+  // Нулевые и битые платежи выкидываем: они не влияют на суммы, но ломают
+  // разбивку «1000 📲 + 0 💳» в подписи и отчёте.
+  function normalizePayments(list) {
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((x) => ({ method: isPayMethod(x?.method) ? x.method : DEFAULT_PAY_METHOD, amount: clampInt(x?.amount, 0) }))
+      .filter((x) => x.amount > 0);
+  }
+
+  const getPayments = (p) => (Array.isArray(p?.payments) ? p.payments : []);
+  const totalPaid = (p) => getPayments(p).reduce((s, x) => s + clampInt(x.amount, 0), 0);
+  const entriesOf = (p) => 1 + clampInt(p?.reentries ?? 0, 0);
+
+  // tour передаётся явно: внутри мутатора saveWithReload считать надо по свежему
+  // клону состояния, а не по глобальному state.
+  function effectiveBuyIn(p, tour) {
+    const def = clampInt(tour?.defaultBuyIn ?? 1000, 0);
+    return p?.buyIn == null ? def : clampInt(p.buyIn, 0);
+  }
+  // Бесплатных входов не может быть больше, чем самих входов.
+  function effectiveFreeEntries(p) {
+    return Math.max(0, Math.min(entriesOf(p), clampInt(p?.freeEntries ?? 0, 0)));
+  }
+  // Комп аддона: фишки игрок получает, но платит за них 0.
+  function addonCostFor(p, tour) {
+    if (p?.addonFree) return 0;
+    return (p?.addon && tour?.addonEnabled) ? clampInt(tour?.addonCost ?? 0, 0) : 0;
+  }
+  function calcExpected(p, tour) {
+    const billable = Math.max(0, entriesOf(p) - effectiveFreeEntries(p));
+    return billable * effectiveBuyIn(p, tour) + addonCostFor(p, tour);
+  }
+  function remainingAmount(p, tour) {
+    return Math.max(0, calcExpected(p, tour) - totalPaid(p));
+  }
+  function payStatus(p, tour) {
+    const expected = calcExpected(p, tour);
+    if (expected === 0) return "free";
+    const paid = totalPaid(p);
+    if (paid <= 0) return "none";
+    if (paid >= expected) return "paid";
+    return "part";
+  }
+
+  // Тариф — производное от buyIn игрока, отдельно не хранится.
+  const halfBuyIn = (tour) => Math.round(clampInt(tour?.defaultBuyIn ?? 1000, 0) / 2);
+  function tariffOf(p, tour) {
+    if (p?.buyIn == null) return "full";
+    const b = clampInt(p.buyIn, 0);
+    if (b === 0) return "free";
+    if (b === halfBuyIn(tour)) return "half";
+    return "custom";
+  }
+  function buyInForTariff(tariff, tour) {
+    if (tariff === "half") return halfBuyIn(tour);
+    if (tariff === "free") return 0;
+    return null;                                  // full → взнос турнира
+  }
+
+  // Итоги по способам оплаты — считаются только по пришедшим.
+  function calcPayTotals(st) {
+    const tour = st?.tournament;
+    const out = { transfer: 0, cash: 0, card: 0, total: 0, expected: 0, paid: 0, debt: 0, players: 0, settled: 0 };
+    (Array.isArray(st?.players) ? st.players : []).filter((p) => p.present).forEach((p) => {
+      out.players += 1;
+      const expected = calcExpected(p, tour);
+      const paid = totalPaid(p);
+      out.expected += expected;
+      out.paid += paid;
+      out.debt += Math.max(0, expected - paid);
+      if (paid >= expected) out.settled += 1;
+      getPayments(p).forEach((x) => {
+        const amt = clampInt(x.amount, 0);
+        if (isPayMethod(x.method)) out[x.method] += amt;
+        out.total += amt;
+      });
+    });
+    return out;
   }
 
   // ── Счётчики ──────────────────────────────────────────────────────────────
@@ -540,6 +638,9 @@
     defaultLevels, normalizeLevels, initialState, normalizeState,
     ensurePlayers, recomputePlaces, computeStatsFromPlayers, nextBustOrder, rollbackBustKo,
     buildTelegramPost, mergePlayers,
+    PAY_METHODS, DEFAULT_PAY_METHOD, isPayMethod, payMethodTitle, payMethodLabel,
+    normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveFreeEntries,
+    addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
     calcEntries, calcAddonCount, calcAddonChips, calcTotalChips, calcAvg,
     curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, levelRemainingSec,
