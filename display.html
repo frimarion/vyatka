@@ -1,0 +1,440 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Вятка — таймер</title>
+<link rel="stylesheet" href="css/app.css"/>
+<style>
+/* Дисплей для ТВ: та же палитра, но на тёмной «ink»-подложке —
+   яркий песочный фон на большом экране в зале слепит. */
+html,body{height:100%;overflow:hidden}
+body{background:var(--ink);color:var(--surface)}
+
+.dwrap{height:100%;display:flex;flex-direction:column;padding:18px;gap:14px;position:relative}
+.dhead{display:flex;align-items:center;gap:14px;flex:none}
+.dhead .wordmark{font-size:clamp(16px,1.5vw,22px);font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
+.dhead .tname{font-size:clamp(14px,1.3vw,20px);font-weight:800;color:rgba(255,252,244,.62)}
+.dhead .clock{margin-left:auto;font-size:clamp(14px,1.3vw,20px);font-weight:800;color:rgba(255,252,244,.62);font-variant-numeric:tabular-nums}
+
+.dgrid{flex:1;min-height:0;display:grid;gap:14px;grid-template-columns:minmax(0,1fr);}
+.dgrid.hasSide{grid-template-columns:minmax(230px,.9fr) minmax(0,2.6fr) minmax(230px,.9fr)}
+.dgrid.hasRight{grid-template-columns:minmax(0,2.6fr) minmax(230px,.9fr)}
+
+.panel{background:rgba(255,252,244,.06);border-radius:var(--r-lg);padding:18px;min-height:0;display:flex;flex-direction:column}
+.panel .pTitle{font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;flex:none}
+
+.main{position:relative;background:var(--surface);color:var(--ink);border-radius:var(--r-lg);
+  padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden}
+.levelTop{display:flex;align-items:center;gap:12px}
+.levelName{font-size:clamp(20px,2.2vw,32px);font-weight:900;letter-spacing:-.02em}
+.statusPill{font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
+  padding:5px 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent-dark)}
+.blindsLabel{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.blindsMain{font-size:clamp(46px,9vw,150px);font-weight:900;letter-spacing:-.04em;line-height:1;white-space:nowrap}
+.blindsMain .slash{color:var(--accent);margin:0 .08em}
+.anteLine{font-size:clamp(14px,1.6vw,24px);font-weight:900;color:var(--accent-dark)}
+.anteLine .gold{background:var(--gold);color:var(--ink);padding:2px 10px;border-radius:999px;margin-right:8px}
+.timerWrap{width:min(100%,900px);text-align:center;margin-top:4px}
+.timerLabel{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
+.time{font-size:clamp(56px,11vw,180px);font-weight:900;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
+.timerBar{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:8px}
+.timerBar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s linear}
+.nextBox{font-size:clamp(13px,1.4vw,20px);font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.nextBox span{color:var(--accent)}
+
+.statRow{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,252,244,.10)}
+.statRow:last-child{border-bottom:none}
+.statLabel{font-size:clamp(11px,1vw,14px);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,252,244,.55)}
+.statValue{margin-left:auto;font-size:clamp(18px,1.9vw,30px);font-weight:900;font-variant-numeric:tabular-nums}
+.statValue small{font-size:.55em;color:rgba(255,252,244,.5);font-weight:800}
+.statValue.gold{color:var(--gold)}
+.statValue.hot{color:var(--accent)}
+
+.rGrid{display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.rItem{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:12px;background:rgba(255,252,244,.05)}
+.rItem.rGold{background:var(--accent);color:var(--surface)}
+.rItem.rSilver{background:rgba(255,252,244,.16)}
+.rItem.rBronze{background:rgba(232,185,74,.22)}
+.rPlace{width:22px;font-weight:900;font-size:14px;opacity:.75;text-align:center}
+.rName{flex:1;min-width:0;font-weight:800;font-size:clamp(12px,1.05vw,17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rPts{font-weight:900;font-variant-numeric:tabular-nums;font-size:clamp(12px,1.05vw,17px)}
+.rItem.rGold .rPts{color:var(--surface)}
+.rItem:not(.rGold) .rPts{color:var(--gold)}
+
+.infoBlock{margin-bottom:14px}
+.infoLabel{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,252,244,.5);margin-bottom:6px}
+.infoValue{font-size:clamp(14px,1.3vw,20px);font-weight:800;line-height:1.35}
+.dCards{display:flex;gap:8px}
+.dCard{width:clamp(42px,3.4vw,58px);aspect-ratio:.7;background:var(--surface);color:var(--ink);border-radius:8px;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;line-height:1}
+.dCard i{font-style:normal;font-size:clamp(15px,1.3vw,21px)}
+.dCard em{font-style:normal;font-size:clamp(14px,1.2vw,20px)}
+.dCard.s-h,.dCard.s-d{color:var(--accent)}
+
+.overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
+  border-radius:var(--r-lg);color:var(--surface);text-align:center;padding:24px;
+  background:radial-gradient(900px 520px at 50% 42%,rgba(233,83,31,.22),transparent 62%),var(--ink)}
+.overlay .oTitle{font-size:clamp(40px,6vw,92px);font-weight:900;letter-spacing:.06em;color:var(--accent)}
+.overlay .oTime{font-size:clamp(40px,5vw,86px);font-weight:900;font-variant-numeric:tabular-nums}
+.overlay .oHint{font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,252,244,.5)}
+.ftGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:min(100%,1100px)}
+.ftSlot{display:flex;align-items:center;gap:10px;background:rgba(255,252,244,.08);border-radius:16px;padding:12px 14px}
+.ftNum{width:26px;text-align:center;font-weight:900;color:var(--gold)}
+.ftName{font-size:clamp(14px,1.4vw,22px);font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@keyframes pulseIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
+.zoom{animation:pulseIn .45s ease-out}
+.derr{position:absolute;left:18px;bottom:14px;color:var(--accent);font-size:13px;font-weight:800}
+
+@media(max-width:900px){
+  .dgrid.hasSide,.dgrid.hasRight{grid-template-columns:minmax(0,1fr)}
+  .dwrap{overflow:auto}
+}
+</style>
+</head>
+<body>
+<div class="dwrap">
+  <header class="dhead">
+    <div class="wordmark">Vyatka Poker Club</div>
+    <div class="tname" id="tourName"></div>
+    <div class="clock" id="wallClock"></div>
+  </header>
+
+  <div class="dgrid" id="dgrid">
+    <aside class="panel" id="infoCard" style="display:none">
+      <div class="pTitle">Инфо</div>
+      <div class="infoBlock" id="infoBonusBlock" style="display:none">
+        <div class="infoLabel">Бонусная рука дня</div>
+        <div class="infoValue" id="infoBonusVal"></div>
+      </div>
+      <div class="infoBlock" id="infoCommentBlock" style="display:none">
+        <div class="infoLabel">Комментарий</div>
+        <div class="infoValue" id="infoCommentVal"></div>
+      </div>
+    </aside>
+
+    <aside class="panel" id="ratingCard" style="display:none">
+      <div class="pTitle">Призовая зона</div>
+      <div class="rGrid" id="ratingGrid"></div>
+    </aside>
+
+    <section class="main" id="mainCard">
+      <div class="levelTop">
+        <div class="levelName" id="levelName">Уровень</div>
+        <div class="statusPill" id="statusPill">—</div>
+      </div>
+      <div class="blindsLabel" id="blindsLabel">Текущие блайнды</div>
+      <div class="blindsMain" id="blindsMain">—</div>
+      <div class="anteLine" id="anteLine"></div>
+      <div class="timerWrap">
+        <div class="timerLabel" id="durationPill">Осталось</div>
+        <div class="time" id="time">--:--</div>
+        <div class="timerBar"><i id="levelProgress"></i></div>
+      </div>
+      <div class="nextBox" id="next">NEXT —</div>
+
+      <div class="overlay" id="breakOverlay">
+        <div class="oTitle">ПЕРЕРЫВ</div>
+        <div class="oTime" id="breakCountdown">--:--</div>
+        <div class="oHint">Продолжение через</div>
+      </div>
+      <div class="overlay" id="pauseOverlay"><div class="oTitle">ПАУЗА</div></div>
+      <div class="overlay" id="ftOverlay">
+        <div class="oTitle">ФИНАЛЬНЫЙ СТОЛ</div>
+        <div class="ftGrid" id="ftGrid"></div>
+      </div>
+    </section>
+
+    <aside class="panel" id="statsCard">
+      <div class="pTitle">Турнир</div>
+      <div id="stats"></div>
+    </aside>
+  </div>
+  <div class="derr" id="derr"></div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="js/core.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const {
+    fmtInt, fmtTime, fmtDuration, nowMs, escHtml, clampInt, normalizeState,
+    curLevel, playLevelNum, calcAvg, calcTotalChips, isOnBreak, breakRemainingSec,
+    remainingSec, levelRemainingSec, lateRegRemainingSec, nextBreakInSec, advanceExpiredLevels,
+  } = window.VP;
+
+  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
+  const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
+
+  let state = null;
+  let lastSavedAt = 0;
+  let lastLevelIndex = -1;
+  let ftOrder = null;
+  let pollInFlight = false;
+
+  // ── Звук смены уровня ────────────────────────────────────────────────────
+  function playLevelChangeSound() {
+    try {
+      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      [0, 0.35].forEach((t, i) => {
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.connect(g); g.connect(ctx.destination);
+        o.type = "sine"; o.frequency.value = i === 0 ? 880 : 1100;
+        g.gain.setValueAtTime(0, ctx.currentTime + t);
+        g.gain.linearRampToValueAtTime(0.4, ctx.currentTime + t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + t + 0.28);
+        o.start(ctx.currentTime + t); o.stop(ctx.currentTime + t + 0.3);
+      });
+      setTimeout(() => ctx.close(), 1500);
+    } catch (e) {}
+  }
+
+  const statRow = (label, value, cls = "") =>
+    `<div class="statRow"><div class="statLabel">${label}</div><div class="statValue ${cls}">${value}</div></div>`;
+
+  function renderRating() {
+    const r = state?.rating;
+    const active = !!r?.isActive && Array.isArray(r?.payouts) && r.payouts.length > 0;
+    $("ratingCard").style.display = active ? "" : "none";
+    if (!active) return;
+    // Имена подставляем из вылетов: place считается от bustOrder в ядре.
+    const byPlace = new Map();
+    (state.players || []).forEach((p) => {
+      if (p.present && p.status === "busted" && p.place != null) byPlace.set(Number(p.place), p.name || "");
+    });
+    const cls = (place) => place === 1 ? "rGold" : place === 2 ? "rSilver" : place === 3 ? "rBronze" : "";
+    $("ratingGrid").innerHTML = r.payouts.map((pts, i) => {
+      const place = i + 1;
+      return `<div class="rItem ${cls(place)}">
+        <span class="rPlace">${place}</span>
+        <span class="rName">${escHtml(byPlace.get(place) || "")}</span>
+        <span class="rPts">${fmtInt(pts)}</span></div>`;
+    }).join("");
+  }
+
+  function renderInfo(showLateReg, hasRating) {
+    const bonus = (state?.info?.bonusHand || "").trim();
+    const comment = (state?.info?.comment || "").trim();
+    const show = showLateReg && !hasRating && (bonus || comment);
+    $("infoCard").style.display = show ? "" : "none";
+    if (!show) return;
+    const SUIT = { "♠": "s-s", "♥": "s-h", "♦": "s-d", "♣": "s-c" };
+    if (bonus) {
+      const cards = bonus.split(/\s+/).filter(Boolean).slice(0, 2).map((tok) => {
+        const rank = tok[0].toUpperCase() === "T" ? "10" : tok[0].toUpperCase();
+        const suit = tok[1] || "";
+        return `<div class="dCard ${SUIT[suit] || ""}"><i>${escHtml(rank)}</i><em>${escHtml(suit)}</em></div>`;
+      }).join("");
+      $("infoBonusVal").innerHTML = `<div class="dCards">${cards}</div>`;
+      $("infoBonusBlock").style.display = "";
+    } else $("infoBonusBlock").style.display = "none";
+    if (comment) { $("infoCommentVal").textContent = comment; $("infoCommentBlock").style.display = ""; }
+    else $("infoCommentBlock").style.display = "none";
+  }
+
+  function renderFinalTable() {
+    const on = !!state?.timer?.finalTableActive;
+    const ov = $("ftOverlay");
+    if (!on) { ov.style.display = "none"; ftOrder = null; return; }
+    if (ov.style.display !== "flex") {
+      // Состав и порядок фиксируем один раз при показе, иначе имена прыгают.
+      const alive = (state.players || []).filter((p) => p.present && p.status !== "busted").slice(0, 9).map((p) => p.name || "—");
+      for (let i = alive.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [alive[i], alive[j]] = [alive[j], alive[i]]; }
+      ftOrder = alive;
+      ov.style.display = "flex";
+    }
+    $("ftGrid").innerHTML = (ftOrder || []).map((n, i) =>
+      `<div class="ftSlot"><span class="ftNum">${i + 1}</span><span class="ftName">${escHtml(n)}</span></div>`).join("");
+  }
+
+  function render() {
+    if (!state) return;
+    advanceExpiredLevels(state);
+
+    const ti = state.timer;
+    const levels = state.structure.levels;
+    const lv = curLevel(state);
+    const nextLv = levels[ti.levelIndex + 1];
+    const onBreak = isOnBreak(state);
+    const breakSec = breakRemainingSec(state);
+    const scheduledBreak = lv.isBreak && ti.isRunning;
+    const showBreak = (breakSec !== null) || scheduledBreak;
+
+    $("tourName").textContent = state.tournament?.name || "";
+
+    if (lastLevelIndex >= 0 && ti.levelIndex !== lastLevelIndex && ti.isRunning) {
+      playLevelChangeSound();
+      $("blindsMain").classList.remove("zoom"); void $("blindsMain").offsetWidth; $("blindsMain").classList.add("zoom");
+    }
+    lastLevelIndex = ti.levelIndex;
+
+    // Уровень и статус
+    $("levelName").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${Math.max(1, playLevelNum(levels, ti.levelIndex))}`;
+    $("statusPill").textContent = !ti.isRunning ? "STOPPED" : showBreak ? "BREAK" : ti.isPaused ? "PAUSED" : "RUNNING";
+
+    // Блайнды
+    if (lv.isBreak) {
+      $("blindsLabel").textContent = "Перерыв";
+      $("blindsMain").textContent = "—";
+      $("anteLine").textContent = "";
+    } else {
+      $("blindsLabel").textContent = "Текущие блайнды";
+      $("blindsMain").innerHTML = `${fmtInt(lv.sb)}<span class="slash">/</span>${fmtInt(lv.bb)}`;
+      const alive = clampInt(state.stats?.alive ?? 0, 0);
+      // Хедз-ап играем без BB-анте — как в Дойле.
+      $("anteLine").innerHTML = (lv.anteMode === "BB" && alive !== 2) ? `<span class="gold">BB ANTE</span>${fmtInt(lv.bb)}` : "";
+    }
+
+    // Таймер уровня (во время перерыва остаток заморожен)
+    const rem = showBreak ? levelRemainingSec(state) : remainingSec(state);
+    const timeEl = $("time");
+    if (!showBreak && ti.isRunning && !ti.isPaused && ti.levelEndAt) {
+      const msLeft = Math.max(0, ti.levelEndAt - nowMs());
+      timeEl.textContent = fmtTime(Math.floor(msLeft / 1000));
+      const total = (lv.min || 0) * 60000;
+      const pct = total > 0 ? Math.min(100, Math.max(0, (1 - msLeft / total) * 100)) : 0;
+      $("levelProgress").style.width = pct + "%";
+      $("levelProgress").style.background = pct > 85 ? "var(--danger)" : "var(--accent)";
+    } else {
+      timeEl.textContent = rem === null ? "--:--" : fmtTime(rem);
+      const pct = (rem !== null && lv.min > 0) ? Math.min(100, Math.max(0, (1 - rem / (lv.min * 60)) * 100)) : 0;
+      $("levelProgress").style.width = pct + "%";
+      $("levelProgress").style.background = "var(--accent)";
+    }
+    timeEl.style.color = (!showBreak && rem !== null && rem <= 30) ? "var(--accent)" : "";
+    $("durationPill").textContent = lv.min ? `Осталось · ${lv.min} мин` : "Осталось";
+
+    // Следующий уровень
+    if (nextLv) {
+      $("next").innerHTML = nextLv.isBreak
+        ? `NEXT <span>${escHtml(nextLv.label || "Перерыв")}</span>`
+        : `NEXT <span>${fmtInt(nextLv.sb)} / ${fmtInt(nextLv.bb)}</span>`;
+    } else $("next").textContent = "NEXT —";
+
+    // Оверлеи
+    $("breakOverlay").style.display = showBreak ? "flex" : "none";
+    if (showBreak) {
+      const sec = breakSec !== null ? breakSec : remainingSec(state);
+      $("breakCountdown").textContent = sec !== null ? fmtTime(sec) : "--:--";
+    }
+    $("pauseOverlay").style.display = (ti.isPaused && !showBreak) ? "flex" : "none";
+    renderFinalTable();
+
+    // Боковые панели
+    const lateRegLvl = clampInt(state.tournament?.lateRegUntilLevel ?? 0, 0);
+    const curPlayLvl = playLevelNum(levels, ti.levelIndex);
+    const showLateReg = lateRegLvl > 0 && curPlayLvl <= lateRegLvl;
+    const hasRating = !!(state.rating?.isActive && state.rating.payouts?.length);
+    renderRating();
+    renderInfo(showLateReg, hasRating);
+
+    const grid = $("dgrid");
+    const leftShown = $("infoCard").style.display !== "none" || $("ratingCard").style.display !== "none";
+    grid.classList.toggle("hasSide", leftShown);
+    grid.classList.toggle("hasRight", !leftShown);
+
+    const st = state.stats || {};
+    const breakIn = nextBreakInSec(state);
+    $("stats").innerHTML =
+      statRow("В игре", `${st.alive ?? 0} <small>из ${st.registered ?? 0}</small>`) +
+      (showLateReg ? statRow("Поздняя регистрация", fmtDuration(lateRegRemainingSec(state)), curPlayLvl === lateRegLvl ? "hot" : "") : "") +
+      (showLateReg ? statRow("Стартовый стек", fmtInt(state.tournament?.startStack ?? 0)) : "") +
+      (breakIn !== null ? statRow("Перерыв через", fmtDuration(breakIn)) : "") +
+      statRow("Средний стек", fmtInt(calcAvg(state)), "gold") +
+      statRow("Фишек в игре", fmtInt(calcTotalChips(state)), "gold");
+  }
+
+  // Защита от устаревших состояний: admin пишет _savedAt при каждой записи,
+  // по нестабильной сети запись может доехать позже более новой и откатить уровень.
+  function applyIncoming(raw) {
+    const norm = normalizeState(raw);
+    if (!norm) return false;
+    const sa = Number(norm._savedAt);
+    if (Number.isFinite(sa) && sa > 0) {
+      if (sa < lastSavedAt) return false;
+      lastSavedAt = sa;
+    }
+    state = norm;
+    return true;
+  }
+
+  async function poll() {
+    if (pollInFlight) return;
+    pollInFlight = true;
+    try {
+      const { data, error } = await sb.from("rooms").select("state").eq("room_id", roomId).maybeSingle();
+      if (error) throw error;
+      if (!data) throw new Error(`Комната «${roomId}» не найдена`);
+      if (applyIncoming(data.state)) render();
+      $("derr").textContent = "";
+    } catch (e) { $("derr").textContent = e.message || "Ошибка подключения"; }
+    finally { pollInFlight = false; }
+  }
+
+  let channel = null;
+  function subscribeRealtime() {
+    if (!roomId) return;
+    if (channel) sb.removeChannel(channel);
+    channel = sb.channel("rooms-" + roomId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `room_id=eq.${roomId}` }, (p) => {
+        if (p?.new?.state && applyIncoming(p.new.state)) render();
+      })
+      .on("broadcast", { event: "timer_state" }, ({ payload }) => {
+        if (payload?.state && applyIncoming(payload.state)) render();
+      })
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setTimeout(subscribeRealtime, 3000);
+      });
+  }
+
+  function tickClock() {
+    $("wallClock").textContent = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+
+  // Демо-режим (display.html?demo=1) — состояние генерируется локально, без БД.
+  // Нужен, чтобы настроить ТВ и посмотреть вёрстку до создания комнаты.
+  function demoState() {
+    const st = window.VP.normalizeState(window.VP.initialState());
+    st.tournament.name = "Вятский Фриз-аут";
+    st.tournament.lateRegUntilLevel = 9;
+    st.players = ["Андрей К.", "Сергей П.", "Игорь В.", "Дмитрий Л.", "Павел М.", "Роман Ш.", "Никита Б.", "Олег Д."]
+      .map((name) => ({ name, present: true, reentries: 0, status: "registered", ko: 0, koPts: 0 }));
+    st.timer.levelIndex = 3;
+    st.timer.isRunning = true;
+    st.timer.levelEndAt = nowMs() + 7 * 60000 + 12000;
+    window.VP.computeStatsFromPlayers(st);
+    // ?demo=break | pause | final — посмотреть оверлеи, не поднимая комнату
+    const mode = new URLSearchParams(location.search).get("demo");
+    if (mode === "break") window.VP.T.breakStart(st);
+    if (mode === "pause") window.VP.T.pause(st);
+    if (mode === "final") st.timer.finalTableActive = true;
+    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 800, 0, false);
+    st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 800, addons: 0,
+      P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL, payouts: res.payouts };
+    return st;
+  }
+
+  if (new URLSearchParams(location.search).has("demo")) {
+    state = demoState();
+    render();
+    setInterval(render, 250);
+    setInterval(tickClock, 10000); tickClock();
+  } else if (!roomId) {
+    $("derr").textContent = "Не указана комната: display.html?room=XXXXXX";
+  } else {
+    window.syncServerClock?.();
+    poll();
+    subscribeRealtime();
+    setInterval(() => { if (state) render(); }, 250);
+    setInterval(poll, 5000);
+    setInterval(tickClock, 10000); tickClock();
+    document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") poll(); });
+  }
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,235 @@
+/* Дизайн-система клуба «Вятка».
+   Палитра снята с макета приложения: песочный фон, кремовые карточки,
+   оранжевый акцент и тёмно-коричневые «ink»-плашки. */
+
+:root{
+  --bg:#EADFC8;
+  --surface:#FFFCF4;
+  --surface-2:#F7F0E1;
+  --ink:#241B14;
+  --ink-2:#3A2C21;
+  --accent:#E9531F;
+  --accent-dark:#AC3D17;
+  --accent-deep:#953513;
+  --accent-soft:#FBE3D6;
+  --gold:#E8B94A;
+  --olive:#8A7A3A;
+  --text:#241B14;
+  --muted:#AB9D87;
+  --line:rgba(36,27,20,.10);
+  --line-strong:rgba(36,27,20,.22);
+  --danger:#C22E2E;
+  --ok:#2E7D4F;
+
+  --r-lg:24px;
+  --r-md:16px;
+  --r-sm:12px;
+  --shadow:0 2px 0 rgba(36,27,20,.06), 0 10px 30px rgba(36,27,20,.08);
+
+  --sans:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,SFMono-Regular,"SF Mono",Menlo,Consolas,monospace;
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--text);
+  font-family:var(--sans);
+  font-size:15px;
+  line-height:1.45;
+  -webkit-font-smoothing:antialiased;
+}
+html.locked,body.locked{overflow:hidden}
+
+/* ── Типографика ─────────────────────────────────────────────── */
+h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
+h1{font-size:30px}
+h2{font-size:19px}
+.eyebrow{
+  font-size:11px;font-weight:800;letter-spacing:.16em;text-transform:uppercase;
+  color:var(--muted);
+}
+.eyebrow.on-accent{color:rgba(255,252,244,.72)}
+.muted{color:var(--muted);font-size:13px}
+.sub{color:var(--muted);font-size:13px;margin-top:2px}
+.mono{font-family:var(--mono);font-size:12px}
+.accent{color:var(--accent)}
+.num{font-variant-numeric:tabular-nums}
+
+/* ── Каркас ──────────────────────────────────────────────────── */
+.wrap{max-width:1180px;margin:0 auto;padding:0 14px 96px}
+
+.apphead{
+  background:var(--accent);
+  color:var(--surface);
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+  padding:18px 20px 22px;
+  margin:0 -14px 18px;
+  display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap;
+}
+.apphead h1{color:var(--surface);font-size:clamp(26px,4vw,34px)}
+.apphead .headSide{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+
+.avatarPill{
+  width:42px;height:42px;border-radius:999px;background:var(--surface);color:var(--accent);
+  display:grid;place-items:center;font-weight:900;font-size:13px;letter-spacing:.02em;
+}
+
+.badge{
+  display:inline-flex;align-items:center;gap:6px;
+  padding:6px 12px;border-radius:999px;
+  background:rgba(255,252,244,.18);color:var(--surface);
+  font-size:12px;font-weight:800;letter-spacing:.02em;
+}
+.badge.light{background:var(--surface-2);color:var(--ink)}
+.badge.gold{background:var(--gold);color:var(--ink)}
+.badge .dot{width:8px;height:8px;border-radius:999px;background:currentColor;opacity:.65}
+.badge .dot.green{background:#2E7D4F;opacity:1}
+.badge .dot.gold{background:var(--gold);opacity:1}
+
+/* ── Карточки ────────────────────────────────────────────────── */
+.card{
+  background:var(--surface);
+  border-radius:var(--r-lg);
+  padding:18px;
+  box-shadow:var(--shadow);
+  margin-bottom:14px;
+}
+.card.ink{background:var(--ink);color:var(--surface)}
+.card.ink .muted,.card.ink .sub{color:rgba(255,252,244,.55)}
+.card.accent{background:var(--accent);color:var(--surface)}
+.cardHead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.cardHead h2{flex:1;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+
+/* ── Кнопки ──────────────────────────────────────────────────── */
+button{
+  font-family:inherit;font-size:14px;font-weight:800;
+  padding:11px 16px;border-radius:var(--r-md);
+  border:none;background:var(--accent);color:var(--surface);
+  cursor:pointer;transition:transform .06s ease,filter .15s ease,background .15s ease;
+  white-space:nowrap;
+}
+button:hover{filter:brightness(1.05)}
+button:active{transform:translateY(1px)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.ghost{background:var(--surface-2);color:var(--ink);box-shadow:inset 0 0 0 1px var(--line)}
+button.ghost:hover{background:#F1E7D4}
+button.ink{background:var(--ink);color:var(--surface)}
+button.gold{background:var(--gold);color:var(--ink)}
+button.danger{background:transparent;color:var(--danger);box-shadow:inset 0 0 0 1px rgba(194,46,46,.35)}
+button.tiny{padding:6px 10px;font-size:12px;border-radius:10px}
+.btnrow{display:flex;gap:8px;flex-wrap:wrap}
+.controlRow{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:8px}
+
+/* ── Поля ────────────────────────────────────────────────────── */
+.field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
+.field>label{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+input,select,textarea{
+  font-family:inherit;font-size:15px;font-weight:700;color:var(--ink);
+  background:var(--surface-2);border:1px solid var(--line);
+  border-radius:var(--r-md);padding:11px 13px;width:100%;
+}
+input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
+textarea{font-weight:500;line-height:1.5;resize:vertical}
+input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
+.stepper{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+.row2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
+.switchRow{
+  display:flex;align-items:center;gap:12px;padding:11px 13px;
+  background:var(--surface-2);border-radius:var(--r-md);border:1px solid var(--line);margin-bottom:12px;
+}
+.switchRow .switchLabel{flex:1;font-weight:800;font-size:14px}
+
+/* ── KPI ─────────────────────────────────────────────────────── */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-top:6px}
+.kpi{background:var(--surface-2);border-radius:var(--r-md);padding:12px 14px}
+.kpi .kpiLabel{font-size:11px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.kpi .kpiValue{font-size:24px;font-weight:900;letter-spacing:-.02em;margin-top:2px}
+.kpi.hot .kpiValue{color:var(--accent)}
+
+/* ── Списки/таблицы ──────────────────────────────────────────── */
+.list{display:flex;flex-direction:column;gap:2px}
+.listRow{
+  display:flex;align-items:center;gap:10px;
+  padding:11px 12px;border-radius:var(--r-md);background:var(--surface);
+}
+.listRow+.listRow{border-top:1px solid var(--line)}
+.listRow .idx{width:22px;color:var(--muted);font-weight:800;font-size:13px;text-align:center}
+.listRow .nm{flex:1;min-width:0;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listRow.busted{opacity:.55}
+.listRow.busted .nm{text-decoration:line-through}
+.avatar{
+  width:32px;height:32px;border-radius:999px;background:var(--accent-soft);color:var(--accent-dark);
+  display:grid;place-items:center;font-size:11px;font-weight:900;flex:none;
+}
+.tag{
+  font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;
+  background:var(--surface-2);color:var(--muted);
+}
+.tag.ok{background:rgba(46,125,79,.12);color:var(--ok)}
+.tag.hot{background:var(--accent-soft);color:var(--accent-dark)}
+.tag.gold{background:rgba(232,185,74,.25);color:#7A5E12}
+
+/* ── Структура блайндов ──────────────────────────────────────── */
+.levelRow{
+  display:grid;grid-template-columns:34px repeat(3,minmax(64px,1fr)) auto auto;
+  gap:6px;align-items:center;padding:6px;border-radius:var(--r-sm);background:var(--surface-2);
+}
+.levelRow input{padding:8px 10px;font-size:14px;background:var(--surface)}
+.levelRow .lvIdx{font-weight:900;color:var(--muted);text-align:center;font-size:13px}
+.levelRow.isBreak{background:var(--accent-soft)}
+.levelRow.current{box-shadow:inset 0 0 0 2px var(--accent)}
+
+/* ── Пресеты ─────────────────────────────────────────────────── */
+.presetGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.presetCard{
+  text-align:left;background:var(--surface-2);color:var(--ink);
+  border-radius:var(--r-md);padding:14px;box-shadow:inset 0 0 0 1px var(--line);
+}
+.presetCard.active{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
+.presetCard .pName{font-size:15px;font-weight:900}
+.presetCard .pMeta{font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
+
+/* ── Нижняя навигация (как в приложении) ─────────────────────── */
+.tabbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:40;
+  background:var(--surface-2);border-top:1px solid var(--line);
+  display:grid;grid-auto-flow:column;grid-auto-columns:1fr;
+  padding:8px 6px calc(8px + env(safe-area-inset-bottom));
+}
+.tabbar button{
+  background:none;color:var(--muted);box-shadow:none;
+  display:flex;flex-direction:column;align-items:center;gap:3px;
+  font-size:11px;font-weight:800;letter-spacing:.04em;padding:6px 2px;
+}
+.tabbar button .ic{font-size:15px;line-height:1}
+.tabbar button.active{color:var(--accent)}
+
+/* ── Модалка ─────────────────────────────────────────────────── */
+.modal{
+  position:fixed;inset:0;z-index:60;display:none;
+  align-items:center;justify-content:center;padding:18px;
+  background:rgba(36,27,20,.45);backdrop-filter:blur(3px);
+}
+.modal.show{display:flex}
+.modalCard{background:var(--surface);border-radius:var(--r-lg);padding:20px;width:min(420px,100%);box-shadow:var(--shadow)}
+.modalCard h2{margin-bottom:6px}
+
+/* ── Экран авторизации ───────────────────────────────────────── */
+.authLock{
+  position:fixed;inset:0;z-index:80;display:none;
+  align-items:center;justify-content:center;padding:20px;background:var(--bg);
+}
+.authLock.show{display:flex}
+.authCard{background:var(--surface);border-radius:var(--r-lg);padding:24px;width:min(380px,100%);box-shadow:var(--shadow)}
+
+.err{color:var(--danger);font-size:13px;font-weight:700;min-height:18px;margin-top:6px}
+
+@media(max-width:640px){
+  .wrap{padding:0 12px 96px}
+  .apphead{margin:0 -12px 14px;padding:16px 16px 18px}
+  .card{padding:15px;border-radius:20px}
+}

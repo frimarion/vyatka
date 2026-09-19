@@ -1,0 +1,1090 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Вятка — админка таймера</title>
+<link rel="stylesheet" href="css/app.css"/>
+</head>
+<body>
+
+<!-- ── Авторизация ─────────────────────────────────────────────────────── -->
+<div id="authLock" class="authLock">
+  <div class="authCard">
+    <div class="eyebrow">Vyatka Poker Club</div>
+    <h1 style="margin:4px 0 14px;">Вход</h1>
+    <div class="field"><label>Логин или email</label>
+      <input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="admin"/></div>
+    <div class="field"><label>Пароль</label>
+      <input id="authPassword" type="password" autocomplete="current-password"/></div>
+    <button id="authBtn" type="button" style="width:100%">Войти</button>
+    <div id="authError" class="err"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="apphead">
+    <div>
+      <div class="eyebrow on-accent">Vyatka Poker Club</div>
+      <h1 id="headTitle">Админка</h1>
+    </div>
+    <div class="headSide">
+      <span class="badge" id="badgeRoom"><span class="dot gold"></span><span class="mono" id="metaRoom">—</span></span>
+      <span class="badge" id="badgeRole"><span class="dot" id="roleDot"></span><span id="roleText">…</span></span>
+      <span class="badge" id="badgeSync"><span id="syncText">sync: —</span></span>
+      <button class="ghost tiny" id="logoutBtn" type="button" style="display:none">Выйти</button>
+    </div>
+  </header>
+
+  <div id="err" class="err"></div>
+
+  <!-- ── Комнаты ───────────────────────────────────────────────────────── -->
+  <section id="screenCreate" class="card" style="display:none">
+    <div class="cardHead"><h2>Комнаты</h2>
+      <button id="btnRefreshRooms" class="ghost tiny" type="button">↻ Обновить</button></div>
+    <div class="field"><label>Название турнира</label>
+      <input id="newRoomName" type="text" maxlength="80" placeholder="Вятский Фриз-аут, 19:00"/></div>
+    <div class="field"><label>Привязать к турниру</label>
+      <select id="newRoomTournament"><option value="">— без привязки —</option></select>
+      <div class="muted">Записавшиеся через приложение попадут в рум сразу, новые — по кнопке «Загрузить из TG».</div></div>
+    <button id="btnCreate" type="button">+ Создать комнату</button>
+    <div id="roomsList" class="list" style="margin-top:14px"></div>
+  </section>
+
+  <!-- ── Ссылки ────────────────────────────────────────────────────────── -->
+  <section id="screenLinks" class="card" style="display:none">
+    <div class="cardHead"><h2>Ссылки</h2></div>
+    <div class="field"><label>Админка</label>
+      <div class="row2"><input id="adminLink" class="mono" readonly/><button id="copyAdmin" class="ghost" type="button">Копировать</button></div></div>
+    <div class="field" style="margin-bottom:0"><label>Дисплей для ТВ</label>
+      <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
+  </section>
+
+  <!-- ── Таймер ────────────────────────────────────────────────────────── -->
+  <section id="screenTimer" class="card ink" style="display:none">
+    <div class="cardHead"><div class="eyebrow on-accent" style="color:rgba(255,252,244,.6)">Панель управления</div></div>
+    <div id="bigTimer" style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px">
+      <div id="bigTime" style="font-size:clamp(44px,9vw,64px);font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums">--:--</div>
+      <div>
+        <div id="bigLevel" style="font-size:16px;font-weight:900">Уровень —</div>
+        <div id="bigBlinds" style="font-size:14px;color:var(--gold);font-weight:800">—</div>
+      </div>
+      <span class="badge gold" id="bigStatus" style="margin-left:auto">STOPPED</span>
+    </div>
+    <div class="controlRow">
+      <button id="start" type="button">▶ Старт</button>
+      <button id="pauseResumeBtn" class="ghost" type="button">⏸ Пауза</button>
+    </div>
+    <div class="controlRow">
+      <button id="prev" class="ghost" type="button">← Уровень</button>
+      <button id="next" class="ghost" type="button">Уровень →</button>
+      <button id="minus60" class="ghost" type="button">−60 сек</button>
+      <button id="plus60" class="ghost" type="button">+60 сек</button>
+    </div>
+    <div class="controlRow">
+      <button id="breakToggleBtn" class="gold" type="button">☕ Перерыв</button>
+      <button id="finalTableToggleBtn" class="ghost" type="button">🏆 Финальный стол</button>
+      <button id="reset" class="danger" type="button" style="background:rgba(255,252,244,.06)">Сброс</button>
+    </div>
+    <div class="mono" id="tinfo" style="margin-top:10px;color:rgba(255,252,244,.55)"></div>
+  </section>
+
+  <!-- ── Турнир ────────────────────────────────────────────────────────── -->
+  <section id="screenQuick" class="card" style="display:none">
+    <div class="cardHead"><h2>Турнир</h2></div>
+    <div class="grid2">
+      <div>
+        <div class="field"><label>Название</label><input id="tourName" type="text" maxlength="80"/></div>
+        <div class="field"><label>Стартовый стек</label>
+          <div class="stepper">
+            <input id="startStack" type="number" min="0" step="1000" value="30000" inputmode="numeric"/>
+            <button id="btnStartMinus" class="ghost" type="button">−</button>
+            <button id="btnStartPlus" class="ghost" type="button">+</button>
+          </div></div>
+        <div class="field"><label>Поздняя рег. до уровня (0 = нет)</label>
+          <div class="stepper">
+            <input id="lateReg" type="number" min="0" step="1" value="0" inputmode="numeric"/>
+            <button id="btnLateMinus" class="ghost" type="button">−</button>
+            <button id="btnLatePlus" class="ghost" type="button">+</button>
+          </div></div>
+        <div class="field"><label>Взнос, ₽</label><input id="defaultBuyIn" type="number" min="0" step="100" value="1000" inputmode="numeric"/></div>
+      </div>
+      <div>
+        <div class="switchRow"><span class="switchLabel">Аддон</span><input id="addonEnabled" type="checkbox"/></div>
+        <div id="addonFields" style="display:none">
+          <div class="field"><label>Фишки аддона</label><input id="addonChips" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
+          <div class="field"><label>Стоимость аддона, ₽</label><input id="addonCost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
+        </div>
+        <div class="switchRow"><span class="switchLabel">ПКО <span class="muted">(очки за головы)</span></span><input id="pkoEnabled" type="checkbox"/></div>
+        <button id="btnSaveQuick" type="button">Сохранить</button>
+      </div>
+    </div>
+
+    <div class="kpis">
+      <div class="kpi"><div class="kpiLabel">В игре</div><div class="kpiValue num" id="kAlive">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Всего входов</div><div class="kpiValue num" id="kEntries">—</div></div>
+      <div class="kpi hot"><div class="kpiLabel">Средний стек</div><div class="kpiValue num" id="kAvg">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Фишек в игре</div><div class="kpiValue num" id="kChips">—</div></div>
+    </div>
+  </section>
+
+  <!-- ── Призовая зона ─────────────────────────────────────────────────── -->
+  <section id="screenRating" class="card" style="display:none">
+    <div class="cardHead"><h2>Призовая зона</h2><span class="tag" id="ratingState">выключена</span></div>
+    <div class="sub" style="margin-bottom:10px">Очки рейтинга: вход = 10 очков, ПКО забирает 4 из них в головы. Показывается на дисплее.</div>
+    <div class="row2" style="margin-bottom:10px">
+      <div class="field" style="margin:0"><label>Гарантия очков</label>
+        <input id="ratingGuarantee" type="number" min="0" step="10" value="800" inputmode="numeric"/></div>
+      <div style="display:flex;align-items:flex-end;gap:8px">
+        <button id="btnCalcRating" type="button">Рассчитать</button>
+        <button id="btnHideRating" class="ghost" type="button">Скрыть</button>
+      </div>
+    </div>
+    <div id="ratingPreview" class="list"></div>
+  </section>
+
+  <!-- ── Инфо на дисплее ───────────────────────────────────────────────── -->
+  <section id="screenInfo" class="card" style="display:none">
+    <div class="cardHead"><h2>Инфо на дисплее</h2></div>
+    <div class="sub" style="margin-bottom:10px">Показывается слева на ТВ, пока открыта поздняя регистрация.</div>
+    <div class="field"><label>🃏 Бонусная рука дня</label>
+      <input id="infoBonusHand" type="text" maxlength="20" placeholder="T♥ 2♣"/></div>
+    <div class="field"><label>💬 Комментарий</label>
+      <textarea id="infoComment" maxlength="200" style="min-height:80px"></textarea></div>
+    <div class="btnrow">
+      <button id="btnSaveInfo" type="button">Сохранить</button>
+      <button id="btnClearInfo" class="ghost" type="button">Очистить</button>
+    </div>
+  </section>
+
+  <!-- ── Игроки ────────────────────────────────────────────────────────── -->
+  <section id="screenPlayers" class="card" style="display:none">
+    <div class="cardHead"><h2>Игроки</h2><span class="tag" id="playersInfo">—</span></div>
+    <div class="btnrow" style="margin-bottom:10px">
+      <button id="btnPlayerAdd" type="button">+ Игрок</button>
+      <button id="btnImportToggle" class="ghost" type="button">Импорт списка</button>
+    </div>
+    <div id="importBox" style="display:none;margin-bottom:12px">
+      <div class="sub">Нумерованный список из Telegram — по игроку в строке («1.», «1)», «1️⃣»).</div>
+      <textarea id="playersImportText" spellcheck="false" style="min-height:130px;margin-top:8px"></textarea>
+      <div class="btnrow" style="margin-top:8px">
+        <button id="btnPlayersReplace" type="button">Заменить список</button>
+        <button id="btnPlayersAdd" class="ghost" type="button">Добавить новых</button>
+      </div>
+    </div>
+    <input id="playerSearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
+    <div id="playersList" class="list"></div>
+  </section>
+
+  <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
+  <section id="screenTgImport" class="card" style="display:none">
+    <div class="cardHead"><h2>Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Подтягивает тех, кто записался на привязанный турнир через Telegram Mini App.</div>
+    <div class="btnrow">
+      <button id="btnImportFromTG" type="button">📲 Загрузить список</button>
+      <button id="btnImportFromTGAdd" class="ghost" type="button">Добавить к текущему</button>
+    </div>
+    <div class="sub" id="tgImportResult" style="margin-top:8px"></div>
+  </section>
+
+  <!-- ── Пост для Telegram ─────────────────────────────────────────────── -->
+  <section id="screenPost" class="card" style="display:none">
+    <div class="cardHead"><h2>Пост для Telegram</h2><span class="tag" id="postInfo">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Итоги турнира: в игре — сверху, вылетевшие — по хронологии вылетов. Призовая зона отбита пустой строкой.</div>
+    <div class="btnrow">
+      <button id="btnBuildPost" type="button">Сформировать</button>
+      <button id="btnCopyPost" class="ghost" type="button">Копировать</button>
+      <button id="btnClearPost" class="ghost" type="button">Очистить</button>
+    </div>
+    <textarea id="postOut" spellcheck="false" readonly style="min-height:220px;margin-top:10px;font-family:var(--mono);font-size:13px"></textarea>
+  </section>
+
+  <!-- ── Структура ─────────────────────────────────────────────────────── -->
+  <section id="screenPreset" class="card" style="display:none">
+    <div class="cardHead"><h2>Формат турнира</h2></div>
+    <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
+    <div id="presetGrid" class="presetGrid"></div>
+  </section>
+
+  <section id="screenStructure" class="card" style="display:none">
+    <div class="cardHead"><h2>Структура блайндов</h2><span class="tag" id="structInfo">—</span></div>
+    <div class="btnrow" style="margin-bottom:10px">
+      <button id="addLevel" type="button">+ Уровень</button>
+      <button id="addBreak" class="ghost" type="button">+ Перерыв</button>
+      <button id="btnStructureSave" type="button">Сохранить структуру</button>
+      <button id="btnStructureReset" class="ghost" type="button">Дефолт</button>
+    </div>
+    <div style="display:grid;grid-template-columns:34px repeat(3,minmax(64px,1fr)) auto auto;gap:6px;padding:0 6px 4px;">
+      <span class="eyebrow">#</span><span class="eyebrow">мин</span><span class="eyebrow">SB</span>
+      <span class="eyebrow">BB</span><span class="eyebrow">анте</span><span class="eyebrow"></span>
+    </div>
+    <div id="levelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
+  </section>
+</div>
+
+<!-- ── Нижняя навигация ──────────────────────────────────────────────── -->
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button data-tab="timer" class="active" type="button"><span class="ic">★</span>Таймер</button>
+  <button data-tab="tour" type="button"><span class="ic">♦</span>Турнир</button>
+  <button data-tab="players" type="button"><span class="ic">♣</span>Игроки</button>
+  <button data-tab="struct" type="button"><span class="ic">♠</span>Структура</button>
+</nav>
+
+<!-- ── Модалки ───────────────────────────────────────────────────────── -->
+<div class="modal" id="confirmModal">
+  <div class="modalCard">
+    <h2 id="confirmTitle">Подтверди</h2>
+    <div class="sub" id="confirmBody" style="margin-bottom:16px"></div>
+    <div class="btnrow"><button id="confirmOk" type="button">Да</button><button id="confirmCancel" class="ghost" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<div class="modal" id="koModal">
+  <div class="modalCard">
+    <h2 id="koTitle">Вылет</h2>
+    <div class="sub" id="koHint" style="margin-bottom:12px"></div>
+    <div class="field"><label>Нокаутов за этот вылет</label><input id="koCount" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
+    <div class="field" id="koPtsField" style="display:none"><label>Очки за головы</label><input id="koPts" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
+    <div class="btnrow"><button id="koOk" type="button">Подтвердить</button><button id="koCancel" class="ghost" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<div class="modal" id="nameModal">
+  <div class="modalCard">
+    <h2 id="nameTitle">Игрок</h2>
+    <div class="field"><label>Имя</label><input id="nameInput" type="text" maxlength="60"/></div>
+    <div class="btnrow"><button id="nameOk" type="button">Сохранить</button><button id="nameCancel" class="ghost" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="js/core.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const {
+    clampInt, fmtInt, fmtTime, nowMs, escHtml, normName, keyName, initials,
+    normalizeState, initialState, computeStatsFromPlayers, recomputePlaces,
+    nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
+    calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
+    T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
+    genRoomId, PRESETS, BRANCH, buildTelegramPost, mergePlayers,
+  } = window.VP;
+
+  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
+  const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
+  const CLIENT_ID = genRoomId(10);
+
+  let state = null;
+  let hasLock = false;
+  let realtimeChannel = null;
+  let saveInFlight = false;
+  let saveQueue = Promise.resolve();
+  let editingStructure = false;
+  let playerSearchQuery = "";
+
+  const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
+  const setSync = (x) => { $("syncText").textContent = `sync: ${x}`; };
+
+  // ── Хранилище: та же таблица rooms, что у Дойла ───────────────────────────
+  async function loadStateFresh() {
+    const { data, error } = await sb.from("rooms").select("state").eq("room_id", roomId).maybeSingle();
+    if (error) throw new Error(`Ошибка загрузки: ${error.message}`);
+    if (!data) throw new Error(`Комната «${roomId}» не найдена`);
+    return normalizeState(data.state);
+  }
+
+  async function saveState(next) {
+    // Метка записи — дисплей отбрасывает по ней состояния, доехавшие с опозданием.
+    next._savedAt = Math.max(nowMs(), (Number(next._savedAt) || 0) + 1);
+    const { error } = await sb.from("rooms").update({ state: next }).eq("room_id", roomId);
+    if (error) throw error;
+    // Мгновенный пуш на дисплей — быстрее, чем эхо postgres_changes.
+    realtimeChannel?.send({ type: "broadcast", event: "timer_state", payload: { state: next } });
+  }
+
+  // Мьютекс на запись: степперы, автотик и кнопки правят одно и то же состояние.
+  function saveWithReload(mutator) {
+    const run = saveQueue.then(async () => {
+      saveInFlight = true;
+      try {
+        const fresh = await loadStateFresh();
+        const next = normalizeState(mutator(structuredClone(fresh)) || fresh);
+        await saveState(next);
+        state = next; renderAll(); setSync("saved");
+        setTimeout(() => { if ($("syncText").textContent.includes("saved")) setSync("ok"); }, 600);
+      } finally { saveInFlight = false; }
+    });
+    // В очереди держим всегда успешный промис: отклонённый глушит все следующие записи.
+    saveQueue = run.catch(() => {});
+    return run.catch((e) => { console.error(e); setSync("error"); setErr(e); throw e; });
+  }
+
+  // ── Лидерство: авто-переход уровней делает только владелец блокировки ─────
+  async function acquireLockOnce() {
+    if (!roomId) return false;
+    const { data, error } = await sb.rpc("try_acquire_room_lock", { p_room_id: roomId, p_owner: CLIENT_ID, p_ttl_seconds: 6 });
+    if (error) return false;
+    const row = Array.isArray(data) ? data[0] : data;
+    hasLock = !!row && row.lock_owner === CLIENT_ID;
+    setRoleUi();
+    return hasLock;
+  }
+  function setRoleUi() {
+    const dot = $("roleDot"), text = $("roleText");
+    if (!roomId) { dot.className = "dot"; text.textContent = "нет комнаты"; return; }
+    dot.className = hasLock ? "dot green" : "dot";
+    text.textContent = hasLock ? "ведущий" : "наблюдатель";
+  }
+
+  // ── Экраны и вкладки ─────────────────────────────────────────────────────
+  const TABS = {
+    timer: ["screenTimer", "screenLinks"],
+    tour: ["screenQuick", "screenRating", "screenInfo"],
+    players: ["screenPlayers", "screenTgImport", "screenPost"],
+    struct: ["screenPreset", "screenStructure"],
+  };
+  const ALL_SCREENS = ["screenCreate", "screenLinks", "screenTimer", "screenQuick", "screenRating", "screenInfo",
+    "screenPlayers", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
+
+  function showCreateOnly() {
+    ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
+    $("screenCreate").style.display = "";
+    $("tabbar").style.display = "none";
+    $("headTitle").textContent = "Комнаты";
+    loadRooms();
+    loadLinkableTournaments();
+  }
+  function switchTab(tab) {
+    ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
+    (TABS[tab] || TABS.timer).forEach((id) => { $(id).style.display = ""; });
+    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
+
+  // ── Модалки ──────────────────────────────────────────────────────────────
+  function confirm2(title, body) {
+    return new Promise((resolve) => {
+      $("confirmTitle").textContent = title;
+      $("confirmBody").textContent = body;
+      $("confirmModal").classList.add("show");
+      const done = (r) => { $("confirmModal").classList.remove("show"); resolve(r); };
+      $("confirmOk").onclick = () => done(true);
+      $("confirmCancel").onclick = () => done(false);
+      $("confirmModal").onclick = (e) => { if (e.target === $("confirmModal")) done(false); };
+    });
+  }
+  function askName(title, value = "") {
+    return new Promise((resolve) => {
+      $("nameTitle").textContent = title;
+      $("nameInput").value = value;
+      $("nameModal").classList.add("show");
+      $("nameInput").focus();
+      const done = (r) => { $("nameModal").classList.remove("show"); resolve(r); };
+      $("nameOk").onclick = () => done(normName($("nameInput").value));
+      $("nameCancel").onclick = () => done(null);
+      $("nameInput").onkeydown = (e) => { if (e.key === "Enter") done(normName($("nameInput").value)); };
+    });
+  }
+  // Модалка вылета работает на прибавку: после реентри в ko/koPts лежит счёт
+  // за весь турнир, и ввод итога стирал бы набранное раньше.
+  function askKo(playerName, pko) {
+    return new Promise((resolve) => {
+      $("koTitle").textContent = playerName;
+      $("koHint").textContent = pko ? "Сколько нокаутов и очков за головы игрок набрал за этот вылет." : "Сколько нокаутов игрок сделал за этот вылет.";
+      $("koCount").value = 0; $("koPts").value = 0;
+      $("koPtsField").style.display = pko ? "" : "none";
+      $("koModal").classList.add("show");
+      const done = (r) => { $("koModal").classList.remove("show"); resolve(r); };
+      $("koOk").onclick = () => done({ ko: clampInt($("koCount").value, 0), koPts: clampInt($("koPts").value, 0) });
+      $("koCancel").onclick = () => done(null);
+      $("koModal").onclick = (e) => { if (e.target === $("koModal")) done(null); };
+    });
+  }
+
+  // ── Список комнат ────────────────────────────────────────────────────────
+  async function loadRooms() {
+    const box = $("roomsList");
+    box.innerHTML = '<div class="muted">Загрузка…</div>';
+    try {
+      const { data, error } = await sb.from("rooms").select("room_id,state").eq("branch", BRANCH).limit(50);
+      if (error) throw error;
+      if (!data?.length) { box.innerHTML = '<div class="muted">Комнат пока нет.</div>'; return; }
+      const rows = data.map((r) => {
+        const st = r.state || {};
+        const name = escHtml(st.tournament?.name || "Без названия");
+        const created = st.tournament?.createdAt ? new Date(st.tournament.createdAt) : null;
+        const when = created ? created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "";
+        const alive = clampInt(st.stats?.alive ?? 0, 0), reg = clampInt(st.stats?.registered ?? 0, 0);
+        return `<a class="listRow" href="admin.html?room=${encodeURIComponent(r.room_id)}" style="text-decoration:none;color:inherit">
+          <span class="avatar">${escHtml(r.room_id.slice(0, 2))}</span>
+          <span class="nm">${name}<div class="muted mono">${escHtml(r.room_id)} · ${when}</div></span>
+          <span class="tag">${alive}/${reg}</span></a>`;
+      });
+      box.innerHTML = rows.join("");
+    } catch (e) { box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`; }
+  }
+
+  const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+
+  // Турниры, к которым ещё не привязан рум. Сегодняшний выбирается сам.
+  async function loadLinkableTournaments() {
+    const sel = $("newRoomTournament"); if (!sel) return;
+    try {
+      const from = dateKey(new Date(Date.now() - 24 * 3600 * 1000)); // вчера — запас на таймзону
+      const { data, error } = await sb.from("doyle_tournaments")
+        .select("id,name,date,registered_count")
+        .is("room_id", null).in("status", ["open", "draft"]).gte("date", from)
+        .order("date", { ascending: true });
+      if (error) throw error;
+      const prev = sel.value, today = dateKey(new Date());
+      sel.innerHTML = '<option value="">— без привязки —</option>';
+      let auto = "";
+      (data || []).forEach((t) => {
+        const dt = t.date ? new Date(t.date) : null;
+        const opt = document.createElement("option");
+        opt.value = String(t.id);
+        opt.textContent = `«${t.name}» — ${dt ? dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "без даты"} · записалось: ${t.registered_count || 0}`;
+        sel.appendChild(opt);
+        if (!auto && dt && dateKey(dt) === today) auto = String(t.id);
+      });
+      if (prev && [...sel.options].some((o) => o.value === prev)) sel.value = prev;
+      else if (auto) sel.value = auto;
+    } catch (e) { console.warn("loadLinkableTournaments", e); }
+  }
+
+  $("btnRefreshRooms").onclick = () => { loadRooms(); loadLinkableTournaments(); };
+  $("btnCreate").onclick = async () => {
+    setErr(null);
+    const name = normName($("newRoomName").value);
+    if (!name) { setErr(new Error("Введи название турнира")); return; }
+    const linkTid = parseInt($("newRoomTournament").value || "", 10) || null;
+
+    // Уже записавшихся тянем руками — триггер синхронизирует только новые регистрации
+    let regPlayers = [], linkedFee = null;
+    if (linkTid) {
+      try {
+        const { data: regs, error } = await sb.from("doyle_registrations")
+          .select("player_id, doyle_players(name)").eq("tournament_id", linkTid)
+          .order("created_at", { ascending: true });
+        if (error) throw error;
+        regPlayers = (regs || []).map((r) => r.doyle_players ? { name: r.doyle_players.name, player_id: r.player_id } : null).filter(Boolean);
+        const { data: tour } = await sb.from("doyle_tournaments").select("entry_fee").eq("id", linkTid).maybeSingle();
+        if (tour?.entry_fee != null) linkedFee = clampInt(tour.entry_fee, 0);
+      } catch (e) { setErr(e); return; }
+    }
+
+    for (let i = 0; i < 6; i++) {
+      const id = genRoomId(6);
+      let st = initialState();
+      st.tournament.name = name;
+      if (linkedFee != null) st.tournament.defaultBuyIn = linkedFee;
+      if (regPlayers.length) st = mergePlayers(st, regPlayers, "add");
+      try {
+        const { error } = await sb.from("rooms").insert({ room_id: id, state: st, branch: BRANCH });
+        if (error) throw error;
+        if (linkTid) {
+          const { error: linkErr } = await sb.from("doyle_tournaments").update({ room_id: id }).eq("id", linkTid).is("room_id", null);
+          if (linkErr) setErr(new Error("Рум создан, но привязать турнир не удалось — привяжи вручную"));
+        }
+        location.href = `admin.html?room=${id}`;
+        return;
+      } catch (e) { if (i === 5) setErr(e); }
+    }
+  };
+
+  // ── Регистрации из Telegram Mini App ─────────────────────────────────────
+  async function findLinkedTournament() {
+    if (!roomId) return null;
+    const { data } = await sb.from("doyle_tournaments")
+      .select("id, name, date, registered_count").eq("room_id", roomId).maybeSingle();
+    return data || null;
+  }
+
+  async function loadTgRegistrations(mode) {
+    const out = $("tgImportResult");
+    out.textContent = "Загружаю…";
+    try {
+      const tour = await findLinkedTournament();
+      if (!tour) {
+        out.textContent = "Турнир не привязан к этому руму — привязать можно только при создании комнаты.";
+        return;
+      }
+      $("tgRegInfo").textContent = `«${tour.name}»`;
+      const { data: regs, error } = await sb.from("doyle_registrations")
+        .select("player_id, doyle_players(name)").eq("tournament_id", tour.id)
+        .order("created_at", { ascending: true });
+      if (error) throw error;
+      const list = (regs || []).map((r) => r.doyle_players ? { name: r.doyle_players.name, player_id: r.player_id } : null).filter(Boolean);
+      if (!list.length) { out.textContent = "Никто ещё не записался."; return; }
+      await saveWithReload((st) => mergePlayers(st, list, mode));
+      out.textContent = `✓ Загружено ${list.length} игроков`;
+    } catch (e) { out.textContent = e.message || "Ошибка загрузки"; }
+  }
+  $("btnImportFromTG").onclick = () => loadTgRegistrations("replace");
+  $("btnImportFromTGAdd").onclick = () => loadTgRegistrations("add");
+
+  // ── Пост для Telegram ────────────────────────────────────────────────────
+  $("btnBuildPost").onclick = async () => {
+    const btn = $("btnBuildPost");
+    btn.disabled = true; $("postInfo").textContent = "Читаю состояние…";
+    try {
+      // Читаем свежее состояние: пост формируют в конце, когда вылеты вносил кто-то ещё
+      const fresh = await loadStateFresh();
+      state = fresh; renderAll();
+      $("postOut").value = buildTelegramPost(fresh);
+      $("postInfo").textContent = "готово";
+    } catch (e) { setErr(e); $("postInfo").textContent = "ошибка"; }
+    finally { btn.disabled = false; }
+  };
+  $("btnCopyPost").onclick = async () => {
+    const text = $("postOut").value;
+    if (!text) return;
+    try {
+      await navigator.clipboard.writeText(text);
+      const btn = $("btnCopyPost"), prev = btn.textContent;
+      btn.textContent = "Скопировано";
+      setTimeout(() => { btn.textContent = prev; }, 1500);
+    } catch (e) { $("postOut").select(); document.execCommand("copy"); }
+  };
+  $("btnClearPost").onclick = () => { $("postOut").value = ""; $("postInfo").textContent = "—"; };
+
+  function setLinks(id) {
+    const base = location.origin + location.pathname.replace(/\/[^/]*$/, "/");
+    $("adminLink").value = `${base}admin.html?room=${id}`;
+    $("displayLink").value = `${base}display.html?room=${id}`;
+  }
+  $("copyAdmin").onclick = () => navigator.clipboard?.writeText($("adminLink").value);
+  $("copyDisplay").onclick = () => navigator.clipboard?.writeText($("displayLink").value);
+
+  // ── Кнопки таймера ───────────────────────────────────────────────────────
+  const bind = (id, mutator) => { $(id).onclick = async () => { setErr(null); try { await saveWithReload(mutator); } catch (e) {} }; };
+  bind("start", T.start);
+  bind("next", T.next);
+  bind("prev", T.prev);
+  bind("minus60", T.minus60);
+  bind("plus60", T.plus60);
+  $("pauseResumeBtn").onclick = async () => {
+    setErr(null);
+    try { await saveWithReload(state?.timer?.isPaused ? T.resume : T.pause); } catch (e) {}
+  };
+  $("breakToggleBtn").onclick = async () => {
+    setErr(null);
+    try { await saveWithReload(isOnBreak(state) ? T.breakFinish : T.breakStart); } catch (e) {}
+  };
+  $("finalTableToggleBtn").onclick = async () => {
+    setErr(null);
+    try { await saveWithReload(state?.timer?.finalTableActive ? T.finalTableOff : T.finalTableOn); } catch (e) {}
+  };
+  $("reset").onclick = async () => {
+    const ok = await confirm2("Сбросить таймер?", "Уровень вернётся на первый, таймер остановится. Игроки и структура сохранятся.");
+    if (!ok) return;
+    setErr(null);
+    try { await saveWithReload(T.reset); } catch (e) {}
+  };
+
+  // ── Турнир ───────────────────────────────────────────────────────────────
+  const DIRTY = new Set();
+  const setIfNotFocused = (id, v) => {
+    const el = $(id);
+    if (!el || document.activeElement === el || DIRTY.has(id)) return;
+    el.value = v;
+  };
+  ["tourName", "startStack", "lateReg", "defaultBuyIn", "addonChips", "addonCost", "ratingGuarantee", "infoBonusHand", "infoComment"]
+    .forEach((id) => { $(id).addEventListener("input", () => DIRTY.add(id)); });
+
+  const stepper = (btnId, inputId, delta) => {
+    $(btnId).onclick = () => {
+      const el = $(inputId);
+      el.value = Math.max(0, clampInt(el.value, 0) + delta);
+      DIRTY.add(inputId);
+    };
+  };
+  stepper("btnStartMinus", "startStack", -1000);
+  stepper("btnStartPlus", "startStack", 1000);
+  stepper("btnLateMinus", "lateReg", -1);
+  stepper("btnLatePlus", "lateReg", 1);
+
+  $("addonEnabled").onchange = () => { $("addonFields").style.display = $("addonEnabled").checked ? "" : "none"; };
+
+  $("btnSaveQuick").onclick = async () => {
+    setErr(null);
+    const v = {
+      name: normName($("tourName").value),
+      startStack: clampInt($("startStack").value, 0),
+      lateReg: clampInt($("lateReg").value, 0),
+      buyIn: clampInt($("defaultBuyIn").value, 0),
+      addonEnabled: $("addonEnabled").checked,
+      addonChips: clampInt($("addonChips").value, 0),
+      addonCost: clampInt($("addonCost").value, 0),
+      pko: $("pkoEnabled").checked,
+    };
+    try {
+      await saveWithReload((st) => {
+        st.tournament.name = v.name;
+        st.tournament.startStack = v.startStack;
+        st.tournament.lateRegUntilLevel = v.lateReg;
+        st.tournament.defaultBuyIn = v.buyIn;
+        st.tournament.addonEnabled = v.addonEnabled;
+        st.tournament.addonChips = v.addonChips;
+        st.tournament.addonCost = v.addonCost;
+        st.tournament.pko = v.pko;
+        return recalcRating(st);
+      });
+      DIRTY.clear();
+    } catch (e) {}
+  };
+
+  // ── Призовая зона ────────────────────────────────────────────────────────
+  $("btnCalcRating").onclick = async () => {
+    setErr(null);
+    const guar = clampInt($("ratingGuarantee").value, 0);
+    try {
+      await saveWithReload((st) => {
+        const ent = calcEntries(st) || 1;
+        const res = calcPayouts(ent, 0.8, guar, calcAddonCount(st), !!st.tournament.pko);
+        st.rating = { isActive: true, entries: ent, r: 0.8, guarantee: guar, addons: calcAddonCount(st),
+          P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL,
+          payouts: res.payouts, calculatedAt: new Date().toISOString(), autoShown: true };
+        return st;
+      });
+      DIRTY.delete("ratingGuarantee");
+    } catch (e) {}
+  };
+  $("btnHideRating").onclick = async () => {
+    try { await saveWithReload((st) => { st.rating.isActive = false; return st; }); } catch (e) {}
+  };
+
+  // ── Инфо ─────────────────────────────────────────────────────────────────
+  $("btnSaveInfo").onclick = async () => {
+    const bonusHand = $("infoBonusHand").value.trim(), comment = $("infoComment").value.trim();
+    try { await saveWithReload((st) => { st.info = { bonusHand, comment }; return st; }); DIRTY.clear(); } catch (e) {}
+  };
+  $("btnClearInfo").onclick = async () => {
+    try { await saveWithReload((st) => { st.info = { bonusHand: "", comment: "" }; return st; }); } catch (e) {}
+  };
+
+  // ── Игроки ───────────────────────────────────────────────────────────────
+  // Нумерованный список из Telegram: «1.», «1)», «1️⃣», маркеры и пустые строки.
+  function parseRegList(text) {
+    return String(text || "").split(/\r?\n/)
+      .map((l) => l.replace(/^\s*(?:\d+[.)]?|[0-9]️?⃣|[-–—•*])\s*/u, ""))
+      .map(normName).filter(Boolean);
+  }
+  $("btnImportToggle").onclick = () => {
+    const box = $("importBox");
+    box.style.display = box.style.display === "none" ? "" : "none";
+  };
+  $("btnPlayersReplace").onclick = async () => {
+    const list = parseRegList($("playersImportText").value);
+    if (!list.length) return;
+    const ok = await confirm2("Заменить список?", `В списке будет ${list.length} игроков. Отметки пришедших и вылеты у совпавших имён сохранятся.`);
+    if (!ok) return;
+    try { await saveWithReload((st) => mergePlayers(st, list.map((name) => ({ name })), "replace")); } catch (e) {}
+  };
+  $("btnPlayersAdd").onclick = async () => {
+    const list = parseRegList($("playersImportText").value);
+    if (!list.length) return;
+    try { await saveWithReload((st) => mergePlayers(st, list.map((name) => ({ name })), "add")); } catch (e) {}
+  };
+  $("btnPlayerAdd").onclick = async () => {
+    const name = await askName("Новый игрок");
+    if (!name) return;
+    try {
+      await saveWithReload((st) => {
+        if (st.players.some((p) => keyName(p.name) === keyName(name))) return st;
+        st.players.push({ name, present: true, reentries: 0, status: "registered", ko: 0, koPts: 0 });
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  };
+  $("playerSearch").oninput = (e) => { playerSearchQuery = keyName(e.target.value); renderPlayers(); };
+
+  const findPlayer = (st, name) => st.players.find((p) => keyName(p.name) === keyName(name));
+
+  async function togglePresent(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.present = !p.present;
+        if (!p.present) { p.status = "registered"; p.bustOrder = null; p.place = null; }
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  }
+  async function addReentry(name, delta) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.reentries = Math.max(0, clampInt(p.reentries, 0) + delta);
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  async function toggleAddon(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.addon = !p.addon;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  async function bustPlayer(name) {
+    const res = await askKo(name, !!state?.tournament?.pko);
+    if (!res) return;
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p || !p.present) return st;
+        p.status = "busted";
+        p.bustOrder = nextBustOrder(st);
+        p.ko = clampInt(p.ko, 0) + res.ko;
+        p.koPts = clampInt(p.koPts, 0) + res.koPts;
+        p.koDelta = { ko: res.ko, koPts: res.koPts };
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  }
+  async function undoBust(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.status = "registered"; p.bustOrder = null; p.place = null;
+        rollbackBustKo(p);
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  }
+  // Реентри вылетевшего: снимает busted, закрывает дырку в нумерации мест,
+  // но сохраняет ko/koPts — это личный счёт за турнир, а не свойство вылета.
+  async function reentryPlayer(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.status = "registered"; p.bustOrder = null; p.place = null; p.koDelta = null;
+        p.reentries = clampInt(p.reentries, 0) + 1;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  async function removePlayer(name) {
+    const ok = await confirm2("Удалить игрока?", name);
+    if (!ok) return;
+    try {
+      await saveWithReload((st) => {
+        st.players = st.players.filter((p) => keyName(p.name) !== keyName(name));
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  }
+  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, reentryPlayer, removePlayer };
+
+  function renderPlayers() {
+    const box = $("playersList");
+    const players = state?.players || [];
+    const pko = !!state?.tournament?.pko;
+    const addon = !!state?.tournament?.addonEnabled;
+    $("playersInfo").textContent = `${state?.stats?.alive ?? 0} в игре · ${players.length} в списке`;
+    const visible = players.filter((p) => !playerSearchQuery || keyName(p.name).includes(playerSearchQuery));
+    if (!visible.length) { box.innerHTML = '<div class="muted">Список пуст.</div>'; return; }
+    const sorted = visible.slice().sort((a, b) => {
+      if (a.present !== b.present) return a.present ? -1 : 1;
+      const ab = a.status === "busted", bb = b.status === "busted";
+      if (ab !== bb) return ab ? 1 : -1;
+      return a.name.localeCompare(b.name, "ru");
+    });
+    box.innerHTML = sorted.map((p) => {
+      const n = escHtml(p.name);
+      const j = JSON.stringify(p.name).replace(/"/g, "&quot;");
+      const busted = p.status === "busted";
+      const tags = [
+        busted && p.place ? `<span class="tag hot">${p.place} место</span>` : "",
+        p.reentries ? `<span class="tag">re ×${p.reentries}</span>` : "",
+        addon && p.addon ? '<span class="tag gold">аддон</span>' : "",
+        p.ko ? `<span class="tag">KO ${p.ko}</span>` : "",
+        pko && p.koPts ? `<span class="tag gold">${p.koPts} очк</span>` : "",
+        p.present ? "" : '<span class="tag">не пришёл</span>',
+      ].filter(Boolean).join(" ");
+      const actions = !p.present
+        ? `<button class="tiny" onclick="_vp.togglePresent(${j})">Пришёл</button>`
+        : busted
+          ? `<button class="tiny ghost" onclick="_vp.reentryPlayer(${j})">↩ Реентри</button>
+             <button class="tiny ghost" onclick="_vp.undoBust(${j})">✎ Отменить</button>`
+          : `<button class="tiny" onclick="_vp.bustPlayer(${j})">BUSTED</button>
+             <button class="tiny ghost" onclick="_vp.addReentry(${j},1)">R+</button>
+             ${addon ? `<button class="tiny ghost" onclick="_vp.toggleAddon(${j})">A${p.addon ? "✓" : "+"}</button>` : ""}`;
+      return `<div class="listRow${busted ? " busted" : ""}">
+        <span class="avatar">${escHtml(initials(p.name))}</span>
+        <span class="nm">${n}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${tags}</div></span>
+        <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actions}
+          <button class="tiny ghost" onclick="_vp.removePlayer(${j})">✕</button></span>
+      </div>`;
+    }).join("");
+  }
+
+  // ── Структура ────────────────────────────────────────────────────────────
+  function readLevels() {
+    return [...$("levelsBox").querySelectorAll("[data-lv]")].map((row) => {
+      const isBreak = row.dataset.break === "1";
+      const val = (sel) => row.querySelector(sel)?.value;
+      return isBreak
+        ? { isBreak: true, min: clampInt(val(".lvMin"), 0), label: "Перерыв" }
+        : { min: clampInt(val(".lvMin"), 0), sb: clampInt(val(".lvSb"), 0), bb: clampInt(val(".lvBb"), 0),
+            anteMode: row.querySelector(".lvAnte").checked ? "BB" : "NONE" };
+    });
+  }
+  function renderLevels(levels) {
+    const cur = state?.timer?.levelIndex ?? 0;
+    $("structInfo").textContent = `${levels.filter((l) => !l.isBreak).length} уровней · ${levels.filter((l) => l.isBreak).length} перерывов`;
+    $("levelsBox").innerHTML = levels.map((l, i) => {
+      const num = l.isBreak ? "☕" : playLevelNum(levels, i);
+      return `<div class="levelRow${l.isBreak ? " isBreak" : ""}${i === cur ? " current" : ""}" data-lv="${i}" data-break="${l.isBreak ? 1 : 0}">
+        <span class="lvIdx">${num}</span>
+        <input class="lvMin" type="number" min="0" value="${clampInt(l.min, 0)}" inputmode="numeric"/>
+        ${l.isBreak
+          ? '<span class="muted" style="grid-column:span 2;align-self:center">перерыв</span><span></span>'
+          : `<input class="lvSb" type="number" min="0" value="${clampInt(l.sb, 0)}" inputmode="numeric"/>
+             <input class="lvBb" type="number" min="0" value="${clampInt(l.bb, 0)}" inputmode="numeric"/>
+             <label style="display:grid;place-items:center"><input class="lvAnte" type="checkbox" ${l.anteMode === "BB" ? "checked" : ""}/></label>`}
+        <button class="tiny ghost" data-del="${i}" type="button">✕</button>
+      </div>`;
+    }).join("");
+    $("levelsBox").querySelectorAll("[data-del]").forEach((b) => {
+      b.onclick = () => {
+        editingStructure = true;
+        const lv = readLevels();
+        lv.splice(Number(b.dataset.del), 1);
+        renderLevels(lv);
+      };
+    });
+    $("levelsBox").querySelectorAll("input").forEach((el) => { el.oninput = () => { editingStructure = true; }; });
+  }
+  $("addLevel").onclick = () => {
+    editingStructure = true;
+    const lv = readLevels();
+    const last = [...lv].reverse().find((x) => !x.isBreak) || { min: 15, sb: 100, bb: 200, anteMode: "BB" };
+    lv.push({ min: last.min, sb: last.sb * 2, bb: last.bb * 2, anteMode: last.anteMode });
+    renderLevels(lv);
+  };
+  $("addBreak").onclick = () => {
+    editingStructure = true;
+    const lv = readLevels();
+    lv.push({ isBreak: true, min: 15, label: "Перерыв" });
+    renderLevels(lv);
+  };
+  $("btnStructureSave").onclick = async () => {
+    setErr(null);
+    const levels = readLevels();
+    if (!levels.length) { setErr(new Error("Структура пустая")); return; }
+    try {
+      await saveWithReload((st) => {
+        st.structure.levels = levels;
+        st.timer.levelIndex = Math.min(st.timer.levelIndex, levels.length - 1);
+        // levelEndAt не трогаем — текущий уровень должен досчитать с того же места
+        return st;
+      });
+      editingStructure = false;
+    } catch (e) {}
+  };
+  $("btnStructureReset").onclick = async () => {
+    const ok = await confirm2("Вернуть дефолтную структуру?", "Текущая структура будет заменена.");
+    if (!ok) return;
+    try {
+      await saveWithReload((st) => { st.structure.levels = window.VP.defaultLevels(); return st; });
+      editingStructure = false;
+    } catch (e) {}
+  };
+
+  function buildPresetGrid() {
+    $("presetGrid").innerHTML = Object.values(PRESETS).map((p) => {
+      const lvl = p.levels.filter((l) => !l.isBreak).length;
+      return `<button class="presetCard${state?.presetKey === p.id ? " active" : ""}" data-preset="${p.id}" type="button">
+        <div class="pName">${escHtml(p.name)}</div>
+        <div class="pMeta">${fmtInt(p.startStack)} фишек · ${lvl} уровней · ПР до ${p.lateRegUntilLevel}</div>
+      </button>`;
+    }).join("");
+    $("presetGrid").querySelectorAll("[data-preset]").forEach((b) => {
+      b.onclick = async () => {
+        const p = PRESETS[b.dataset.preset];
+        const ok = await confirm2(`Применить «${p.name}»?`, "Структура блайндов и стартовый стек будут заменены. Игроки сохранятся.");
+        if (!ok) return;
+        try {
+          await saveWithReload((st) => {
+            st.structure.levels = p.levels.map((l) => ({ ...l }));
+            st.tournament.startStack = p.startStack;
+            st.tournament.lateRegUntilLevel = p.lateRegUntilLevel;
+            if (p.defaultBuyIn != null) st.tournament.defaultBuyIn = p.defaultBuyIn;
+            st.presetKey = p.id;
+            st.timer.levelIndex = Math.min(st.timer.levelIndex, st.structure.levels.length - 1);
+            return st;
+          });
+          editingStructure = false;
+        } catch (e) {}
+      };
+    });
+  }
+
+  // ── Рендер ───────────────────────────────────────────────────────────────
+  function renderTimerCard() {
+    const ti = state?.timer; if (!ti) return;
+    const lv = curLevel(state);
+    const levels = state.structure.levels;
+    const onBreak = isOnBreak(state);
+    const breakSec = breakRemainingSec(state);
+    const sec = onBreak && breakSec !== null ? breakSec : (ti.isPaused ? (ti.pauseRemainingSec ?? 0) : (remainingSec(state) ?? 0));
+
+    $("bigTime").textContent = ti.isRunning ? fmtTime(sec) : "--:--";
+    $("bigLevel").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${playLevelNum(levels, ti.levelIndex)}`;
+    $("bigBlinds").textContent = lv.isBreak ? "—" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? ` · анте ${fmtInt(lv.bb)}` : ""}`;
+    const status = !ti.isRunning ? "STOPPED" : (onBreak ? "BREAK" : (ti.isPaused ? "PAUSED" : "RUNNING"));
+    $("bigStatus").textContent = status;
+
+    $("pauseResumeBtn").textContent = ti.isPaused ? "▶ Продолжить" : "⏸ Пауза";
+    $("breakToggleBtn").textContent = onBreak ? "▶ Закончить перерыв" : "☕ Перерыв";
+    $("finalTableToggleBtn").textContent = ti.finalTableActive ? "✕ Скрыть финал" : "🏆 Финальный стол";
+
+    const endAt = ti.levelEndAt ? new Date(ti.levelEndAt).toLocaleTimeString("ru-RU") : "—";
+    $("tinfo").textContent = `L${ti.levelIndex + 1}/${levels.length} · ${status} · конец уровня ${endAt}`;
+  }
+
+  function renderKpis() {
+    $("kAlive").textContent = `${state?.stats?.alive ?? 0}/${state?.stats?.registered ?? 0}`;
+    $("kEntries").textContent = fmtInt(calcEntries(state));
+    $("kAvg").textContent = fmtInt(calcAvg(state));
+    $("kChips").textContent = fmtInt(calcTotalChips(state));
+  }
+
+  function renderRating() {
+    const r = state?.rating;
+    const active = !!r?.isActive && Array.isArray(r?.payouts) && r.payouts.length;
+    $("ratingState").textContent = active ? `${r.P} мест · ${fmtInt(r.TOTAL)} очков` : "выключена";
+    $("ratingState").className = active ? "tag ok" : "tag";
+    if (!active) { $("ratingPreview").innerHTML = '<div class="muted">Нажми «Рассчитать» — призовая зона появится на дисплее.</div>'; return; }
+    $("ratingPreview").innerHTML = r.payouts.map((pts, i) => {
+      const winner = (state.players || []).find((p) => p.present && p.status === "busted" && Number(p.place) === i + 1);
+      return `<div class="listRow"><span class="idx">${i + 1}</span>
+        <span class="nm">${winner ? escHtml(winner.name) : '<span class="muted">—</span>'}</span>
+        <span class="tag hot num">${fmtInt(pts)}</span></div>`;
+    }).join("");
+  }
+
+  function fillFields() {
+    const t = state.tournament;
+    $("headTitle").textContent = t.name || "Турнир";
+    setIfNotFocused("tourName", t.name || "");
+    setIfNotFocused("startStack", t.startStack);
+    setIfNotFocused("lateReg", t.lateRegUntilLevel);
+    setIfNotFocused("defaultBuyIn", t.defaultBuyIn);
+    setIfNotFocused("addonChips", t.addonChips);
+    setIfNotFocused("addonCost", t.addonCost);
+    setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 800);
+    setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
+    setIfNotFocused("infoComment", state.info?.comment ?? "");
+    if (document.activeElement !== $("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;
+    if (document.activeElement !== $("pkoEnabled")) $("pkoEnabled").checked = !!t.pko;
+    $("addonFields").style.display = t.addonEnabled ? "" : "none";
+  }
+
+  const safe = (fn, label) => { try { fn(); } catch (e) { console.error(`render ${label}`, e); } };
+  function renderAll() {
+    if (!state) return;
+    safe(fillFields, "fields");
+    safe(renderTimerCard, "timer");
+    safe(renderKpis, "kpis");
+    safe(renderPlayers, "players");
+    safe(renderRating, "rating");
+    safe(buildPresetGrid, "presets");
+    // Не перетираем таблицу уровней, пока её правят руками.
+    if (!editingStructure) safe(() => renderLevels(state.structure.levels), "levels");
+  }
+
+  // ── Тики ─────────────────────────────────────────────────────────────────
+  // Авто-переход уровней и завершение перерыва — только у ведущего.
+  async function tickLeader() {
+    if (!roomId || !hasLock || saveInFlight || !state?.timer) return;
+    const ti = state.timer;
+    if (ti.breakUntil && nowMs() >= ti.breakUntil) { await saveWithReload(T.breakFinish); return; }
+    if (!ti.isRunning || ti.isPaused || !ti.levelEndAt || nowMs() < ti.levelEndAt) return;
+    await saveWithReload((st) => { advanceExpiredLevels(st); return st; });
+  }
+
+  function boot() {
+    setLinks(roomId);
+    $("metaRoom").textContent = roomId;
+    $("tabbar").style.display = "";
+    switchTab("timer");
+    loadStateFresh().then((st) => { state = st; renderAll(); setSync("ok"); }).catch(setErr);
+    subscribeRealtime();
+    findLinkedTournament().then((t) => {
+      $("tgRegInfo").textContent = t ? `«${t.name}» · записалось ${t.registered_count || 0}` : "турнир не привязан";
+    }).catch(() => {});
+    acquireLockOnce().catch(() => {});
+    setInterval(() => acquireLockOnce().catch(() => {}), 2000);
+    setInterval(() => { tickLeader().catch(() => {}); }, 1000);
+    setInterval(() => { if (state) safe(renderTimerCard, "tick"); }, 500);
+    // Резервное обновление, если realtime отвалился.
+    setInterval(async () => {
+      if (!roomId || saveInFlight) return;
+      try {
+        const fresh = await loadStateFresh();
+        if (saveInFlight) return;
+        state = fresh; renderAll();
+      } catch (e) {}
+    }, 10000);
+    document.addEventListener("visibilitychange", () => {
+      if (document.visibilityState === "visible") tickLeader().catch(() => {});
+    });
+    window.syncServerClock?.();
+  }
+
+  function subscribeRealtime() {
+    if (!roomId) return;
+    if (realtimeChannel) sb.removeChannel(realtimeChannel);
+    realtimeChannel = sb.channel("rooms-" + roomId)
+      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `room_id=eq.${roomId}` }, (payload) => {
+        if (saveInFlight || !payload?.new?.state) return;
+        state = normalizeState(payload.new.state); renderAll();
+      })
+      .subscribe((status) => {
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setTimeout(subscribeRealtime, 3000);
+      });
+  }
+
+  // ── Авторизация ──────────────────────────────────────────────────────────
+  const showLock = () => { $("authLock").classList.add("show"); document.documentElement.classList.add("locked"); };
+  const hideLock = () => { $("authLock").classList.remove("show"); document.documentElement.classList.remove("locked"); };
+
+  async function checkAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showLock(); return; }
+    hideLock();
+    $("logoutBtn").style.display = "";
+    $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    if (!roomId) { showCreateOnly(); setRoleUi(); } else boot();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    checkAuth();
+    sb.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") showLock(); });
+    const tryLogin = async () => {
+      const err = $("authError");
+      err.textContent = "Вход…";
+      try {
+        let email = $("authEmail").value.trim();
+        if (!email.includes("@")) email = email.toLowerCase() + "@doyle.ru";
+        const { error } = await sb.auth.signInWithPassword({ email, password: $("authPassword").value });
+        if (error) { err.textContent = "Неверный логин или пароль"; return; }
+        err.textContent = "";
+        await checkAuth();
+      } catch (e) { err.textContent = e.message || String(e); }
+    };
+    $("authBtn").onclick = tryLogin;
+    $("authPassword").onkeydown = (e) => { if (e.key === "Enter") tryLogin(); };
+  });
+})();
+</script>
+</body>
+</html>
