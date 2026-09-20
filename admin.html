@@ -232,9 +232,12 @@
       <div class="kpi hot"><div class="kpiLabel">Собрано</div><div class="kpiValue num" id="sumTotal">0</div></div>
     </div>
     <div class="btnrow" style="margin-top:12px">
-      <button id="btnPaymentsReport" type="button">Отчёт в таблицу</button>
+      <button id="btnPaymentsReport" type="button">💾 Сохранить отчёт</button>
+      <a class="badge light" href="crm.html" style="text-decoration:none;align-self:center">CRM клуба →</a>
       <span class="muted" id="paymentsReportInfo" style="align-self:center"></span>
     </div>
+    <div class="sub">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
+      Сохранять можно сколько угодно раз: отчёт перезаписывается, а не дублируется.</div>
   </section>
 
   <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
@@ -419,6 +422,7 @@
 <script src="js/config.js"></script>
 <script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
 <script src="js/core.js"></script>
+<script src="js/crm.js"></script>
 <script src="js/devstub.js"></script>
 <script>
 (() => {
@@ -430,7 +434,7 @@
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
     calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
-    genRoomId, PRESETS, BRANCH, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
+    genRoomId, PRESETS, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
     searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, payMethodLabel, getPayments, totalPaid, entriesOf,
     effectiveBuyIn, effectiveFreeEntries, addonCostFor, calcExpected, remainingAmount,
@@ -1583,60 +1587,60 @@
 
   $("paySearch").oninput = (e) => { paySearchQuery = keyName(e.target.value); renderPayments(); };
 
-  // Отчёт уходит в ту же edge-функцию, что у Дойла, но с бранчем клуба.
-  async function callGsheetsProxy(sheet_type, branch, payload) {
-    const { data: { session } } = await sb.auth.getSession();
-    if (!session?.access_token) throw new Error("Нет активной сессии");
-    const resp = await window.sbFetchFailover(`${window.SUPABASE_URL}/functions/v1/gsheets-proxy`, {
-      method: "POST",
-      headers: {
-        apikey: window.SUPABASE_ANON_KEY,
-        Authorization: `Bearer ${session.access_token}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ sheet_type, branch, payload }),
-    });
-    const text = await resp.text();
-    let data = null;
-    try { data = JSON.parse(text); } catch (e) {}
-    if (!resp.ok) throw new Error(data?.error || text || `HTTP ${resp.status}`);
-    if (data && data.ok === false) throw new Error(data.error || "Ошибка выгрузки в таблицу");
-    return data;
+  // ── Снимок турнира в CRM ─────────────────────────────────────────────────
+  // Раньше отсюда уходила выгрузка в Google Sheets: строки оплаты улетали в
+  // чужую таблицу и в клуб не возвращались. Теперь турнир ложится снимком в
+  // свои таблицы (migrations/004_results.sql), а отчёт за период собирает CRM
+  // и отдаёт файлом Excel.
+  //
+  // Снимок берётся со СВЕЖЕГО состояния: вылеты и оплату мог вносить второй
+  // оператор, и сохранённое по своей копии разошлось бы с залом.
+  async function saveReportSnapshot() {
+    const st = await loadStateFresh();
+    state = st; renderAll();
+    const present = (st.players || []).filter((p) => p.present);
+    if (!present.length) throw new Error("Нет пришедших игроков для отчёта");
+
+    const linked = await findLinkedTournament().catch(() => null);
+    const snap = window.VPCrm.snapshotFromState(st, { roomId, tournamentId: linked?.id ?? null });
+    const { data: { user } } = await sb.auth.getUser();
+
+    // Шапка перезаписывается по report_key: вечер сохраняют и посреди турнира,
+    // и после разбора поста — это должна быть одна строка, а не три отчёта.
+    const { data: head, error: headErr } = await sb.from(TBL.results)
+      .upsert({ ...snap.result, created_by: user?.id ?? null }, { onConflict: "report_key" })
+      .select("id").maybeSingle();
+    if (headErr) throw headErr;
+    const resultId = head?.id;
+    if (resultId == null) throw new Error("База не вернула id отчёта");
+
+    // Старые строки игроков сносим целиком: список мог ужаться (ошибочный
+    // «пришёл» сняли), и остаток прошлого снимка попал бы в показатели игрока,
+    // которого в турнире не было.
+    const { error: delErr } = await sb.from(TBL.resultPlayers).delete().eq("result_id", resultId);
+    if (delErr) throw delErr;
+    const { error: insErr } = await sb.from(TBL.resultPlayers)
+      .insert(snap.players.map((p) => ({ ...p, result_id: resultId })));
+    if (insErr) throw insErr;
+    return snap;
   }
 
   $("btnPaymentsReport").onclick = async () => {
     const btn = $("btnPaymentsReport"), info = $("paymentsReportInfo");
-    btn.disabled = true; info.textContent = "Отправка…"; setErr(null);
+    btn.disabled = true; info.textContent = "Сохранение…"; setErr(null);
     try {
-      const st = await loadStateFresh();
-      state = st; renderAll();
-      const tour = st.tournament;
-      const present = (st.players || []).filter((p) => p.present);
-      if (!present.length) throw new Error("Нет пришедших игроков для отчёта");
-      const created = new Date(tour?.createdAt || Date.now());
-      const date = Number.isNaN(created.getTime())
-        ? String(tour?.createdAt || "")
-        : created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric" });
-      const rows = present.map((p) => {
-        const byMethod = { transfer: 0, cash: 0, card: 0 };
-        getPayments(p).forEach((x) => { if (x.method in byMethod) byMethod[x.method] += clampInt(x.amount, 0); });
-        const expected = calcExpected(p, tour), paid = totalPaid(p);
-        return {
-          date, tournament: roomId, player: p.name,
-          entries: entriesOf(p), buyIn: effectiveBuyIn(p, tour), freeEntry: effectiveFreeEntries(p),
-          total: expected, paid, debt: Math.max(0, expected - paid),
-          card: byMethod.card, cash: byMethod.cash, transfer: byMethod.transfer,
-          addon: addonCostFor(p, tour),
-        };
-      });
-      const reportId = `${roomId}__${tour?.createdAt || ""}`;
-      const data = await callGsheetsProxy("report", BRANCH, { type: "payments_report", reportId, rows });
-      const count = data?.count ?? data?.rowsWritten ?? data?.rows?.length;
-      info.textContent = count != null ? `Отчёт отправлен (${count})` : "Отчёт отправлен";
+      const snap = await saveReportSnapshot();
+      const t = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+      info.textContent = `Сохранено в ${t} · игроков: ${snap.players.length}`;
     } catch (e) {
-      console.error("payments report", e);
+      console.error("report snapshot", e);
       info.textContent = "Ошибка";
-      setErr(e);
+      // До переезда на свою базу таблиц отчётов в инсталляции нет — говорим
+      // это прямо, иначе сообщение PostgREST ни о чём не скажет оператору.
+      const msg = String(e?.message || e);
+      setErr(/relation|does not exist|schema cache|404/i.test(msg)
+        ? new Error("Таблицы отчётов нет в базе — примени migrations/004_results.sql")
+        : e);
     } finally { btn.disabled = false; }
   };
 

@@ -46,12 +46,64 @@
   const today = new Date();
   const dk = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
+  // Прошедшие турниры для CRM: без них вкладки «Игроки» и «Отчёты» в песочнице
+  // пусты и проверить на них нечего. Шесть вечеров за полтора месяца — хватает,
+  // чтобы период («этот месяц», «прошлый месяц») отсекал часть списка.
+  function seedResults(players) {
+    const results = [], resultPlayers = [];
+    const POINTS = [40, 25, 15];
+    let prid = 5000;
+    for (let t = 0; t < 6; t++) {
+      const when = new Date(today);
+      when.setDate(when.getDate() - (t * 7 + 2));
+      when.setHours(19, 0, 0, 0);
+      const id = 500 + t;
+      const buyIn = t % 3 === 1 ? 1500 : 1000;
+      const roster = players.slice(0, 8 + (t % 4));
+      const head = {
+        id, report_key: `DEV${id}__${when.toISOString()}`, room_id: `DEV${id}`,
+        tournament_id: null, name: t % 3 === 1 ? "ПКО среда" : "Вечерний фриз-аут",
+        played_at: when.toISOString(), buy_in: buyIn, pko: t % 3 === 1,
+        players_count: roster.length, entries: 0, reentries: 0, addons: 0,
+        expected: 0, paid: 0, debt: 0, transfer: 0, cash: 0, card: 0,
+      };
+      roster.forEach((p, i) => {
+        // Порядок мест крутится от турнира к турниру — иначе один и тот же
+        // игрок всегда первый, и сортировки CRM не на чем проверить.
+        const place = ((i + t * 3) % roster.length) + 1;
+        const reentries = (i + t) % 5 === 0 ? 1 : 0;
+        const entries = 1 + reentries;
+        const expected = entries * buyIn;
+        // Последнему в списке долг — чтобы плашка долга была видна
+        const paid = i === roster.length - 1 && t === 0 ? expected - 500 : expected;
+        const method = ["transfer", "cash", "card"][(i + t) % 3];
+        const row = {
+          id: prid++, result_id: id, player_id: p.id, name: p.name, place,
+          entries, reentries, addon: false, ko: (place <= 3 ? 4 - place : 0) + ((i + t) % 2),
+          ko_pts: 0, points: place <= 3 ? POINTS[place - 1] : 0,
+          buy_in: buyIn, expected, paid, debt: Math.max(0, expected - paid),
+          transfer: 0, cash: 0, card: 0,
+        };
+        row[method] = paid;
+        resultPlayers.push(row);
+        head.entries += entries; head.reentries += reentries;
+        head.expected += expected; head.paid += paid; head.debt += row.debt;
+        head[method] += paid;
+      });
+      results.push(head);
+    }
+    return { results, resultPlayers };
+  }
+
   function seed() {
     const players = NAMES.map((name, i) => ({ id: 100 + i, name, full_name: `${name}, Киров` }));
     // Латиницей — чтобы транслит-поиск было на чём проверить
     players.push({ id: 90, name: "Petr Shabalin", full_name: "Пётр Шабалин, Слободской" });
     const tomorrow = new Date(Date.now() + 864e5);
+    const past = seedResults(players);
     return {
+      tournament_results: past.results,
+      tournament_result_players: past.resultPlayers,
       profiles: [
         { id: "dev-admin", email: "admin@vyatka.local", role: "admin" },
         { id: "dev-operator", email: "operator@vyatka.local", role: "operator" },
@@ -146,6 +198,8 @@
       return this;
     }
     eq(f, v) { this.filters.push((r) => String(r[f]) === String(v)); return this; }
+    lte(f, v) { this.filters.push((r) => String(r[f] ?? "") <= String(v)); return this; }
+    lt(f, v) { this.filters.push((r) => String(r[f] ?? "") < String(v)); return this; }
     // «name.ilike.%пет%,full_name.ilike.%пет%» — форма PostgREST, которой ищут игроков
     or(cond) {
       const terms = String(cond || "").split(",").map((t) => {
@@ -164,6 +218,9 @@
     maybeSingle() { this._single = true; return this; }
     single() { this._single = true; return this; }
     insert(row) { this.op = { kind: "insert", row }; return this; }
+    // Снимок турнира сохраняют по многу раз за вечер — CRM пишет шапку через
+    // upsert по report_key, и без него песочница плодила бы отчёт на каждое нажатие.
+    upsert(row, opts) { this.op = { kind: "upsert", row, onConflict: opts?.onConflict }; return this; }
     update(patch) { this.op = { kind: "update", patch }; return this; }
     delete() { this.op = { kind: "delete" }; return this; }
 
@@ -181,6 +238,20 @@
         }
         writeDb(db);
         return { data: list, error: null };
+      }
+      if (this.op.kind === "upsert") {
+        const list = Array.isArray(this.op.row) ? this.op.row : [this.op.row];
+        const key = this.op.onConflict || "id";
+        const saved = list.map((row) => {
+          const old = rows.find((r) => String(r[key]) === String(row[key]));
+          if (old) { Object.assign(old, row); return old; }
+          const fresh = { id: Date.now() + Math.floor(Math.random() * 1000), ...row };
+          rows.push(fresh);
+          return fresh;
+        });
+        writeDb(db);
+        const copy = saved.map((r) => ({ ...r }));
+        return this._single ? { data: copy[0] || null, error: null } : { data: copy, error: null };
       }
       if (this.op.kind === "update") {
         const touched = rows.filter(hit);
@@ -258,14 +329,11 @@
   // VP_BLUEPRINTS намеренно не трогаем: песочница должна идти тем же путём,
   // что и боевая админка, — через служебную строку в rooms.
 
-  // Наружу из песочницы ничего не уходит: отчёт в таблицу подтверждаем сами,
-  // остальное — явная ошибка, чтобы забытый вызов не постучался в боевую базу.
+  // Наружу из песочницы ничего не уходит: любой запрос — явная ошибка, чтобы
+  // забытый вызов не постучался в боевую базу. Отчёт теперь ложится в
+  // localStorage вместе с остальными таблицами, edge-функций не осталось.
   window.sbFetchFailover = async (input) => {
     const url = typeof input === "string" ? input : input?.url || "";
-    if (url.includes("/functions/v1/gsheets-proxy")) {
-      console.info("[dev] отчёт в таблицу не отправлен — песочница");
-      return new Response(JSON.stringify({ ok: true, dev: true }), { status: 200, headers: { "Content-Type": "application/json" } });
-    }
     throw new Error(`dev: запрос наружу заблокирован (${url})`);
   };
   window.syncServerClock = async () => { window.__serverClockOffsetMs = 0; return true; };

@@ -224,6 +224,19 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .payBtns button{padding:6px 10px;font-size:12px;border-radius:10px}
 button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
 
+/* ── CRM: строка игрока ──────────────────────────────────────── */
+/* Показателей у игрока больше, чем влезает в колонки: складываем их
+   переносимой лентой, чтобы на телефоне строка не уезжала вбок. */
+.crmRow{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--r-md);background:var(--surface);cursor:pointer}
+.crmRow+.crmRow{border-top:1px solid var(--line)}
+.crmRow:hover{background:var(--surface-2)}
+.crmMain{flex:1;min-width:0}
+.crmTop{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.crmName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.crmTop .tag{margin-left:auto}
+.crmTop .tag+.tag{margin-left:0}
+.crmMeta{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
+.crmMeta b{color:var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
 
 /* ── Нижняя навигация (как в приложении) ─────────────────────── */
 /* «Наверх» — над таб-баром, появляется только когда уже прокрутили */

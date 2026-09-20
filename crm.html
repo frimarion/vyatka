@@ -1,0 +1,416 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Вятка — CRM клуба</title>
+<link rel="stylesheet" href="css/app.css"/>
+</head>
+<body>
+
+<!-- ── Авторизация ─────────────────────────────────────────────────────── -->
+<div id="authLock" class="authLock">
+  <div class="authCard">
+    <div class="eyebrow">Vyatka Poker Club</div>
+    <h1 style="font-size:24px;margin:2px 0 14px">CRM клуба</h1>
+    <div class="field"><label>Логин</label>
+      <input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="admin"/></div>
+    <div class="field"><label>Пароль</label>
+      <input id="authPassword" type="password" autocomplete="current-password"/></div>
+    <button id="authBtn" type="button" style="width:100%">Войти</button>
+    <div id="authError" class="err"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="apphead">
+    <div>
+      <div class="eyebrow on-accent">Vyatka Poker Club</div>
+      <h1>CRM</h1>
+    </div>
+    <div class="headSide">
+      <span class="badge" id="badgeUser" style="display:none"><span id="userText">—</span></span>
+      <a class="badge light" href="admin.html" style="text-decoration:none">← Админка</a>
+      <button class="ghost tiny" id="btnRefresh" type="button" title="Перечитать из базы">↻</button>
+      <button class="ghost tiny" id="logoutBtn" type="button" style="display:none">Выйти</button>
+    </div>
+  </header>
+
+  <div id="err" class="err"></div>
+
+  <!-- ── Период: общий для обеих вкладок ───────────────────────────────── -->
+  <section class="card" id="screenPeriod" style="display:none">
+    <div class="cardHead"><h2>Период</h2><span class="tag" id="periodInfo">—</span></div>
+    <div class="btnrow" id="periodPresets" style="margin-bottom:10px">
+      <button class="ghost tiny" data-preset="week" type="button">Неделя</button>
+      <button class="ghost tiny" data-preset="month" type="button">Этот месяц</button>
+      <button class="ghost tiny" data-preset="prevMonth" type="button">Прошлый месяц</button>
+      <button class="ghost tiny" data-preset="quarter" type="button">Квартал</button>
+      <button class="ghost tiny" data-preset="year" type="button">Год</button>
+      <button class="ghost tiny" data-preset="all" type="button">Всё время</button>
+    </div>
+    <div class="grid2">
+      <div class="field" style="margin:0"><label>С</label><input id="dateFrom" type="date"/></div>
+      <div class="field" style="margin:0"><label>По</label><input id="dateTo" type="date"/></div>
+    </div>
+  </section>
+
+  <!-- ── Игроки ─────────────────────────────────────────────────────────── -->
+  <section id="screenPlayers" class="card" style="display:none">
+    <div class="cardHead"><h2>Игроки</h2><span class="tag" id="playersInfo">—</span></div>
+    <div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kpiLabel">Игроков</div><div class="kpiValue num" id="kPlayers">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="kTours">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Входов</div><div class="kpiValue num" id="kEntries">—</div></div>
+      <div class="kpi hot"><div class="kpiLabel">Ср. явка</div><div class="kpiValue num" id="kAvgField">—</div></div>
+    </div>
+    <div class="grid2" style="margin-bottom:10px">
+      <input id="playerSearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off"/>
+      <select id="playerSort">
+        <option value="games">Сортировка: турниров</option>
+        <option value="points">Очки призовой зоны</option>
+        <option value="wins">Победы</option>
+        <option value="ko">Нокауты</option>
+        <option value="avgPlace">Среднее место</option>
+        <option value="paid">Оплачено</option>
+        <option value="debt">Долг</option>
+        <option value="last">Последняя игра</option>
+        <option value="name">Имя</option>
+      </select>
+    </div>
+    <div id="playersList" class="list"></div>
+  </section>
+
+  <!-- ── Отчёты ─────────────────────────────────────────────────────────── -->
+  <section id="screenReports" class="card" style="display:none">
+    <div class="cardHead"><h2>Отчёты по турнирам</h2><span class="tag" id="reportInfo">—</span></div>
+    <div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="rTours">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Входов</div><div class="kpiValue num" id="rEntries">—</div></div>
+      <div class="kpi"><div class="kpiLabel">К оплате</div><div class="kpiValue num" id="rExpected">—</div></div>
+      <div class="kpi hot"><div class="kpiLabel">Собрано</div><div class="kpiValue num" id="rPaid">—</div></div>
+    </div>
+    <div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kpiLabel">📲 Перевод</div><div class="kpiValue num" id="rTransfer">—</div></div>
+      <div class="kpi"><div class="kpiLabel">💵 Наличные</div><div class="kpiValue num" id="rCash">—</div></div>
+      <div class="kpi"><div class="kpiLabel">💳 Карта</div><div class="kpiValue num" id="rCard">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Долг</div><div class="kpiValue num" id="rDebt">—</div></div>
+    </div>
+    <div class="btnrow" style="margin-bottom:12px">
+      <button id="btnExcel" type="button">⬇ Скачать Excel</button>
+      <span class="muted" id="excelInfo" style="align-self:center"></span>
+    </div>
+    <div id="reportList" class="list"></div>
+  </section>
+</div>
+
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button data-tab="players" class="active" type="button"><span class="ic">♣</span>Игроки</button>
+  <button data-tab="reports" type="button"><span class="ic">₽</span>Отчёты</button>
+</nav>
+
+<div class="modal" id="playerModal">
+  <div class="modalCard" style="width:min(560px,100%);max-height:90vh;overflow:auto">
+    <h2 id="pmName">Игрок</h2>
+    <div class="sub" id="pmMeta" style="margin-bottom:12px">—</div>
+    <div class="kpis" style="margin-bottom:12px">
+      <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="pmGames">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Победы</div><div class="kpiValue num" id="pmWins">—</div></div>
+      <div class="kpi"><div class="kpiLabel">Ноки</div><div class="kpiValue num" id="pmKo">—</div></div>
+      <div class="kpi hot"><div class="kpiLabel">Очки</div><div class="kpiValue num" id="pmPoints">—</div></div>
+    </div>
+    <div id="pmHistory" class="list"></div>
+    <div class="btnrow" style="margin-top:14px"><button id="pmClose" class="ghost" type="button">Закрыть</button></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="js/core.js"></script>
+<script src="js/crm.js"></script>
+<script src="js/xlsx.js"></script>
+<script src="js/devstub.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const { clampInt, fmtInt, escHtml, keyName, initials, NF } = window.VP;
+  const {
+    aggregatePlayers, sortPlayers, periodPreset, periodTotals,
+    dateKey, fmtDate, dayStart, dayEnd, buildWorkbook, nameKey,
+  } = window.VPCrm;
+
+  const TBL = window.VP_TABLES;
+  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
+
+  let profile = null;
+  let results = [];                 // шапки турниров периода
+  let rows = [];                    // строки игроков этих турниров
+  let aggregated = [];
+  let search = "";
+  let sortKey = "games";
+  let loadSeq = 0;                  // ответы приходят вразнобой — показываем самый свежий
+
+  const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
+
+  // ── Период ────────────────────────────────────────────────────────────────
+  // Живёт в localStorage: CRM открывают, чтобы посмотреть один и тот же месяц
+  // несколько раз подряд, и выставлять даты заново каждый заход — лишний шаг.
+  const PERIOD_KEY = "vp_crm_period";
+  function readPeriod() {
+    try {
+      const raw = JSON.parse(localStorage.getItem(PERIOD_KEY) || "null");
+      if (raw && typeof raw === "object") return { from: raw.from || "", to: raw.to || "" };
+    } catch (_) {}
+    return periodPreset("month");
+  }
+  function currentPeriod() { return { from: $("dateFrom").value || "", to: $("dateTo").value || "" }; }
+  function setPeriod(p) {
+    $("dateFrom").value = p.from || "";
+    $("dateTo").value = p.to || "";
+    try { localStorage.setItem(PERIOD_KEY, JSON.stringify(currentPeriod())); } catch (_) {}
+    const { from, to } = currentPeriod();
+    $("periodInfo").textContent = from || to
+      ? `${from ? fmtDate(dayStart(from)) : "начало"} — ${to ? fmtDate(dayStart(to)) : "сегодня"}`
+      : "всё время";
+  }
+
+  // ── Загрузка ──────────────────────────────────────────────────────────────
+  // Строки игроков тянем пачками по result_id: PostgREST кладёт in(...) в URL,
+  // и на отчёте за год список id перерос бы длину строки запроса.
+  async function fetchResultPlayers(ids) {
+    const out = [];
+    for (let i = 0; i < ids.length; i += 60) {
+      const chunk = ids.slice(i, i + 60);
+      const { data, error } = await sb.from(TBL.resultPlayers).select("*").in("result_id", chunk);
+      if (error) throw error;
+      out.push(...(data || []));
+    }
+    return out;
+  }
+
+  async function load() {
+    const seq = ++loadSeq;
+    const { from, to } = currentPeriod();
+    setErr(null);
+    $("playersList").innerHTML = '<div class="muted">Загрузка…</div>';
+    $("reportList").innerHTML = '<div class="muted">Загрузка…</div>';
+    try {
+      let q = sb.from(TBL.results).select("*").order("played_at", { ascending: false }).limit(500);
+      if (from) q = q.gte("played_at", dayStart(from).toISOString());
+      if (to) q = q.lte("played_at", dayEnd(to).toISOString());
+      const { data, error } = await q;
+      if (error) throw error;
+      const heads = data || [];
+      const players = heads.length ? await fetchResultPlayers(heads.map((r) => r.id)) : [];
+      if (seq !== loadSeq) return;                       // приехал ответ на прошлый период
+      results = heads;
+      rows = players;
+      aggregated = aggregatePlayers(rows, results);
+      renderAll();
+    } catch (e) {
+      if (seq !== loadSeq) return;
+      results = []; rows = []; aggregated = [];
+      renderAll();
+      // Пока клуб не переехал на свою базу, таблиц отчётов в инсталляции нет:
+      // объясняем это прямо, иначе пустая CRM выглядит как потерянные данные.
+      const msg = String(e?.message || e);
+      setErr(/relation|does not exist|schema cache|404/i.test(msg)
+        ? new Error("Таблицы отчётов нет в базе — примени migrations/004_results.sql")
+        : e);
+    }
+  }
+
+  // ── Игроки ────────────────────────────────────────────────────────────────
+  function renderPlayers() {
+    const box = $("playersList");
+    const totals = periodTotals(results);
+    $("kPlayers").textContent = fmtInt(aggregated.length);
+    $("kTours").textContent = fmtInt(totals.tournaments);
+    $("kEntries").textContent = fmtInt(totals.entries);
+    $("kAvgField").textContent = totals.tournaments ? (Math.round(totals.avgEntries * 10) / 10).toString().replace(".", ",") : "—";
+
+    const visible = aggregated.filter((p) => !search || keyName(p.name).includes(search));
+    $("playersInfo").textContent = aggregated.length
+      ? `${visible.length} из ${aggregated.length}`
+      : "нет сохранённых турниров";
+    if (!aggregated.length) {
+      box.innerHTML = '<div class="muted">За этот период сохранённых турниров нет. Отчёт кладёт админка — вкладка «Оплата», кнопка «Сохранить отчёт».</div>';
+      return;
+    }
+    if (!visible.length) { box.innerHTML = '<div class="muted">Никого не нашли.</div>'; return; }
+
+    box.innerHTML = sortPlayers(visible, sortKey).map((p) => {
+      const avg = p.avgPlace == null ? "—" : (Math.round(p.avgPlace * 10) / 10).toString().replace(".", ",");
+      const last = p.lastPlayedAt ? fmtDate(p.lastPlayedAt) : "—";
+      const debt = p.debt > 0 ? `<span class="tag hot">долг ${NF.format(p.debt)} ₽</span>` : "";
+      return `<div class="crmRow" data-key="${escHtml(p.key)}">
+        <span class="avatar">${escHtml(initials(p.name))}</span>
+        <div class="crmMain">
+          <div class="crmTop"><span class="crmName">${escHtml(p.name)}</span>${debt}<span class="tag">${fmtInt(p.games)} тур.</span></div>
+          <div class="crmMeta">
+            <span>входов <b>${fmtInt(p.entries)}</b></span>
+            <span>побед <b>${fmtInt(p.wins)}</b></span>
+            <span>топ-3 <b>${fmtInt(p.top3)}</b></span>
+            <span>в призах <b>${fmtInt(p.itm)}</b></span>
+            <span>ср. место <b>${avg}</b></span>
+            <span>ноки <b>${fmtInt(p.ko)}</b></span>
+            <span>очки <b>${fmtInt(p.points)}</b></span>
+            <span>оплачено <b>${NF.format(p.paid)} ₽</b></span>
+            <span>последняя <b>${last}</b></span>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+    box.querySelectorAll("[data-key]").forEach((el) => {
+      el.onclick = () => openPlayer(el.dataset.key);
+    });
+  }
+
+  // История игрока — те же строки, из которых собрана сводка, только его.
+  function openPlayer(key) {
+    const p = aggregated.find((x) => x.key === key);
+    if (!p) return;
+    const byResult = new Map(results.map((r) => [String(r.id), r]));
+    const mine = rows.filter((r) => {
+      const rowKey = r.player_id != null ? `id:${r.player_id}` : `nm:${nameKey(r.name)}`;
+      return rowKey === p.key || (p.player_id != null && r.player_id == null && nameKey(r.name) === nameKey(p.name));
+    });
+    $("pmName").textContent = p.name;
+    $("pmMeta").textContent = p.player_id != null
+      ? `id ${p.player_id} · последняя игра ${p.lastPlayedAt ? fmtDate(p.lastPlayedAt) : "—"}`
+      : "нет в базе игроков · сведён по имени";
+    $("pmGames").textContent = fmtInt(p.games);
+    $("pmWins").textContent = fmtInt(p.wins);
+    $("pmKo").textContent = fmtInt(p.ko);
+    $("pmPoints").textContent = fmtInt(p.points);
+    $("pmHistory").innerHTML = mine
+      .slice()
+      .sort((a, b) => new Date(byResult.get(String(b.result_id))?.played_at || 0) - new Date(byResult.get(String(a.result_id))?.played_at || 0))
+      .map((r) => {
+        const head = byResult.get(String(r.result_id));
+        const place = Number(r.place) > 0 ? `${r.place} место` : "в игре";
+        const debt = clampInt(r.debt, 0) > 0 ? ` · долг ${NF.format(clampInt(r.debt, 0))} ₽` : "";
+        return `<div class="listRow">
+          <span class="nm">${escHtml(head?.name || "Турнир")}
+            <div class="muted">${head ? fmtDate(head.played_at) : "—"} · входов ${clampInt(r.entries, 0)} · ноков ${clampInt(r.ko, 0)} · оплачено ${NF.format(clampInt(r.paid, 0))} ₽${debt}</div></span>
+          <span class="tag${Number(r.place) === 1 ? " gold" : ""}">${place}</span>
+        </div>`;
+      }).join("") || '<div class="muted">Нет турниров в периоде.</div>';
+    $("playerModal").classList.add("show");
+  }
+  $("pmClose").onclick = () => $("playerModal").classList.remove("show");
+  $("playerModal").onclick = (e) => { if (e.target === $("playerModal")) $("playerModal").classList.remove("show"); };
+
+  // ── Отчёты ────────────────────────────────────────────────────────────────
+  function renderReports() {
+    const t = periodTotals(results);
+    $("rTours").textContent = fmtInt(t.tournaments);
+    $("rEntries").textContent = fmtInt(t.entries);
+    $("rExpected").textContent = NF.format(t.expected);
+    $("rPaid").textContent = NF.format(t.paid);
+    $("rTransfer").textContent = NF.format(t.transfer);
+    $("rCash").textContent = NF.format(t.cash);
+    $("rCard").textContent = NF.format(t.card);
+    $("rDebt").textContent = NF.format(t.debt);
+    $("reportInfo").textContent = t.tournaments ? `${t.tournaments} турнир(ов)` : "пусто";
+    $("btnExcel").disabled = !t.tournaments;
+
+    const box = $("reportList");
+    if (!results.length) {
+      box.innerHTML = '<div class="muted">За этот период ничего не сохранено.</div>';
+      return;
+    }
+    box.innerHTML = results.slice().sort((a, b) => new Date(b.played_at) - new Date(a.played_at)).map((r) => {
+      const debt = clampInt(r.debt, 0);
+      return `<div class="listRow">
+        <span class="nm">${escHtml(r.name || "Без названия")}
+          <div class="muted">${fmtDate(r.played_at)} · ${clampInt(r.players_count, 0)} игроков · входов ${clampInt(r.entries, 0)}${r.pko ? " · ПКО" : ""}
+            <span class="mono">${escHtml(r.room_id || "")}</span></div></span>
+        <span class="tag${debt > 0 ? " hot" : " ok"}">${NF.format(clampInt(r.paid, 0))} ₽${debt > 0 ? ` · долг ${NF.format(debt)}` : ""}</span>
+      </div>`;
+    }).join("");
+  }
+
+  $("btnExcel").onclick = () => {
+    const info = $("excelInfo");
+    try {
+      const { from, to } = currentPeriod();
+      const wb = buildWorkbook({ results, rows, from, to });
+      window.VPXlsx.download(wb.fileName, wb.sheets);
+      info.textContent = `Готово: ${wb.totals.tournaments} турнир(ов), ${rows.length} строк`;
+    } catch (e) {
+      console.error("excel", e);
+      info.textContent = "Ошибка";
+      setErr(e);
+    }
+  };
+
+  function renderAll() { renderPlayers(); renderReports(); }
+
+  // ── Вкладки ───────────────────────────────────────────────────────────────
+  const TABS = { players: ["screenPeriod", "screenPlayers"], reports: ["screenPeriod", "screenReports"] };
+  const ALL = ["screenPeriod", "screenPlayers", "screenReports"];
+  function switchTab(tab) {
+    ALL.forEach((id) => { $(id).style.display = "none"; });
+    (TABS[tab] || TABS.players).forEach((id) => { $(id).style.display = ""; });
+    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+  document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
+
+  document.querySelectorAll("#periodPresets button").forEach((b) => {
+    b.onclick = () => { setPeriod(periodPreset(b.dataset.preset)); load(); };
+  });
+  $("dateFrom").onchange = () => { setPeriod(currentPeriod()); load(); };
+  $("dateTo").onchange = () => { setPeriod(currentPeriod()); load(); };
+  $("playerSearch").oninput = (e) => { search = keyName(e.target.value); renderPlayers(); };
+  $("playerSort").onchange = (e) => { sortKey = e.target.value; renderPlayers(); };
+  $("btnRefresh").onclick = () => load();
+
+  // ── Авторизация ───────────────────────────────────────────────────────────
+  const showLock = () => { $("authLock").classList.add("show"); document.documentElement.classList.add("locked"); };
+  const hideLock = () => { $("authLock").classList.remove("show"); document.documentElement.classList.remove("locked"); };
+
+  async function checkAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showLock(); return; }
+    hideLock();
+    $("logoutBtn").style.display = "";
+    $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    try {
+      const { data } = await sb.from(TBL.profiles).select("id,email,role").eq("id", session.user.id).maybeSingle();
+      profile = data || null;
+    } catch (e) { profile = null; }
+    if (profile) {
+      $("badgeUser").style.display = "";
+      $("userText").textContent = `${profile.email || "—"} · ${profile.role === "operator" ? "оператор" : "админ"}`;
+    }
+    $("tabbar").style.display = "";
+    switchTab("players");
+    setPeriod(readPeriod());
+    load();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    checkAuth();
+    sb.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") showLock(); });
+    const tryLogin = async () => {
+      const err = $("authError");
+      err.textContent = "Вход…";
+      try {
+        let email = $("authEmail").value.trim();
+        if (!email.includes("@")) email = email.toLowerCase() + "@doyle.ru";
+        const { error } = await sb.auth.signInWithPassword({ email, password: $("authPassword").value });
+        if (error) { err.textContent = "Неверный логин или пароль"; return; }
+        err.textContent = "";
+        await checkAuth();
+      } catch (e) { err.textContent = e.message || String(e); }
+    };
+    $("authBtn").onclick = tryLogin;
+    $("authPassword").onkeydown = (e) => { if (e.key === "Enter") tryLogin(); };
+  });
+})();
+</script>
+</body>
+</html>

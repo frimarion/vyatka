@@ -26,6 +26,11 @@ window.VP_TABLES = {
   tournaments: "doyle_tournaments",
   registrations: "doyle_registrations",
   players: "doyle_players",
+  // Итоги турниров — хранилище CRM (migrations/004_results.sql). Таблицы свои
+  // с самого начала: в дойловской инсталляции их нет, и до переезда CRM скажет
+  // об этом прямо, вместо того чтобы показать пустой список как «нет турниров».
+  results: "tournament_results",
+  resultPlayers: "tournament_result_players",
 };
 
 // ── Макеты турниров ──────────────────────────────────────────────────────────
