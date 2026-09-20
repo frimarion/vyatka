@@ -11,7 +11,7 @@
 <!-- ── Авторизация ─────────────────────────────────────────────────────── -->
 <div id="authLock" class="authLock">
   <div class="authCard">
-    <div class="eyebrow">Vyatka Poker Club</div>
+    <img class="logoMark lg" src="assets/logo.svg" alt="Vyatka Poker Club"/>
     <h1 style="margin:4px 0 14px;">Вход</h1>
     <div class="field"><label>Логин или email</label>
       <input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="admin"/></div>
@@ -25,7 +25,7 @@
 <div class="wrap">
   <header class="apphead">
     <div>
-      <div class="eyebrow on-accent">Vyatka Poker Club</div>
+      <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
       <h1 id="headTitle">Админка</h1>
     </div>
     <div class="headSide">
@@ -163,10 +163,10 @@
   <!-- ── Призовая зона ─────────────────────────────────────────────────── -->
   <section id="screenRating" class="card" style="display:none">
     <div class="cardHead"><h2>Призовая зона</h2><span class="tag" id="ratingState">выключена</span></div>
-    <div class="sub" style="margin-bottom:10px">Очки рейтинга: вход = 10 очков, ПКО забирает 4 из них в головы. Показывается на дисплее.</div>
+    <div class="sub" style="margin-bottom:10px">Очки рейтинга: вход = 100 очков, весь банк идёт по местам — ноки в рейтинге не учитываются. Показывается на дисплее.</div>
     <div class="row2" style="margin-bottom:10px">
-      <div class="field" style="margin:0"><label>Гарантия очков</label>
-        <input id="ratingGuarantee" type="number" min="0" step="10" value="800" inputmode="numeric"/></div>
+      <div class="field" style="margin:0"><label>Гарантия очков (0 — без гарантии)</label>
+        <input id="ratingGuarantee" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
       <div style="display:flex;align-items:flex-end;gap:8px">
         <button id="btnCalcRating" type="button">Рассчитать</button>
         <button id="btnHideRating" class="ghost" type="button">Скрыть</button>
@@ -1997,7 +1997,7 @@
     setIfNotFocused("defaultBuyIn", t.defaultBuyIn);
     setIfNotFocused("addonChips", t.addonChips);
     setIfNotFocused("addonCost", t.addonCost);
-    setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 800);
+    setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 0);
     setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
     setIfNotFocused("infoComment", state.info?.comment ?? "");
     if (document.activeElement !== $("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;

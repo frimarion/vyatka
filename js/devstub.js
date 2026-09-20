@@ -44,7 +44,6 @@
     "Евгений Помаскин","Олег Суслопаров","Данил Русских"];
 
   const today = new Date();
-  const dk = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
   // Прошедшие турниры для CRM: без них вкладки «Игроки» и «Отчёты» в песочнице
   // пусты и проверить на них нечего. Шесть вечеров за полтора месяца — хватает,
@@ -62,7 +61,9 @@
       const roster = players.slice(0, 8 + (t % 4));
       const head = {
         id, report_key: `DEV${id}__${when.toISOString()}`, room_id: `DEV${id}`,
-        tournament_id: null, name: t % 3 === 1 ? "ПКО среда" : "Вечерний фриз-аут",
+        // Свежий вечер привязан к турниру №4 — на нём в приложении видно
+        // «Как закончилось»; остальные лежат без привязки, как отчёты из комнат.
+        tournament_id: t === 0 ? 4 : null, name: t % 3 === 1 ? "ПКО среда" : "Вечерний фриз-аут",
         played_at: when.toISOString(), buy_in: buyIn, pko: t % 3 === 1,
         players_count: roster.length, entries: 0, reentries: 0, addons: 0,
         expected: 0, paid: 0, debt: 0, transfer: 0, cash: 0, card: 0,
@@ -95,11 +96,25 @@
     return { results, resultPlayers };
   }
 
+  // Игрок приложения. Первый в списке — «свой» телефон: его tg_id совпадает с
+  // подменённым initData, поэтому app.html?dev=1 входит сразу и с историей.
+  const DEV_TG = { id: 501234567, first_name: "Андрей", last_name: "Кузнецов", username: "vyatka_dev" };
+
+  // Дата со временем, а не «день»: карточка турнира в приложении показывает час,
+  // и на одной календарной дате она всегда писала бы «00:00».
+  const at = (daysFromToday, hour) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() + daysFromToday);
+    d.setHours(hour, 0, 0, 0);
+    return d.toISOString();
+  };
+
   function seed() {
     const players = NAMES.map((name, i) => ({ id: 100 + i, name, full_name: `${name}, Киров` }));
+    players[0].tg_id = DEV_TG.id;
+    players[0].tg_username = DEV_TG.username;
     // Латиницей — чтобы транслит-поиск было на чём проверить
     players.push({ id: 90, name: "Petr Shabalin", full_name: "Пётр Шабалин, Слободской" });
-    const tomorrow = new Date(Date.now() + 864e5);
     const past = seedResults(players);
     return {
       tournament_results: past.results,
@@ -109,13 +124,27 @@
         { id: "dev-operator", email: "operator@vyatka.local", role: "operator" },
       ],
       players,
+      player_sessions: [],
       tournaments: [
-        { id: 1, name: "Вечерний фриз-аут", date: dk(today), status: "open", entry_fee: 1000, room_id: null, registered_count: 8 },
-        { id: 2, name: "ПКО среда", date: dk(tomorrow), status: "draft", entry_fee: 1500, room_id: null, registered_count: 0 },
+        { id: 1, name: "Вечерний фриз-аут", date: at(0, 19), status: "open", entry_fee: 1000, slots: 45,
+          room_id: null, registered_count: 8, start_stack: 30000, level_minutes: 16, late_reg_level: 9,
+          description: "Классика вечера: фриз-аут с одним реентри до конца поздней регистрации.",
+          features: ["BB ante", "Один реентри", "Бонус за руку дня"] },
+        { id: 2, name: "ПКО среда", date: at(1, 19), status: "open", entry_fee: 1500, slots: 36,
+          room_id: null, registered_count: 0, start_stack: 25000, level_minutes: 15, late_reg_level: 8,
+          description: "Половина взноса уходит за головы — выбиваешь и забираешь.",
+          features: ["ПКО: 50% за голову", "Аддон 20 000 фишек"] },
+        { id: 3, name: "Глубокий стек", date: at(4, 18), status: "draft", entry_fee: 2000, slots: 27,
+          room_id: null, registered_count: 0, start_stack: 50000, level_minutes: 20, late_reg_level: 12,
+          description: "", features: ["Уровни 20 минут"] },
+        // Прошедший — чтобы в приложении была вкладка «Прошедшие», а не пустота
+        { id: 4, name: "Вятский Дейли", date: at(-7, 19), status: "past", entry_fee: 1000, slots: 45,
+          room_id: null, registered_count: 11, start_stack: 30000, level_minutes: 16, late_reg_level: 9,
+          description: "", features: [] },
       ],
       // восьмеро уже записались на сегодняшний — есть что импортировать
       registrations: players.slice(0, 8).map((p, i) => ({
-        id: 200 + i, tournament_id: 1, player_id: p.id,
+        id: 200 + i, tournament_id: 1, player_id: p.id, status: "registered",
         created_at: new Date(Date.now() - (8 - i) * 6e4).toISOString(),
       })),
       tournament_operators: [],
@@ -153,6 +182,40 @@
   const bus = ("BroadcastChannel" in window) ? new BroadcastChannel("vp-dev-bus") : null;
   const channels = new Set();
   if (bus) bus.onmessage = (ev) => channels.forEach((ch) => ch._deliver(ev.data));
+
+  // ── Триггеры вокруг регистраций ────────────────────────────────────────────
+  // В базе за это отвечают sync_registered_count и sync_registration_to_room
+  // (001_init.sql) плюс vp_unsync_registration (005). Без них в песочнице счётчик
+  // записавшихся врёт, а запись из приложения не доезжает в открытую комнату —
+  // то есть проверить как раз то, что связывает приложение с админкой, нельзя.
+  const nkey = (s) => String(s ?? "").toLowerCase().replace(/[ёйЁЙ]/g, (c) => ({ "ё": "е", "Ё": "е", "й": "и", "Й": "и" }[c])).replace(/\s+/g, " ").trim();
+
+  function devSyncRegistrations(db) {
+    const regs = db.registrations || [];
+    const players = db.players || [];
+    (db.tournaments || []).forEach((t) => {
+      t.registered_count = regs.filter((r) => String(r.tournament_id) === String(t.id) && r.status !== "cancelled").length;
+      if (!t.room_id) return;
+      const room = (db.rooms || []).find((r) => r.room_id === t.room_id);
+      if (!room?.state) return;
+      const list = Array.isArray(room.state.players) ? room.state.players : (room.state.players = []);
+      regs.filter((r) => String(r.tournament_id) === String(t.id)).forEach((r) => {
+        const p = players.find((x) => String(x.id) === String(r.player_id));
+        if (!p) return;
+        const k = nkey(p.name);
+        const i = list.findIndex((pl) =>
+          (pl.player_id != null && String(pl.player_id) === String(r.player_id)) || nkey(pl.name) === k);
+        if (r.status === "cancelled") {
+          // Тронутого за столом не убираем: статистика вечера уже на нём.
+          if (i >= 0 && !list[i].present && !list[i].reentries && list[i].bustOrder == null) list.splice(i, 1);
+        } else if (i < 0) {
+          list.push({ name: p.name, player_id: p.id, present: false, reentries: 0, status: "registered", ko: 0, koPts: 0 });
+        } else if (list[i].player_id == null) {
+          list[i].player_id = p.id;
+        }
+      });
+    });
+  }
 
   const matchFilter = (filter, row) => {
     if (!filter) return true;
@@ -224,6 +287,16 @@
     update(patch) { this.op = { kind: "update", patch }; return this; }
     delete() { this.op = { kind: "delete" }; return this; }
 
+    // Запись в хранилище плюс то, что в базе делают триггеры. Комнаты
+    // рассылаем соседним вкладкам: дисплей и админка слушают именно rooms.
+    _save(db) {
+      if (this.table === "registrations") devSyncRegistrations(db);
+      writeDb(db);
+      if (this.table === "registrations") {
+        (db.rooms || []).forEach((r) => bus?.postMessage({ kind: "pg", table: "rooms", new: JSON.parse(JSON.stringify(r)) }));
+      }
+    }
+
     _run() {
       const db = readDb();
       const rows = (db[this.table] = db[this.table] || []);
@@ -234,35 +307,44 @@
         for (const row of list) {
           const dup = this.table === "rooms" && rows.some((r) => r.room_id === row.room_id);
           if (dup) return { data: null, error: { message: "duplicate key value violates unique constraint" } };
-          rows.push({ id: row.id ?? Date.now() + Math.floor(Math.random() * 1000), ...row });
+          // Колонки со `default` в базе: без них новый турнир уезжает в
+          // приложение с registered_count = undefined.
+          const defaults = this.table === "tournaments" ? { registered_count: 0, features: [] } : {};
+          rows.push({ id: row.id ?? Date.now() + Math.floor(Math.random() * 1000), created_at: new Date().toISOString(), ...defaults, ...row });
         }
-        writeDb(db);
+        this._save(db);
         return { data: list, error: null };
       }
       if (this.op.kind === "upsert") {
         const list = Array.isArray(this.op.row) ? this.op.row : [this.op.row];
-        const key = this.op.onConflict || "id";
+        // onConflict бывает составным: регистрация уникальна парой (турнир, игрок).
+        const keys = String(this.op.onConflict || "id").split(",").map((s) => s.trim()).filter(Boolean);
         const saved = list.map((row) => {
-          const old = rows.find((r) => String(r[key]) === String(row[key]));
+          const old = rows.find((r) => keys.every((k) => String(r[k]) === String(row[k])));
           if (old) { Object.assign(old, row); return old; }
-          const fresh = { id: Date.now() + Math.floor(Math.random() * 1000), ...row };
+          const fresh = { id: Date.now() + Math.floor(Math.random() * 1000), created_at: new Date().toISOString(), ...row };
           rows.push(fresh);
           return fresh;
         });
-        writeDb(db);
+        this._save(db);
         const copy = saved.map((r) => ({ ...r }));
         return this._single ? { data: copy[0] || null, error: null } : { data: copy, error: null };
       }
       if (this.op.kind === "update") {
         const touched = rows.filter(hit);
         touched.forEach((r) => Object.assign(r, this.op.patch));
-        writeDb(db);
+        this._save(db);
         touched.forEach((r) => bus?.postMessage({ kind: "pg", table: this.table, new: JSON.parse(JSON.stringify(r)) }));
         return { data: touched, error: null };
       }
       if (this.op.kind === "delete") {
         db[this.table] = rows.filter((r) => !hit(r));
-        writeDb(db);
+        // Удаление турнира уносит его регистрации: в базе это on delete cascade.
+        if (this.table === "tournaments") {
+          const alive = new Set((db.tournaments || []).map((t) => String(t.id)));
+          db.registrations = (db.registrations || []).filter((r) => alive.has(String(r.tournament_id)));
+        }
+        this._save(db);
         return { data: null, error: null };
       }
 
@@ -290,6 +372,148 @@
     }
   }
 
+  // ── Приложение игрока ──────────────────────────────────────────────────────
+  // Подписи Telegram в песочнице нет: «initData» — это просто JSON пользователя,
+  // и vp_app_login читает из него id, ничего не проверяя. На бою так нельзя
+  // (см. 005_player_app.sql), и именно поэтому стаб живёт только на localhost.
+  window.VP_DEV_INIT_DATA = "dev:" + JSON.stringify(DEV_TG);
+
+  const playerJson = (p) => (p ? {
+    id: p.id, name: p.name, full_name: p.full_name ?? null, phone: p.phone ?? null,
+    tg_id: p.tg_id ?? null, tg_username: p.tg_username ?? null,
+    photo_url: p.photo_url ?? null, games_played: p.games_played ?? 0,
+  } : null);
+
+  const fail = (code) => ({ data: null, error: { message: code } });
+
+  function sessionPlayerId(db, token) {
+    const s = (db.player_sessions || []).find((x) => x.token === token);
+    return s ? s.player_id : null;
+  }
+
+  // Ответ vp_app_me целиком: профиль, свои записи и история из снимков CRM.
+  function appMe(db, pid) {
+    const heads = {};
+    (db.tournament_results || []).forEach((r) => { heads[r.id] = r; });
+    const me = (db.players || []).find((p) => String(p.id) === String(pid));
+    const key = nkey(me?.name);
+    const history = (db.tournament_result_players || [])
+      .filter((r) => String(r.player_id) === String(pid) || (r.player_id == null && nkey(r.name) === key))
+      .map((r) => {
+        const h = heads[r.result_id] || {};
+        return { name: h.name || "Турнир", played_at: h.played_at || null, place: r.place ?? null, ko: r.ko || 0, points: r.points || 0, entries: r.entries || 1 };
+      })
+      .sort((a, b) => String(b.played_at || "").localeCompare(String(a.played_at || "")));
+    return {
+      player: playerJson(me),
+      registrations: (db.registrations || [])
+        .filter((r) => String(r.player_id) === String(pid) && r.status !== "cancelled")
+        .map((r) => Number(r.tournament_id)),
+      history,
+    };
+  }
+
+  const APP_RPC = {
+    vp_app_login(db, args) {
+      const raw = String(args?.p_init_data || "");
+      if (!raw.startsWith("dev:")) return fail("init_data_invalid");
+      const user = JSON.parse(raw.slice(4));
+      let p = (db.players || []).find((x) => String(x.tg_id) === String(user.id));
+      if (!p) {
+        const name = String(args?.p_name || [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "").trim();
+        if (name.length < 2) return fail("invalid_name");
+        p = (db.players || []).find((x) => nkey(x.name) === nkey(name) && x.tg_id == null);
+        if (p) { p.tg_id = user.id; p.tg_username = user.username || null; }
+        else if ((db.players || []).some((x) => nkey(x.name) === nkey(name))) return fail("name_taken");
+        else {
+          p = { id: Date.now(), name, tg_id: user.id, tg_username: user.username || null, games_played: 0 };
+          db.players.push(p);
+        }
+      }
+      const token = ("dev" + Math.random().toString(36).slice(2)).padEnd(40, "0");
+      db.player_sessions = (db.player_sessions || []).filter((s) => String(s.player_id) !== String(p.id));
+      db.player_sessions.push({ token, player_id: p.id });
+      return { data: { token, player: playerJson(p) }, error: null };
+    },
+    vp_app_logout(db, args) {
+      db.player_sessions = (db.player_sessions || []).filter((s) => s.token !== args?.p_token);
+      return { data: null, error: null };
+    },
+    vp_app_me(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      return { data: appMe(db, pid), error: null };
+    },
+    vp_app_update_profile(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const p = db.players.find((x) => String(x.id) === String(pid));
+      const name = String(args?.p_name || "").trim();
+      if (name) {
+        if (name.length < 2) return fail("invalid_name");
+        if (db.players.some((x) => String(x.id) !== String(pid) && nkey(x.name) === nkey(name))) return fail("name_taken");
+        p.name = name;
+      }
+      if (args?.p_full_name) p.full_name = String(args.p_full_name).trim();
+      if (args?.p_phone) p.phone = String(args.p_phone).trim();
+      return { data: playerJson(p), error: null };
+    },
+    vp_app_register(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const t = (db.tournaments || []).find((x) => String(x.id) === String(args?.p_tournament_id));
+      if (!t) return fail("tournament_not_found");
+      if (!["open", "running"].includes(t.status)) return fail("registration_closed");
+      const mine = (db.registrations || []).find((r) => String(r.tournament_id) === String(t.id) && String(r.player_id) === String(pid));
+      const taken = (db.registrations || []).filter((r) => String(r.tournament_id) === String(t.id) && r.status !== "cancelled").length;
+      if (t.slots != null && taken >= t.slots && (!mine || mine.status === "cancelled")) return fail("tournament_full");
+      if (mine) { mine.status = "registered"; mine.created_at = new Date().toISOString(); }
+      else db.registrations.push({ id: Date.now(), tournament_id: t.id, player_id: pid, status: "registered", created_at: new Date().toISOString() });
+      devSyncRegistrations(db);
+      return { data: { registered: true, registered_count: t.registered_count }, error: null };
+    },
+    vp_app_cancel(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const t = (db.tournaments || []).find((x) => String(x.id) === String(args?.p_tournament_id));
+      (db.registrations || []).forEach((r) => {
+        if (String(r.tournament_id) === String(args?.p_tournament_id) && String(r.player_id) === String(pid)) r.status = "cancelled";
+      });
+      devSyncRegistrations(db);
+      return { data: { registered: false, registered_count: t?.registered_count ?? 0 }, error: null };
+    },
+    vp_tournament_roster(db, args) {
+      const rows = (db.registrations || [])
+        .filter((r) => String(r.tournament_id) === String(args?.p_tournament_id) && r.status !== "cancelled")
+        .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
+        .map((r) => {
+          const p = (db.players || []).find((x) => String(x.id) === String(r.player_id));
+          return p ? { player_id: p.id, name: p.name, registered_at: r.created_at } : null;
+        }).filter(Boolean);
+      return { data: rows, error: null };
+    },
+    vp_tournament_results(db, args) {
+      const t = (db.tournaments || []).find((x) => String(x.id) === String(args?.p_tournament_id));
+      if (!t || t.status !== "past") return { data: [], error: null };
+      const ids = (db.tournament_results || [])
+        .filter((r) => String(r.tournament_id) === String(t.id)).map((r) => String(r.id));
+      const rows = (db.tournament_result_players || [])
+        .filter((r) => ids.includes(String(r.result_id)))
+        .map((r) => ({ place: r.place ?? null, name: r.name, ko: r.ko || 0, points: r.points || 0 }))
+        .sort((a, b) => (a.place == null) - (b.place == null) || (a.place || 0) - (b.place || 0));
+      return { data: rows, error: null };
+    },
+    vp_unsync_registration(db, args) {
+      (db.registrations || []).forEach((r) => {
+        if (String(r.tournament_id) === String(args?.p_tournament_id) && String(r.player_id) === String(args?.p_player_id)) {
+          r.status = "cancelled";
+        }
+      });
+      devSyncRegistrations(db);
+      return { data: null, error: null };
+    },
+  };
+
   // ── Клиент ─────────────────────────────────────────────────────────────────
   const getProfileId = () => { try { return localStorage.getItem(ME_KEY) || "dev-admin"; } catch (_) { return "dev-admin"; } };
   let signedOut = false;
@@ -302,6 +526,17 @@
         return { data: [{ lock_owner: args?.p_owner, lock_until: new Date(Date.now() + 6000).toISOString() }], error: null };
       }
       if (name === "server_time_ms") return { data: Date.now(), error: null };
+      if (APP_RPC[name]) {
+        const db = readDb();
+        let res;
+        try { res = APP_RPC[name](db, args) || { data: null, error: null }; }
+        catch (e) { return { data: null, error: { message: String(e?.message || e) } }; }
+        if (!res.error) {
+          writeDb(db);
+          (db.rooms || []).forEach((r) => bus?.postMessage({ kind: "pg", table: "rooms", new: JSON.parse(JSON.stringify(r)) }));
+        }
+        return res;
+      }
       return { data: null, error: { message: `dev: rpc ${name} не реализован` } };
     },
     channel: (name) => new DevChannel(name),

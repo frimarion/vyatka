@@ -1,0 +1,676 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<title>Вятка — расписание турниров</title>
+<link rel="stylesheet" href="css/app.css"/>
+<style>
+/* Карточка турнира в админке: строка списка с хвостом кнопок, который на
+   телефоне переносится под неё, а не уезжает за край. */
+.tRow{background:var(--surface);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:15px 16px;margin-bottom:12px}
+.tRow .tTop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap}
+.tRow .tName{font-size:17px;font-weight:900;letter-spacing:-.02em;flex:1;min-width:140px}
+.tRow .tPills{display:flex;flex-wrap:wrap;gap:6px;margin-top:9px}
+.tRow .tBtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
+.tRow .tBtns button,.tRow .tBtns a{padding:7px 11px;font-size:12px;border-radius:10px;text-decoration:none}
+.tRow.isPast{opacity:.8}
+.regPanel{margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
+.sPill{font-size:11px;font-weight:800;padding:3px 9px;border-radius:999px}
+.s-open{background:rgba(46,125,79,.14);color:var(--ok)}
+.s-draft{background:var(--surface-2);color:var(--muted)}
+.s-running{background:var(--accent);color:var(--surface)}
+.s-past{background:var(--surface-2);color:var(--ink-2)}
+.s-cancelled{background:rgba(194,46,46,.12);color:var(--danger)}
+</style>
+</head>
+<body>
+
+<!-- ── Авторизация ─────────────────────────────────────────────────────── -->
+<div id="authLock" class="authLock">
+  <div class="authCard">
+    <img class="logoMark lg" src="assets/logo.svg" alt="Vyatka Poker Club"/>
+    <h1 style="font-size:24px;margin:2px 0 14px">Расписание</h1>
+    <div class="field"><label>Логин</label>
+      <input id="authEmail" type="text" autocomplete="username" autocapitalize="none" placeholder="admin"/></div>
+    <div class="field"><label>Пароль</label>
+      <input id="authPassword" type="password" autocomplete="current-password"/></div>
+    <button id="authBtn" type="button" style="width:100%">Войти</button>
+    <div id="authError" class="err"></div>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="apphead">
+    <div>
+      <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
+      <h1>Турниры</h1>
+    </div>
+    <div class="headSide">
+      <span class="badge" id="badgeUser" style="display:none"><span id="userText">—</span></span>
+      <a class="badge light" href="admin.html" style="text-decoration:none">Таймер</a>
+      <a class="badge light" href="crm.html" style="text-decoration:none">CRM</a>
+      <button class="ghost tiny" id="btnRefresh" type="button" title="Перечитать из базы">↻</button>
+      <button class="ghost tiny" id="logoutBtn" type="button" style="display:none">Выйти</button>
+    </div>
+  </header>
+
+  <div id="err" class="err"></div>
+
+  <!-- ── Расписание ────────────────────────────────────────────────────── -->
+  <section id="screenList" class="card" style="display:none">
+    <div class="cardHead"><h2 id="listTitle">Расписание</h2><span class="tag" id="listInfo">—</span></div>
+    <div id="list"></div>
+  </section>
+
+  <!-- ── Создание / правка ─────────────────────────────────────────────── -->
+  <section id="screenForm" class="card" style="display:none">
+    <div class="cardHead"><h2 id="formTitle">Новый турнир</h2>
+      <button id="btnFormReset" class="ghost tiny" type="button">Очистить</button></div>
+
+    <div class="field"><label>Название</label>
+      <input id="fName" type="text" maxlength="80" placeholder="Вятский Дейли"/></div>
+    <div class="grid2">
+      <div class="field"><label>Дата и время</label><input id="fDate" type="datetime-local"/></div>
+      <div class="field"><label>Взнос, ₽</label><input id="fFee" type="number" min="0" step="100" value="1000"/></div>
+      <div class="field"><label>Мест</label><input id="fSlots" type="number" min="1" max="500" value="45"/></div>
+      <div class="field"><label>Статус</label>
+        <select id="fStatus">
+          <option value="open">Открыта запись</option>
+          <option value="draft">Черновик — в приложении не видно</option>
+          <option value="running">Идёт</option>
+          <option value="past">Завершён</option>
+          <option value="cancelled">Отменён</option>
+        </select></div>
+      <div class="field"><label>Стартовый стек</label><input id="fStack" type="number" min="0" step="1000" placeholder="30000"/></div>
+      <div class="field"><label>Уровень, мин</label><input id="fLevel" type="number" min="1" max="120" placeholder="16"/></div>
+      <div class="field"><label>Поздняя рег. до уровня</label><input id="fLateReg" type="number" min="0" max="40" placeholder="9"/></div>
+      <div class="field"><label>Комната таймера</label>
+        <input id="fRoom" class="mono" maxlength="12" placeholder="необязательно" style="text-transform:uppercase"/>
+        <div class="muted" id="roomHint"></div></div>
+    </div>
+    <div class="field"><label>Описание для приложения</label>
+      <textarea id="fDesc" rows="2" maxlength="400" placeholder="Фриз-аут с одним реентри, бонус за руку дня."></textarea></div>
+    <div class="field"><label>Особенности — по одной в строке</label>
+      <textarea id="fFeatures" rows="3" placeholder="BB ante&#10;Один реентри&#10;Аддон 2000 фишек"></textarea></div>
+
+    <div class="btnrow"><button id="btnSave" type="button">Создать турнир</button>
+      <button id="btnCancelEdit" class="ghost" type="button" style="display:none">Отменить правку</button></div>
+    <div id="formErr" class="err"></div>
+  </section>
+</div>
+
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button data-tab="open" class="active" type="button"><span class="ic">♦</span>Расписание</button>
+  <button data-tab="past" type="button"><span class="ic">✓</span>Прошедшие</button>
+  <button data-tab="form" type="button"><span class="ic">+</span>Создать</button>
+</nav>
+
+<!-- ── Подбор игрока из базы ──────────────────────────────────────────── -->
+<div class="modal" id="pickModal">
+  <div class="modalCard">
+    <h2>Добавить игрока</h2>
+    <div class="sub" style="margin-bottom:10px">Запись появится в приложении игрока и в комнате таймера.</div>
+    <input id="pickInput" type="search" placeholder="Имя или фамилия" autocomplete="off"/>
+    <div id="pickResults" class="pickResults"></div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="pickAdd" type="button" disabled>Добавить</button>
+      <button id="pickCancel" class="ghost" type="button">Отмена</button>
+    </div>
+    <div id="pickErr" class="err"></div>
+  </div>
+</div>
+
+<!-- ── Операторы турнира ──────────────────────────────────────────────── -->
+<div class="modal" id="opsModal">
+  <div class="modalCard">
+    <h2 id="opsTitle">Операторы</h2>
+    <div class="sub" style="margin-bottom:10px">Назначение висит на турнире: комнату пересоздадут, турнир останется.</div>
+    <div id="opsList" class="list"></div>
+    <div class="field" style="margin-top:12px"><label>Добавить</label>
+      <div class="row2"><select id="opsPick"></select><button id="opsAdd" type="button">+ Назначить</button></div></div>
+    <div class="btnrow"><button id="opsClose" class="ghost" type="button">Закрыть</button></div>
+    <div id="opsErr" class="err"></div>
+  </div>
+</div>
+
+<script src="js/config.js"></script>
+<script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="js/core.js"></script>
+<script src="js/devstub.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = (id) => document.getElementById(id);
+  const { escHtml, fmtInt, clampInt, normName, initials, searchVariants, NF } = window.VP;
+
+  const TBL = window.VP_TABLES;
+  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
+
+  let profile = null;
+  let tours = [];
+  let myTournamentIds = null;       // оператор — только назначенные; null = без ограничений
+  let view = "open";
+  let editId = null;
+  let openPanels = {};             // id турнира → развёрнут список записавшихся
+  let rosters = {};                // id → массив записей
+
+  const isOperator = () => profile?.role === "operator";
+  const isAdmin = () => !!profile && !isOperator();
+  const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
+
+  const STATUS = {
+    open: "Открыта запись", draft: "Черновик", running: "Идёт",
+    past: "Завершён", cancelled: "Отменён",
+  };
+
+  const money = (v) => (v == null ? "—" : `${NF.format(clampInt(v, 0))} ₽`);
+  function fmtWhen(iso) {
+    if (!iso) return "без даты";
+    const d = new Date(iso);
+    if (isNaN(d)) return "без даты";
+    return d.toLocaleDateString("ru-RU", { weekday: "short", day: "2-digit", month: "2-digit" })
+      + " · " + d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+  }
+  const toLocalInput = (iso) => {
+    const d = new Date(iso);
+    if (isNaN(d)) return "";
+    return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  };
+
+  // ── Загрузка ──────────────────────────────────────────────────────────────
+  async function loadTours() {
+    setErr(null);
+    $("list").innerHTML = '<div class="muted">Загрузка…</div>';
+    try {
+      const { data, error } = await sb.from(TBL.tournaments).select("*")
+        .order("date", { ascending: false }).limit(300);
+      if (error) throw error;
+      tours = (data || []).map((t) => ({ ...t, id: Number(t.id) }));
+      if (myTournamentIds) tours = tours.filter((t) => myTournamentIds.has(t.id));
+      render();
+    } catch (e) {
+      tours = [];
+      const msg = String(e?.message || e);
+      setErr(/relation|does not exist|schema cache|404/i.test(msg)
+        ? new Error("Таблицы турниров нет в базе — примени migrations/001_init.sql")
+        : e);
+      render();
+    }
+  }
+
+  async function loadMyTournaments() {
+    if (!isOperator()) { myTournamentIds = null; return; }
+    myTournamentIds = new Set();
+    try {
+      const { data } = await sb.from(TBL.operators).select("tournament_id").eq("profile_id", profile.id);
+      (data || []).forEach((r) => { if (r.tournament_id != null) myTournamentIds.add(Number(r.tournament_id)); });
+    } catch (e) { console.warn("loadMyTournaments", e); }
+  }
+
+  // ── Список ────────────────────────────────────────────────────────────────
+  const isPastRow = (t) => t.status === "past" || t.status === "cancelled";
+
+  function render() {
+    $("screenList").style.display = view === "form" ? "none" : "";
+    $("screenForm").style.display = view === "form" ? "" : "none";
+    if (view === "form") return;
+
+    const list = tours.filter((t) => (view === "past" ? isPastRow(t) : !isPastRow(t)))
+      .sort((a, b) => (view === "past"
+        ? new Date(b.date || 0) - new Date(a.date || 0)
+        : new Date(a.date || 0) - new Date(b.date || 0)));
+
+    $("listTitle").textContent = view === "past" ? "Прошедшие" : "Расписание";
+    $("listInfo").textContent = String(list.length);
+    $("list").innerHTML = list.length ? list.map(row).join("")
+      : `<div class="muted">${view === "past" ? "Прошедших турниров нет." : "Турниров нет. Создай первый — вкладка «Создать»."}</div>`;
+
+    // Развёрнутые списки записавшихся переживают перерисовку: их открывают,
+    // чтобы кого-то добавить, и захлопывать панель после каждого действия — злить.
+    Object.keys(openPanels).forEach((id) => { if (openPanels[id]) renderRoster(Number(id)); });
+  }
+
+  function row(t) {
+    const seats = t.slots == null ? "" : ` / ${fmtInt(t.slots)}`;
+    const past = isPastRow(t);
+    return `<div class="tRow${past ? " isPast" : ""}" id="row-${t.id}">
+      <div class="tTop">
+        <span class="tName">${escHtml(t.name || "Без названия")}</span>
+        <span class="sPill s-${t.status}">${escHtml(STATUS[t.status] || t.status)}</span>
+      </div>
+      <div class="tPills">
+        <span class="tag">🗓 ${escHtml(fmtWhen(t.date))}</span>
+        <span class="tag">💰 ${escHtml(money(t.entry_fee))}</span>
+        <span class="tag${t.slots && t.registered_count >= t.slots ? " hot" : ""}">👥 ${fmtInt(t.registered_count || 0)}${seats}</span>
+        ${t.room_id ? `<span class="tag gold mono">🎮 ${escHtml(t.room_id)}</span>` : '<span class="tag">без комнаты</span>'}
+        ${t.start_stack ? `<span class="tag">стек ${fmtInt(t.start_stack)}</span>` : ""}
+      </div>
+      <div class="tBtns">
+        <button class="ghost" type="button" data-act="regs" data-id="${t.id}">👥 Записались</button>
+        ${t.room_id ? `<a class="ghost" style="display:inline-block" href="admin.html?room=${encodeURIComponent(t.room_id)}" target="_blank" rel="noopener">🎮 Комната</a>` : ""}
+        ${isAdmin() ? `
+          <button class="ghost" type="button" data-act="ops" data-id="${t.id}">👤 Операторы</button>
+          <button class="ghost" type="button" data-act="edit" data-id="${t.id}">✎ Изменить</button>
+          ${t.status === "past"
+            ? `<button class="ghost" type="button" data-act="reopen" data-id="${t.id}">↩ Вернуть в расписание</button>`
+            : `<button class="ghost" type="button" data-act="finish" data-id="${t.id}">✓ Завершить</button>`}
+          <button class="danger" type="button" data-act="del" data-id="${t.id}">🗑</button>` : ""}
+      </div>
+      <div class="regPanel" id="regs-${t.id}" style="display:${openPanels[t.id] ? "" : "none"}"></div>
+    </div>`;
+  }
+
+  // ── Записавшиеся ──────────────────────────────────────────────────────────
+  async function toggleRegs(id) {
+    openPanels[id] = !openPanels[id];
+    const box = $("regs-" + id);
+    if (!box) return;
+    box.style.display = openPanels[id] ? "" : "none";
+    if (openPanels[id]) { box.innerHTML = '<div class="muted">Загрузка…</div>'; await fetchRoster(id); renderRoster(id); }
+  }
+
+  async function fetchRoster(id) {
+    try {
+      const { data, error } = await sb.from(TBL.registrations)
+        .select(`id, player_id, status, created_at, ${TBL.players}(name, full_name, tg_username)`)
+        .eq("tournament_id", id).order("created_at", { ascending: true });
+      if (error) throw error;
+      rosters[id] = (data || []).map((r) => ({
+        id: r.id, player_id: r.player_id, status: r.status, created_at: r.created_at,
+        player: r[TBL.players] || null,
+      }));
+    } catch (e) { rosters[id] = null; console.warn("fetchRoster", e); }
+  }
+
+  function renderRoster(id) {
+    const box = $("regs-" + id);
+    if (!box || !openPanels[id]) return;
+    const rows = rosters[id];
+    if (rows === null) { box.innerHTML = '<div class="err">Список не загрузился.</div>'; return; }
+    if (rows === undefined) { box.innerHTML = '<div class="muted">Загрузка…</div>'; return; }
+
+    const live = rows.filter((r) => r.status === "registered");
+    const off = rows.filter((r) => r.status !== "registered");
+    const line = (r, i, dead) => {
+      const p = r.player || {};
+      const when = r.created_at ? new Date(r.created_at).toLocaleString("ru-RU", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "";
+      return `<div class="listRow${dead ? " busted" : ""}">
+        <span class="idx">${dead ? "—" : i + 1}</span>
+        <span class="avatar">${escHtml(initials(p.name || "?"))}</span>
+        <span class="nm">${escHtml(p.name || "—")}
+          <div class="muted">${p.tg_username ? "@" + escHtml(p.tg_username) : (p.full_name ? escHtml(p.full_name) : "")}${when ? " · " + when : ""}</div></span>
+        ${dead
+          ? `<button class="ghost tiny" type="button" data-act="reg-restore" data-id="${id}" data-pid="${r.player_id}">↩ Вернуть</button>`
+          : `<button class="ghost tiny" type="button" data-act="reg-drop" data-id="${id}" data-pid="${r.player_id}">✕</button>`}
+      </div>`;
+    };
+
+    box.innerHTML = `
+      <div class="cardHead" style="margin-bottom:8px">
+        <h2 style="font-size:15px">Записались: ${live.length}</h2>
+        <button class="ghost tiny" type="button" data-act="reg-add" data-id="${id}">+ Игрок</button>
+      </div>
+      ${live.length ? `<div class="list">${live.map((r, i) => line(r, i, false)).join("")}</div>`
+                    : '<div class="muted">Никто ещё не записался.</div>'}
+      ${off.length ? `<div class="eyebrow" style="margin:12px 0 6px">Сняли запись — ${off.length}</div>
+                      <div class="list">${off.map((r) => line(r, 0, true)).join("")}</div>` : ""}`;
+  }
+
+  // Добавление за игрока: ровно та же таблица, что и запись из приложения.
+  // Отдельного «ручного» списка нет — иначе в турнире было бы два состава.
+  async function addRegistration(tid, playerId) {
+    const { error } = await sb.from(TBL.registrations)
+      .upsert({ tournament_id: tid, player_id: playerId, status: "registered" },
+              { onConflict: "tournament_id,player_id" });
+    if (error) throw error;
+  }
+
+  async function dropRegistration(tid, playerId) {
+    const { error } = await sb.from(TBL.registrations)
+      .update({ status: "cancelled" }).eq("tournament_id", tid).eq("player_id", playerId);
+    if (error) throw error;
+    // Из открытой комнаты снятый уезжает тоже — но только пока его не тронули
+    // за столом (проверка внутри функции).
+    try { await sb.rpc("vp_unsync_registration", { p_tournament_id: tid, p_player_id: playerId }); }
+    catch (e) { console.warn("vp_unsync_registration", e); }
+  }
+
+  // ── Подбор игрока ─────────────────────────────────────────────────────────
+  let pickSeq = 0;
+  function pickPlayer() {
+    return new Promise((resolve) => {
+      const modal = $("pickModal"), input = $("pickInput"), box = $("pickResults");
+      let selected = null, timer = null;
+      $("pickErr").textContent = "";
+      input.value = ""; box.innerHTML = '<div class="pickNote">Введи минимум 2 символа</div>';
+      $("pickAdd").disabled = true;
+      modal.classList.add("show");
+      setTimeout(() => input.focus(), 50);
+
+      const done = (val) => {
+        modal.classList.remove("show");
+        clearTimeout(timer);
+        input.oninput = null; input.onkeydown = null; box.onclick = null;
+        $("pickAdd").onclick = null; $("pickCancel").onclick = null; modal.onclick = null;
+        resolve(val);
+      };
+
+      // Одного человека в базе пишут и кириллицей, и латиницей, поэтому в БД
+      // уходят сразу три шаблона: как набрали и два транслита.
+      async function search(q) {
+        const pats = searchVariants(q);
+        if (!pats.length) return;
+        const seq = ++pickSeq;
+        const or = pats.map((p) => `name.ilike.%${p}%,full_name.ilike.%${p}%`).join(",");
+        try {
+          const { data, error } = await sb.from(TBL.players)
+            .select("id,name,full_name").or(or).order("name").limit(20);
+          if (seq !== pickSeq) return;
+          if (error) throw error;
+          if (!data?.length) { box.innerHTML = '<div class="pickNote">В базе не нашлось</div>'; selected = null; return; }
+          box.innerHTML = data.map((p) => `<div class="pickItem" data-id="${p.id}" data-name="${escHtml(p.name)}">${escHtml(p.name)}${
+            p.full_name ? `<span class="full">${escHtml(p.full_name)}</span>` : ""}</div>`).join("");
+        } catch (e) {
+          if (seq !== pickSeq) return;
+          box.innerHTML = '<div class="pickNote">Ошибка загрузки</div>';
+        }
+      }
+
+      input.oninput = () => {
+        clearTimeout(timer); selected = null; $("pickAdd").disabled = true;
+        const q = input.value.trim();
+        if (q.length < 2) { box.innerHTML = '<div class="pickNote">Введи минимум 2 символа</div>'; return; }
+        timer = setTimeout(() => search(q), 300);
+      };
+      box.onclick = (e) => {
+        const item = e.target.closest(".pickItem");
+        if (!item) return;
+        box.querySelectorAll(".pickItem").forEach((el) => el.classList.remove("sel"));
+        item.classList.add("sel");
+        selected = { id: Number(item.dataset.id), name: item.dataset.name };
+        $("pickAdd").disabled = false;
+      };
+      $("pickAdd").onclick = () => done(selected);
+      $("pickCancel").onclick = () => done(null);
+      modal.onclick = (e) => { if (e.target === modal) done(null); };
+      input.onkeydown = (e) => { if (e.key === "Escape") done(null); };
+    });
+  }
+
+  // ── Операторы ─────────────────────────────────────────────────────────────
+  let opsTid = null;
+  async function openOps(tid) {
+    opsTid = tid;
+    const t = tours.find((x) => x.id === tid);
+    $("opsTitle").textContent = `Операторы: ${t?.name || tid}`;
+    $("opsErr").textContent = "";
+    $("opsList").innerHTML = '<div class="muted">Загрузка…</div>';
+    $("opsModal").classList.add("show");
+    await renderOps();
+  }
+
+  async function renderOps() {
+    try {
+      const [assignedRes, allRes] = await Promise.all([
+        sb.from(TBL.operators).select(`profile_id, ${TBL.profiles}(email)`).eq("tournament_id", opsTid),
+        sb.from(TBL.profiles).select("id,email").eq("role", "operator"),
+      ]);
+      const assigned = assignedRes.data || [];
+      const all = allRes.data || [];
+      const taken = new Set(assigned.map((r) => r.profile_id));
+
+      $("opsList").innerHTML = assigned.length
+        ? assigned.map((r) => `<div class="listRow">
+            <span class="nm">${escHtml(r[TBL.profiles]?.email || r.profile_id)}</span>
+            <button class="danger tiny" type="button" data-act="ops-del" data-pid="${escHtml(r.profile_id)}">✕</button>
+          </div>`).join("")
+        : '<div class="muted">Операторов пока нет — комнату сможет вести только админ.</div>';
+
+      const free = all.filter((p) => !taken.has(p.id));
+      $("opsPick").innerHTML = free.length
+        ? free.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.email || p.id)}</option>`).join("")
+        : '<option value="">— свободных нет —</option>';
+      $("opsAdd").disabled = !free.length;
+    } catch (e) { $("opsErr").textContent = e.message || String(e); }
+  }
+
+  $("opsClose").onclick = () => $("opsModal").classList.remove("show");
+  $("opsModal").onclick = (e) => { if (e.target === $("opsModal")) $("opsModal").classList.remove("show"); };
+  $("opsAdd").onclick = async () => {
+    const id = $("opsPick").value;
+    if (!id) return;
+    $("opsErr").textContent = "";
+    try {
+      const { error } = await sb.from(TBL.operators).insert({ tournament_id: opsTid, profile_id: id });
+      if (error) throw error;
+      await renderOps();
+    } catch (e) { $("opsErr").textContent = e.message || String(e); }
+  };
+
+  // ── Форма ─────────────────────────────────────────────────────────────────
+  const FORM = ["fName", "fDate", "fFee", "fSlots", "fStatus", "fStack", "fLevel", "fLateReg", "fRoom", "fDesc", "fFeatures"];
+
+  function resetForm() {
+    editId = null;
+    FORM.forEach((id) => { $(id).value = ""; });
+    $("fFee").value = "1000";
+    $("fSlots").value = "45";
+    $("fStatus").value = "open";
+    const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 0, 0, 0);
+    $("fDate").value = toLocalInput(d.toISOString());
+    $("formTitle").textContent = "Новый турнир";
+    $("btnSave").textContent = "Создать турнир";
+    $("btnCancelEdit").style.display = "none";
+    $("formErr").textContent = "";
+    $("roomHint").textContent = "";
+  }
+
+  function fillForm(t) {
+    editId = t.id;
+    $("fName").value = t.name || "";
+    $("fDate").value = t.date ? toLocalInput(t.date) : "";
+    $("fFee").value = t.entry_fee ?? 1000;
+    $("fSlots").value = t.slots ?? "";
+    $("fStatus").value = t.status || "open";
+    $("fStack").value = t.start_stack ?? "";
+    $("fLevel").value = t.level_minutes ?? "";
+    $("fLateReg").value = t.late_reg_level ?? "";
+    $("fRoom").value = t.room_id || "";
+    $("fDesc").value = t.description || "";
+    $("fFeatures").value = (Array.isArray(t.features) ? t.features : []).join("\n");
+    $("formTitle").textContent = "Правка турнира";
+    $("btnSave").textContent = "Сохранить";
+    $("btnCancelEdit").style.display = "";
+    $("formErr").textContent = "";
+    setView("form");
+  }
+
+  async function save() {
+    $("formErr").textContent = "";
+    const name = normName($("fName").value);
+    if (!name) { $("formErr").textContent = "Введи название."; return; }
+    const dateVal = $("fDate").value;
+    if (!dateVal) { $("formErr").textContent = "Укажи дату и время."; return; }
+
+    const slots = $("fSlots").value === "" ? null : clampInt($("fSlots").value, 1);
+    const payload = {
+      name,
+      date: new Date(dateVal).toISOString(),
+      entry_fee: clampInt($("fFee").value === "" ? 1000 : $("fFee").value, 0),
+      slots,
+      status: $("fStatus").value,
+      start_stack: $("fStack").value === "" ? null : clampInt($("fStack").value, 0),
+      level_minutes: $("fLevel").value === "" ? null : clampInt($("fLevel").value, 1),
+      late_reg_level: $("fLateReg").value === "" ? null : clampInt($("fLateReg").value, 0),
+      room_id: $("fRoom").value.trim().toUpperCase() || null,
+      description: $("fDesc").value.trim() || null,
+      features: $("fFeatures").value.split("\n").map((s) => s.trim()).filter(Boolean),
+    };
+
+    const btn = $("btnSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
+    try {
+      if (editId) {
+        const { error } = await sb.from(TBL.tournaments).update(payload).eq("id", editId);
+        if (error) throw error;
+      } else {
+        const { error } = await sb.from(TBL.tournaments).insert(payload);
+        if (error) throw error;
+      }
+      resetForm();
+      await loadTours();
+      setView("open");
+    } catch (e) {
+      const msg = String(e?.message || e);
+      // Комната уникальна на турнир: иначе в рум доезжали бы регистрации двух
+      // разных вечеров и список за столом стал бы мешаниной.
+      $("formErr").textContent = /tournaments_room_uidx|duplicate key/i.test(msg)
+        ? "Эта комната уже привязана к другому турниру."
+        : msg;
+    } finally { btn.disabled = false; btn.textContent = editId ? "Сохранить" : "Создать турнир"; }
+  }
+
+  $("fRoom").addEventListener("input", async () => {
+    const v = $("fRoom").value.trim().toUpperCase();
+    const hint = $("roomHint");
+    if (v.length < 4) { hint.textContent = ""; return; }
+    try {
+      const { data } = await sb.from(TBL.rooms).select("room_id,state").eq("room_id", v).maybeSingle();
+      hint.textContent = data
+        ? `✓ комната есть: «${data.state?.tournament?.name || "без названия"}»`
+        : "комнаты с таким кодом нет — обычно её создаёт админка таймера";
+    } catch (_) { hint.textContent = ""; }
+  });
+
+  // ── Действия по карточке ──────────────────────────────────────────────────
+  $("list").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("[data-act]");
+    if (!btn) return;
+    const act = btn.dataset.act;
+    const id = Number(btn.dataset.id);
+    const pid = btn.dataset.pid ? Number(btn.dataset.pid) : null;
+    setErr(null);
+
+    try {
+      if (act === "regs") { await toggleRegs(id); return; }
+      if (act === "ops") { await openOps(id); return; }
+      if (act === "edit") { const t = tours.find((x) => x.id === id); if (t) fillForm(t); return; }
+
+      if (act === "finish") {
+        if (!confirm("Отметить турнир завершённым? Из приложения он уедет в «Прошедшие».\n\nПоказатели игроков живут в отчёте — его кладёт админка таймера, вкладка «Оплата» → «Сохранить отчёт».")) return;
+        const { error } = await sb.from(TBL.tournaments).update({ status: "past" }).eq("id", id);
+        if (error) throw error;
+        await loadTours(); return;
+      }
+      if (act === "reopen") {
+        const { error } = await sb.from(TBL.tournaments).update({ status: "open" }).eq("id", id);
+        if (error) throw error;
+        await loadTours(); return;
+      }
+      if (act === "del") {
+        const t = tours.find((x) => x.id === id);
+        if (!confirm(`Удалить турнир «${t?.name || id}»? Записи на него удалятся вместе с ним, отчёт в CRM останется.`)) return;
+        const { error } = await sb.from(TBL.tournaments).delete().eq("id", id);
+        if (error) throw error;
+        delete openPanels[id];
+        await loadTours(); return;
+      }
+
+      if (act === "reg-add") {
+        const picked = await pickPlayer();
+        if (!picked) return;
+        await addRegistration(id, picked.id);
+        await fetchRoster(id); renderRoster(id);
+        await loadTours(); return;
+      }
+      if (act === "reg-drop") {
+        await dropRegistration(id, pid);
+        await fetchRoster(id); renderRoster(id);
+        await loadTours(); return;
+      }
+      if (act === "reg-restore") {
+        await addRegistration(id, pid);
+        await fetchRoster(id); renderRoster(id);
+        await loadTours(); return;
+      }
+    } catch (e) { setErr(e); }
+  });
+
+  $("opsList").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest('[data-act="ops-del"]');
+    if (!btn) return;
+    $("opsErr").textContent = "";
+    try {
+      const { error } = await sb.from(TBL.operators).delete()
+        .eq("tournament_id", opsTid).eq("profile_id", btn.dataset.pid);
+      if (error) throw error;
+      await renderOps();
+    } catch (e) { $("opsErr").textContent = e.message || String(e); }
+  });
+
+  // ── Навигация ─────────────────────────────────────────────────────────────
+  function setView(v) {
+    view = v;
+    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === v));
+    render();
+    window.scrollTo(0, 0);
+  }
+  document.querySelectorAll("#tabbar button").forEach((b) => {
+    b.onclick = () => { if (b.dataset.tab === "form" && !editId) resetForm(); setView(b.dataset.tab); };
+  });
+  $("btnSave").onclick = save;
+  $("btnFormReset").onclick = resetForm;
+  $("btnCancelEdit").onclick = () => { resetForm(); setView("open"); };
+  $("btnRefresh").onclick = loadTours;
+
+  // ── Вход ──────────────────────────────────────────────────────────────────
+  const showLock = () => { $("authLock").classList.add("show"); document.documentElement.classList.add("locked"); };
+  const hideLock = () => { $("authLock").classList.remove("show"); document.documentElement.classList.remove("locked"); };
+
+  function setUi() {
+    $("badgeUser").style.display = profile ? "" : "none";
+    if (profile) $("userText").textContent = `${profile.email || "—"} · ${isOperator() ? "оператор" : "админ"}`;
+    $("tabbar").style.display = "";
+    // Оператор турниры не создаёт: расписание клуба — дело админа.
+    document.querySelector('#tabbar button[data-tab="form"]').style.display = isAdmin() ? "" : "none";
+  }
+
+  async function checkAuth() {
+    const { data: { session } } = await sb.auth.getSession();
+    if (!session) { showLock(); return; }
+    hideLock();
+    $("logoutBtn").style.display = "";
+    $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
+    try {
+      const { data } = await sb.from(TBL.profiles).select("id,email,role").eq("id", session.user.id).maybeSingle();
+      profile = data || null;
+    } catch (e) { console.warn("profile", e); profile = null; }
+    await loadMyTournaments();
+    setUi();
+    resetForm();
+    setView("open");
+    await loadTours();
+  }
+
+  document.addEventListener("DOMContentLoaded", () => {
+    checkAuth();
+    sb.auth.onAuthStateChange((event) => { if (event === "SIGNED_OUT") showLock(); });
+    const tryLogin = async () => {
+      const err = $("authError");
+      err.textContent = "Вход…";
+      try {
+        let email = $("authEmail").value.trim();
+        if (!email.includes("@")) email = email.toLowerCase() + "@doyle.ru";
+        const { error } = await sb.auth.signInWithPassword({ email, password: $("authPassword").value });
+        if (error) { err.textContent = "Неверный логин или пароль"; return; }
+        err.textContent = "";
+        await checkAuth();
+      } catch (e) { err.textContent = e.message || String(e); }
+    };
+    $("authBtn").onclick = tryLogin;
+    $("authPassword").onkeydown = (e) => { if (e.key === "Enter") tryLogin(); };
+  });
+})();
+</script>
+</body>
+</html>

@@ -52,6 +52,12 @@ h2{font-size:19px}
   color:var(--muted);
 }
 .eyebrow.on-accent{color:rgba(255,252,244,.72)}
+/* Марка клуба — тот же svg, что на ТВ (assets/logo.svg). Стоит там же, где
+   раньше был текстовый eyebrow. На оранжевой шапке фирменный оранжевый не
+   читается, поэтому в варианте on-accent логотип выбеливается фильтром. */
+.logoMark{display:block;height:17px;width:auto;margin-bottom:7px}
+.logoMark.lg{height:30px;margin-bottom:12px}
+.logoMark.on-accent{filter:brightness(0) invert(1);opacity:.92}
 .muted{color:var(--muted);font-size:13px}
 .sub{color:var(--muted);font-size:13px;margin-top:2px}
 .mono{font-family:var(--mono);font-size:12px}

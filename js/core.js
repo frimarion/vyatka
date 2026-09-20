@@ -102,7 +102,7 @@
     st.stats = st.stats || { registered: 0, alive: 0, busted: 0, reentries: 0 };
     st.structure = st.structure || { levels: [] };
     st.timer = st.timer || { isRunning: false, isPaused: false, levelIndex: 0, levelEndAt: null, pauseRemainingSec: null };
-    st.rating = st.rating || { isActive: false, entries: null, r: 0.8, guarantee: 800, addons: 0, P: 0, TOTAL: 0, KO_POOL: 0, ITM_POOL: 0, payouts: [], calculatedAt: null };
+    st.rating = st.rating || { isActive: false, entries: null, r: 0.8, guarantee: 0, addons: 0, P: 0, TOTAL: 0, KO_POOL: 0, ITM_POOL: 0, payouts: [], calculatedAt: null };
 
     const t = st.tournament;
     t.name = (t.name ?? "").toString().slice(0, 80);
@@ -145,7 +145,7 @@
     r.entries = r.entries == null ? null : clampInt(r.entries, 1);
     r.r = Number(r.r ?? 0.8);
     if (!Number.isFinite(r.r) || r.r <= 0 || r.r >= 1) r.r = 0.8;
-    r.guarantee = clampInt(r.guarantee ?? 800, 0);
+    r.guarantee = clampInt(r.guarantee ?? 0, 0);
     r.addons = clampInt(r.addons ?? 0, 0);
     if (!Array.isArray(r.payouts)) r.payouts = [];
     r.autoShown = !!r.autoShown;
@@ -477,16 +477,21 @@
   }
 
   // ── Призовая зона (очки рейтинга) ────────────────────────────────────────
-  // Вход = 10 очков; 2 из них уходят под ноки, в ПКО — 4 (голова игрока).
-  function calcPayouts(entries, r = 0.8, guarantee = 800, addons = 0, pko = false) {
+  // Вятка: вход = 100 очков, гарантии по умолчанию нет — банк растёт только от
+  // входов. Ноки в рейтинге не участвуют: весь банк идёт в призовую зону, а
+  // головы ПКО остаются личным счётом игрока (ko/koPts) вне очков.
+  // pko в calcPayouts сохранён ради совместимости вызовов и на расчёт не влияет.
+  const PT_ENTRY = 100, PT_ADDON = 200;
+  const DEFAULT_GUARANTEE = 0;
+  function calcPayouts(entries, r = 0.8, guarantee = DEFAULT_GUARANTEE, addons = 0, pko = false) {
     const E = clampInt(entries, 1), rr = Number(r);
     if (!Number.isFinite(rr) || rr <= 0 || rr >= 1) throw new Error("r должен быть между 0 и 1");
     const guar = Math.max(0, Math.floor(Number(guarantee) || 0));
     const A = clampInt(addons, 0);
     const P = Math.max(3, Math.floor(0.15 * E));
-    const TOTAL = Math.max(guar, 10 * E + 20 * A);
-    const KO_POOL = (pko ? 4 : 2) * E;
-    const ITM_POOL = TOTAL - KO_POOL;
+    const TOTAL = Math.max(guar, PT_ENTRY * E + PT_ADDON * A);
+    const KO_POOL = 0;
+    const ITM_POOL = TOTAL;
     const weights = Array.from({ length: P }, (_, i) => Math.pow(rr, i));
     const wsum = weights.reduce((a, b) => a + b, 0);
     const base = weights.map((w) => Math.round(ITM_POOL * w / wsum));
@@ -499,7 +504,7 @@
     if (!st?.rating?.isActive) return st;
     const ent = calcEntries(st) || 1;
     const rr = Number.isFinite(Number(st?.rating?.r)) ? Number(st.rating.r) : 0.8;
-    const guar = clampInt(st?.rating?.guarantee ?? 800, 0);
+    const guar = clampInt(st?.rating?.guarantee ?? DEFAULT_GUARANTEE, 0);
     const addons = calcAddonCount(st);
     const res = calcPayouts(ent, rr, guar, addons, !!st?.tournament?.pko);
     st.rating = { ...st.rating, entries: ent, r: rr, guarantee: guar, addons, P: res.P,
@@ -741,14 +746,15 @@
     addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
     calcEntries, calcAddonCount, calcAddonChips, calcTotalChips, calcAvg,
     curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,
+    PT_ENTRY, PT_ADDON, DEFAULT_GUARANTEE,
     T, isOnBreak, breakRemainingSec, remainingSec, levelRemainingSec,
     lateRegRemainingSec, nextBreakInSec, advanceExpiredLevels, genRoomId,
   };
 
-  // Самопроверка призовой зоны — та же, что в Дойле: 100 входов → 1000 очков.
+  // Самопроверка призовой зоны: 100 входов без гарантии → 10 000 очков в ITM.
   try {
     const t = calcPayouts(100, 0.8);
-    console.assert(t.TOTAL === 1000 && t.KO_POOL === 200 && t.ITM_POOL === 800 && t.P === 15
-      && t.payouts.reduce((a, b) => a + b, 0) === 800, "[rating] self-test FAILED");
+    console.assert(t.TOTAL === 10000 && t.KO_POOL === 0 && t.ITM_POOL === 10000 && t.P === 15
+      && t.payouts.reduce((a, b) => a + b, 0) === 10000, "[rating] self-test FAILED");
   } catch (e) { console.error("[rating] self-test FAILED", e); }
 })(window);

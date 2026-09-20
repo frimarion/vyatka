@@ -36,8 +36,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 /* Шапка: марка по центру, турнир и часы — плашкой справа (у Дойла там номер рума) */
 .dhead{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
   margin-bottom:clamp(14px,2.2vh,32px)}
-.dhead .wordmark{font-family:var(--d-display);font-size:clamp(20px,2.4vw,46px);font-weight:900;
-  letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+/* Марка — тот же svg, что в админке и приложении; на ТВ он и есть заголовок,
+   поэтому масштабируется по ширине экрана, как логотип у Дойла. */
+.dhead .wordmark{width:clamp(220px,26vw,520px);height:auto;display:block}
 .dhead .hmeta{position:absolute;right:0;top:50%;transform:translateY(-50%);
   display:flex;align-items:center;gap:10px;max-width:30vw}
 .dhead .tname,.dhead .clock{font-size:clamp(11px,.9vw,17px);font-weight:800;letter-spacing:.10em;
@@ -186,7 +187,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   .dwrap{width:100vw;height:auto;min-height:100vh;padding:14px 14px 22px;overflow:visible}
   /* Марка в одну строку: по центру она рвётся на три и наезжает на часы */
   .dhead{margin-bottom:14px;justify-content:space-between;gap:10px}
-  .dhead .wordmark{font-size:clamp(13px,4vw,20px);letter-spacing:.12em;white-space:nowrap}
+  .dhead .wordmark{width:clamp(120px,42vw,220px);flex:none}
   .dhead .hmeta{position:static;transform:none;max-width:none;margin-left:auto;gap:8px;flex:none}
   /* Название турнира в строку не влезает — на телефоне остаются марка и часы */
   .dhead .tname{display:none}
@@ -207,7 +208,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 @media(max-height:600px) and (orientation:landscape){
   .dwrap{padding:8px 14px 10px}
   .dhead{margin-bottom:6px}
-  .dhead .wordmark{font-size:clamp(14px,2.2vw,24px)}
+  .dhead .wordmark{width:clamp(110px,16vw,220px)}
   .dgrid,.dgrid.hasRight{grid-template-columns:minmax(0,1fr) minmax(0,1.9fr) minmax(0,1fr)}
   .panel .pTitle{font-size:clamp(12px,2.2vw,18px);margin-bottom:6px}
   .main{padding:0 10px}
@@ -239,7 +240,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 <body>
 <div class="dwrap">
   <header class="dhead">
-    <div class="wordmark">Vyatka Poker Club</div>
+    <img class="wordmark" src="assets/logo.svg" alt="Vyatka Poker Club"/>
     <div class="hmeta">
       <div class="tname" id="tourName"></div>
       <div class="clock" id="wallClock"></div>
@@ -559,8 +560,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     if (mode === "break") window.VP.T.breakStart(st);
     if (mode === "pause") window.VP.T.pause(st);
     if (mode === "final") st.timer.finalTableActive = true;
-    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 800, 0, false);
-    st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 800, addons: 0,
+    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 0, 0, false);
+    st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 0, addons: 0,
       P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL, payouts: res.payouts };
     return st;
   }

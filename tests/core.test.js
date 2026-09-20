@@ -48,12 +48,18 @@ A.equal(VP.calcEntries(st),5,'входы = пришедшие + реентри')
 const c=p('C'); c.ko=3; c.koPts=6; c.koDelta={ko:1,koPts:2};
 VP.rollbackBustKo(c); A.equal(c.ko,2); A.equal(c.koPts,4);
 
-// призовая зона как в Дойле
+// призовая зона Вятки: вход = 100 очков, гарантии по умолчанию нет,
+// ноки в очках не участвуют — весь банк в призовой зоне
 const r=VP.calcPayouts(100,0.8);
-A.equal(r.TOTAL,1000); A.equal(r.KO_POOL,200); A.equal(r.P,15);
-A.equal(r.payouts.reduce((a,b)=>a+b,0),800);
-const rp=VP.calcPayouts(100,0.8,800,0,true);
-A.equal(rp.KO_POOL,400); A.equal(rp.payouts.reduce((a,b)=>a+b,0),600);
+A.equal(r.TOTAL,10000); A.equal(r.KO_POOL,0); A.equal(r.ITM_POOL,10000); A.equal(r.P,15);
+A.equal(r.payouts.reduce((a,b)=>a+b,0),10000);
+// ПКО не забирает очки в головы: раскладка та же
+const rp=VP.calcPayouts(100,0.8,0,0,true);
+A.equal(rp.KO_POOL,0); A.equal(rp.payouts.reduce((a,b)=>a+b,0),10000);
+// аддон = 200 очков, гарантия поднимает банк только если она выше входов
+const ra=VP.calcPayouts(10,0.8,0,3);
+A.equal(ra.TOTAL,1600); A.equal(ra.ITM_POOL,1600); A.equal(ra.P,3);
+A.equal(VP.calcPayouts(10,0.8,5000,0).TOTAL,5000);
 
 // поздняя регистрация: остаток = текущий уровень + следующие до ПР
 st.tournament.lateRegUntilLevel=6; st.timer.levelIndex=0; st.timer.isRunning=true; st.timer.isPaused=false;
