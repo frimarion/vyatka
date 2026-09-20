@@ -1,51 +1,52 @@
-// RKN/TSPU throttles cloud IPs in a fluctuating way — sometimes the Timeweb origin,
-// sometimes the Cloudflare edge. We keep TWO independent paths to the same backend and
-// fail over to whichever responds right now. The last working host is remembered.
+// Пока путь один: собственный origin на своём VPS. У Дойла запасных хостов
+// три, и появились они не от хорошей жизни — по одному на каждый случай, когда
+// ТСПУ придушил очередной адрес. Вятке второй путь тоже понадобится, но
+// заводить его имеет смысл, когда основной поработает и станет видно, где
+// именно рвётся; список и failover ниже к этому уже готовы.
 window.SUPABASE_HOSTS = [
-  "https://r.doylepoker.ru",     // reg.ru relay on a clean (un-throttled) network — primary
-  "https://api.doylepoker.ru",   // direct Timeweb origin — fallback
-  "https://gw.doylepoker.ru"     // same backend, fronted by Cloudflare — fallback
+  "https://api.vyatkapoker.ru"   // свой Supabase, nginx → Kong на 127.0.0.1:8000
 ];
 window.SUPABASE_URL = (() => {
-  try { const s = localStorage.getItem('doyle_sb_host2'); if (window.SUPABASE_HOSTS.includes(s)) return s; } catch(_){}
+  try { const s = localStorage.getItem('vp_sb_host'); if (window.SUPABASE_HOSTS.includes(s)) return s; } catch(_){}
   return window.SUPABASE_HOSTS[0];
 })();
-window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzEzMjI1NjAwLCJleHAiOjE4Njg5OTIwMDB9.JEHfDm5ghdB_UgORrAXZzjcT8TFdecTPs88C77sm5MA";
+// ANON_KEY из `node deploy/gen-keys.mjs` — тот же, что уехал в /opt/vyatka/.env.
+// Ключ публичный по назначению: он уходит в браузер каждому игроку, и всё, что
+// им можно, ограничено RLS. Секретный — SERVICE_ROLE_KEY, он живёт только на
+// сервере и в репозиторий не попадает никогда.
+window.SUPABASE_ANON_KEY = "PASTE_ANON_KEY_FROM_GEN_KEYS";
+if (window.SUPABASE_ANON_KEY.indexOf("PASTE_") === 0) {
+  // Иначе первый же запрос падает с невнятным 401, и полчаса уходит на поиск
+  // опечатки там, где ключ просто не вставили.
+  console.error("[vyatka] SUPABASE_ANON_KEY не заполнен — см. deploy/README.md, шаг 2");
+}
 
 // ── Карта таблиц ──────────────────────────────────────────────────────────────
-// Вятка переезжает на собственный Supabase-проект: пока часть таблиц ещё
-// дойловская (общая инсталляция), после переезда здесь меняются только имена.
-// Пока комнаты Вятки лежат в общей с Дойлом таблице, их отбирают по branch.
-// В собственном проекте комнаты только свои — поставь null, и фильтр отключится.
-window.VP_ROOMS_BRANCH = "VYATKA";
+// Переезд состоялся: инсталляция своя, имена таблиц свои — те, что заводит
+// migrations/001_init.sql. Префикс doyle_ остался в истории вместе с общей базой.
+//
+// branch отделял вятские комнаты от дойловских в общей таблице rooms. В своей
+// базе чужих комнат нет, колонки branch тоже нет — null выключает фильтр.
+window.VP_ROOMS_BRANCH = null;
 
 window.VP_TABLES = {
   rooms: "rooms",
   profiles: "profiles",
   operators: "tournament_operators",
-  tournaments: "doyle_tournaments",
-  registrations: "doyle_registrations",
-  players: "doyle_players",
-  // Итоги турниров — хранилище CRM (migrations/004_results.sql). Таблицы свои
-  // с самого начала: в дойловской инсталляции их нет, и до переезда CRM скажет
-  // об этом прямо, вместо того чтобы показать пустой список как «нет турниров».
+  tournaments: "tournaments",
+  registrations: "registrations",
+  players: "players",
+  // Итоги турниров — хранилище CRM (migrations/004_results.sql).
   results: "tournament_results",
   resultPlayers: "tournament_result_players",
 };
 
 // ── Макеты турниров ──────────────────────────────────────────────────────────
-// Два хранилища, одно на переходный период.
-//
-// Сейчас: служебная строка в общей таблице rooms под своим branch. Туда Вятка
-// уже пишет и имеет права, дойловскую схему трогать не надо. Строка не комната:
-// из списка комнат она отфильтрована по id.
-window.VP_BLUEPRINTS_ROOM = "__BP__";
-
-// После переезда: собственная таблица (migrations/003_blueprints.sql). Ставится
-// вместе с остальными настройками ниже, и тогда служебная строка игнорируется.
-// Именно null, а не "tournament_blueprints": в общей с Дойлом инсталляции такая
-// таблица есть, но лежат в ней дойловские форматы, и Вятка показала бы чужие.
-window.VP_BLUEPRINTS = null;
+// Своя таблица (migrations/003_blueprints.sql). Пока таблицы Вятки не было,
+// макеты жили служебной строкой в общей rooms — этот путь в админке ещё
+// поддержан, но включается только через VP_BLUEPRINTS_ROOM, и здесь он выключен.
+window.VP_BLUEPRINTS = "tournament_blueprints";
+window.VP_BLUEPRINTS_ROOM = null;
 
 // Drop-in fetch for supabase-js: createClient(url, key, { global: { fetch: window.sbFetchFailover } }).
 // Tries the current host, fails over to the other on a timeout / connection error, swapping the
@@ -98,7 +99,7 @@ window.sbFetchFailover = async function(input, init) {
       clearTimeout(t);
       const h = new Headers(resp.headers);
       h.delete('content-encoding'); h.delete('content-length');  // body is already decoded
-      if (base !== window.SUPABASE_URL) { window.SUPABASE_URL = base; try { localStorage.setItem('doyle_sb_host2', base); } catch(_){} }
+      if (base !== window.SUPABASE_URL) { window.SUPABASE_URL = base; try { localStorage.setItem('vp_sb_host', base); } catch(_){} }
       // Null-body statuses (204/205/304/101/103) forbid ANY body — even an empty buffer throws
       // "Response with null body status cannot have body". PostgREST returns 204 on writes.
       const nullBody = [101, 103, 204, 205, 304].includes(resp.status);

@@ -3,59 +3,1364 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
-<title>Вятка — покерный клуб</title>
+<title>Вятка — приложение игрока</title>
 <link rel="stylesheet" href="css/app.css"/>
+<style>
+/* Приложение игрока живёт в Telegram, на телефоне и одной рукой: колонка
+   в 560px, крупные карточки, кнопки во всю ширину. Токены и базовые классы —
+   из css/app.css, здесь только то, чего в админке нет.
+
+   Отдельная история — объём. Админка плоская сознательно: это рабочий
+   инструмент, его смотрят по десять раз за вечер. Приложение игрок открывает
+   раз в неделю, и там плоскость читается как «недоделали». Объём здесь
+   набирается слоями, а не цветом: тканевый фон, многоуровневые тени с
+   внутренним бликом по верхней кромке, тёмная геро-карточка с тёплой
+   подсветкой и нажатия с уменьшением. */
+
+:root{
+  /* Тень одним слоем даёт «наклейку». Три слоя — близкий контактный,
+     средний и дальний рассеянный — дают предмет, лежащий на столе. */
+  --sh-sm:0 1px 2px rgba(36,27,20,.06), 0 3px 10px rgba(36,27,20,.07);
+  --sh-card:0 1px 2px rgba(36,27,20,.05), 0 6px 16px rgba(36,27,20,.10), 0 18px 38px rgba(36,27,20,.07);
+  --sh-hero:0 2px 4px rgba(36,27,20,.10), 0 12px 28px rgba(36,27,20,.20), 0 30px 64px rgba(36,27,20,.18);
+  /* Блик по верхней кромке — то, что делает карточку выпуклой, а не
+     нарисованной. На кремовом он белый, на тёмном — почти прозрачный. */
+  --edge:inset 0 1px 0 rgba(255,255,255,.8);
+  --edge-dark:inset 0 1px 0 rgba(255,252,244,.08);
+  --hair:1px solid rgba(36,27,20,.05);
+}
+
+/* ── Фон: сукно в масть ──────────────────────────────────────── */
+/* Ровная заливка — главный источник ощущения «пусто». Поверх неё ложатся
+   тёплый свет сверху и редкий узор из мастей. Узор нарисован data-URI: своих
+   картинок у клуба нет, а тянуть их с чужого домена в Telegram незачем. */
+body{
+  background-color:var(--bg);
+  background-image:
+    radial-gradient(1200px 620px at 50% -14%, rgba(233,83,31,.13), transparent 70%),
+    radial-gradient(760px 520px at 100% 100%, rgba(232,185,74,.10), transparent 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='146'%3E%3Cg font-family='serif' font-size='22' fill='none' stroke-width='1.1'%3E%3Ctext x='14' y='34' stroke='%23241B14' opacity='.05'%3E%E2%99%A0%3C/text%3E%3Ctext x='100' y='34' stroke='%23E9531F' opacity='.05'%3E%E2%99%A5%3C/text%3E%3Ctext x='58' y='118' stroke='%23241B14' opacity='.04'%3E%E2%99%A3%3C/text%3E%3Ctext x='142' y='118' stroke='%23E9531F' opacity='.045'%3E%E2%99%A6%3C/text%3E%3C/g%3E%3C/svg%3E");
+  background-repeat:no-repeat, no-repeat, repeat;
+  background-size:auto, auto, 168px 146px;
+  background-attachment:fixed, fixed, fixed;
+}
+*{-webkit-tap-highlight-color:transparent}
+
+.wrap{max-width:560px}
+.screen{display:none}
+.screen.on{display:block}
+
+/* Общая физика нажатия: карточка проседает, а не прыгает. */
+.tcard,.tile,.banner,.hRow[data-open]{transition:transform .14s ease, box-shadow .14s ease, filter .14s ease}
+.tcard:active,.tile:active,.banner:active{transform:scale(.985);filter:brightness(.985)}
+
+/* ── Шапка ──────────────────────────────────────────────────── */
+/* Шапка остаётся оранжевой — это марка клуба, — но перестаёт быть плашкой:
+   градиент, тёплое пятно света и масть-водяной знак. Геро-карточка заезжает
+   на её нижний край: наложение слоёв само по себе даёт глубину. */
+.apphead.compact{
+  position:relative;overflow:hidden;
+  padding:18px 20px 38px;margin-bottom:16px;
+  background:
+    radial-gradient(120% 140% at 88% -10%, rgba(255,214,168,.38), transparent 60%),
+    linear-gradient(160deg,#F2622C 0%,#E9531F 46%,#C8420F 100%);
+  box-shadow:0 10px 26px rgba(172,61,23,.28);
+}
+.apphead.compact::after{
+  content:"\2660";
+  position:absolute;right:-6px;bottom:-34px;
+  font:900 128px/1 serif;color:rgba(255,252,244,.09);pointer-events:none;
+}
+.apphead .hi{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,252,244,.72)}
+.apphead h1{text-shadow:0 2px 10px rgba(122,40,12,.35)}
+.apphead .headSide{position:relative;z-index:1}
+/* Марка — над водяным знаком масти, иначе ::after кладётся поверх */
+.apphead .logoMark{position:relative;z-index:1}
+.avatarPill{
+  box-shadow:0 4px 12px rgba(122,40,12,.3), inset 0 1px 0 rgba(255,255,255,.9);
+  overflow:hidden;
+}
+.avatarPill img{width:100%;height:100%;border-radius:999px;object-fit:cover}
+/* Наезжает на шапку только геро-карточка. Тянуть наверх саму шапку нельзя:
+   тогда под неё заезжает и первая карточка профиля, пряча её заголовок. */
+#heroWrap{position:relative;z-index:2;margin-top:-40px}
+
+/* ── Карточка турнира ───────────────────────────────────────── */
+.tcard{
+  position:relative;overflow:hidden;cursor:pointer;
+  border-radius:var(--r-lg);margin-bottom:12px;
+  background:linear-gradient(168deg,#FFFEF9 0%,#FAF3E5 100%);
+  border:var(--hair);
+  box-shadow:var(--sh-card), var(--edge);
+}
+.tcard .tcBody{position:relative;z-index:1;padding:16px 16px 14px}
+/* Водяной знак: масть размером с карточку, почти невидимая. Её не читают —
+   её замечают, и лист перестаёт быть листом. */
+.tcard .tcBody::before{
+  content:"\2663";
+  position:absolute;right:2px;top:-18px;
+  font:900 92px/1 serif;color:rgba(36,27,20,.022);pointer-events:none;
+}
+
+/* Геро — главный предмет на экране: тёмное сукно, тёплый свет из угла,
+   золотая волосяная рамка и фишка, уходящая за правый край. */
+.tcard.hero{
+  color:var(--surface);border:none;
+  background:
+    radial-gradient(130% 100% at 88% 6%, rgba(233,83,31,.42), transparent 62%),
+    radial-gradient(90% 80% at 6% 104%, rgba(232,185,74,.16), transparent 62%),
+    linear-gradient(152deg,#34261B 0%,#241B14 52%,#18110B 100%);
+  box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.18);
+}
+.tcard.hero .tcBody::before{content:"\2660";color:rgba(232,185,74,.06)}
+.tcard.hero .tcName{color:var(--surface);text-shadow:0 2px 12px rgba(0,0,0,.35)}
+.tcard.hero .eyebrow{color:rgba(255,252,244,.62)}
+/* Фишка, уходящая за правый край. Насечки идут только по ободу: пущенные от
+   центра, они превращают фишку в мишень — первый заход это и показал.
+   Обод вырезается радиальной маской, поверх неё ложатся кольца и поле. */
+.tcard.hero::before,
+.tcard.hero::after{
+  content:"";position:absolute;z-index:0;pointer-events:none;
+  right:-54px;top:50%;transform:translateY(-50%);
+  width:168px;height:168px;border-radius:50%;
+}
+/* Поле фишки и внутренние кольца. */
+.tcard.hero::before{
+  background:
+    radial-gradient(circle at 50% 50%, rgba(255,252,244,.1) 0 29%, transparent 29.5%),
+    radial-gradient(circle at 50% 50%, transparent 0 36%, rgba(255,252,244,.09) 36% 37.5%, transparent 38%),
+    radial-gradient(circle at 50% 50%, transparent 0 73%, rgba(232,185,74,.22) 73% 75%, transparent 75.5%),
+    radial-gradient(circle at 50% 50%, rgba(233,83,31,.26) 0 100%);
+  -webkit-mask-image:linear-gradient(to right, transparent 0, #000 78px);
+  mask-image:linear-gradient(to right, transparent 0, #000 78px);
+}
+/* Насечки — отдельным слоем, зажатым в кольцо между 78% и 95% радиуса:
+   пущенные от центра, они превращают фишку в мишень (первый заход это и показал). */
+.tcard.hero::after{
+  background:repeating-conic-gradient(from 7deg, rgba(232,185,74,.34) 0 8deg, transparent 8deg 30deg);
+  -webkit-mask-image:
+    radial-gradient(circle at 50% 50%, transparent 0 78%, #000 79% 94%, transparent 95%),
+    linear-gradient(to right, transparent 0, #000 78px);
+  mask-image:
+    radial-gradient(circle at 50% 50%, transparent 0 78%, #000 79% 94%, transparent 95%),
+    linear-gradient(to right, transparent 0, #000 78px);
+  -webkit-mask-composite:source-in;
+  mask-composite:intersect;
+}
+.tcard.past{opacity:.78}
+.tcard.past .tcBody::before{opacity:.5}
+
+.tcName{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.14}
+.tcFee{font-size:12.5px;font-weight:800;color:var(--accent-dark);margin-top:5px;letter-spacing:.01em}
+.tcard.hero .tcFee{color:var(--gold)}
+
+/* ── Пилюли ─────────────────────────────────────────────────── */
+.pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
+.pill{
+  display:inline-flex;align-items:center;gap:5px;
+  padding:5px 10px;border-radius:9px;
+  background:rgba(36,27,20,.05);color:var(--ink-2);
+  border:1px solid rgba(36,27,20,.05);
+  font-size:11.5px;font-weight:800;font-variant-numeric:tabular-nums;
+}
+.pill.hot{background:var(--accent-soft);color:var(--accent-dark);border-color:rgba(233,83,31,.2)}
+.pill.ok{background:rgba(46,125,79,.12);color:var(--ok);border-color:rgba(46,125,79,.22)}
+.pill.warn{background:rgba(232,185,74,.24);color:#7A5E12;border-color:rgba(232,185,74,.4)}
+.pill.live{
+  background:linear-gradient(160deg,#F2622C,#C8420F);color:var(--surface);border-color:transparent;
+  box-shadow:0 2px 8px rgba(200,66,15,.4), inset 0 1px 0 rgba(255,255,255,.22);
+}
+.pill.live::before{
+  content:"";width:6px;height:6px;border-radius:50%;background:currentColor;
+  animation:blink 1.8s ease-in-out infinite;
+}
+.pIco{width:13px;height:13px;flex:none;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;opacity:.72}
+@keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.7)}}
+/* На тёмном светлая пилюля тонет: своя заливка и свой цвет текста.
+   Те же правила нужны шапке экрана турнира — она из того же сукна. */
+.tcard.hero .pill,.detailHead .pill{background:rgba(255,252,244,.11);color:rgba(255,252,244,.88);border-color:rgba(255,252,244,.13)}
+.tcard.hero .pill.hot,.detailHead .pill.hot{background:linear-gradient(160deg,#F3D585,#E8B94A);color:#3A2C21;border-color:transparent;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.tcard.hero .pill.ok,.detailHead .pill.ok{background:rgba(110,220,150,.16);color:#7FE3A6;border-color:rgba(110,220,150,.26)}
+.tcard.hero .pill.warn,.detailHead .pill.warn{background:rgba(232,185,74,.2);color:#F0CE7E;border-color:rgba(232,185,74,.3)}
+/* «Идёт сейчас» должно кричать и на тёмном — иначе правило выше гасит его
+   в ту же полупрозрачную плашку, что и дату. */
+.tcard.hero .pill.live,.detailHead .pill.live{
+  background:linear-gradient(160deg,#F2622C,#C8420F);color:var(--surface);border-color:transparent;
+  box-shadow:0 2px 10px rgba(233,83,31,.5), inset 0 1px 0 rgba(255,255,255,.22);
+}
+
+/* ── Кнопка карточки ────────────────────────────────────────── */
+/* Была полосой во всю ширину — выглядела как подвал таблицы. Стала кнопкой
+   с полями: объём даёт внутренний блик сверху и тёмная подрезка снизу. */
+.tcCta{
+  display:block;width:calc(100% - 32px);margin:0 16px 16px;
+  position:relative;z-index:1;
+  padding:14px 16px;border-radius:14px;text-align:center;
+  font-size:13px;font-weight:900;letter-spacing:.04em;text-transform:uppercase;
+  background:linear-gradient(160deg,#F2622C 0%,#E9531F 44%,#C8420F 100%);
+  color:var(--surface);
+  box-shadow:
+    0 2px 6px rgba(172,61,23,.3),
+    0 8px 20px rgba(172,61,23,.22),
+    inset 0 1px 0 rgba(255,255,255,.26),
+    inset 0 -2px 0 rgba(0,0,0,.12);
+}
+.tcCta:active{transform:scale(.97);filter:brightness(.95)}
+.tcCta.done{
+  background:rgba(46,125,79,.1);color:var(--ok);
+  box-shadow:inset 0 0 0 1.5px rgba(46,125,79,.3);
+}
+.tcCta.flat{
+  background:rgba(36,27,20,.05);color:var(--ink-2);
+  box-shadow:inset 0 0 0 1px rgba(36,27,20,.08);
+}
+.tcard.hero .tcCta.done{background:rgba(110,220,150,.13);color:#8FE9B4;box-shadow:inset 0 0 0 1.5px rgba(110,220,150,.3)}
+.tcard.hero .tcCta.flat{background:rgba(255,252,244,.1);color:rgba(255,252,244,.8);box-shadow:inset 0 0 0 1px rgba(255,252,244,.16)}
+
+/* ── Баннер ─────────────────────────────────────────────────── */
+/* Широкая тёмная плашка между геро и плитками: без неё экран распадается на
+   «большая карточка» и «мелкая сетка», и середина проваливается. */
+.banner{
+  position:relative;overflow:hidden;cursor:pointer;
+  border-radius:var(--r-lg);padding:18px 20px;margin-bottom:12px;
+  color:var(--surface);
+  background:
+    radial-gradient(120% 130% at 86% 16%, rgba(232,185,74,.26), transparent 62%),
+    linear-gradient(150deg,#3E2E21 0%,#2A2018 58%,#1C150E 100%);
+  box-shadow:var(--sh-card), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.12);
+}
+.banner .bEyebrow{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--gold)}
+.banner .bTitle{font-size:17px;font-weight:900;letter-spacing:-.02em;margin-top:4px}
+.banner .bSub{font-size:12.5px;color:rgba(255,252,244,.56);margin-top:2px}
+.banner .bCta{margin-top:10px;font-size:12px;font-weight:800;color:var(--gold);letter-spacing:.03em}
+.banner .bLeft{position:relative;z-index:1;max-width:66%}
+/* Веер карт справа: три скруглённых прямоугольника под углом. Рисовать
+   кубок градиентами выходит «гриб на подставке» — карты читаются честнее,
+   и они же про покер. */
+.banner .bDeck{
+  position:absolute;right:16px;top:50%;z-index:0;pointer-events:none;
+  width:1px;height:1px;
+}
+.banner .bDeck i{
+  position:absolute;left:0;top:0;
+  width:52px;height:74px;margin:-37px 0 0 -26px;
+  border-radius:8px;
+  background:linear-gradient(160deg, rgba(255,252,244,.94), rgba(238,228,206,.9));
+  box-shadow:0 6px 16px rgba(0,0,0,.4), inset 0 0 0 1px rgba(36,27,20,.12);
+  transform-origin:50% 120%;
+}
+.banner .bDeck i:nth-child(1){transform:rotate(-20deg)}
+.banner .bDeck i:nth-child(2){transform:rotate(-2deg)}
+.banner .bDeck i:nth-child(3){transform:rotate(16deg)}
+.banner .bDeck i::after{
+  content:"\2660";position:absolute;left:6px;top:2px;
+  font:900 17px/1 serif;color:var(--ink);
+}
+.banner .bDeck i:nth-child(2)::after{content:"\2665";color:var(--accent)}
+.banner .bDeck i:nth-child(3)::after{content:"\2666";color:var(--accent)}
+
+/* ── Плитки клуба ───────────────────────────────────────────── */
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{
+  position:relative;overflow:hidden;cursor:pointer;
+  background:linear-gradient(166deg,#FFFEF9 0%,#F7EFDE 100%);
+  border:var(--hair);border-radius:18px;padding:14px;
+  box-shadow:var(--sh-sm), var(--edge);
+  text-align:left;color:var(--ink);text-decoration:none;
+  display:flex;flex-direction:column;gap:8px;min-height:104px;
+  /* Плитки — это <button>, а кнопкам в дизайн-системе задан nowrap: без
+     возврата к normal подпись «Домашние правила клуба» обрезается по краю. */
+  white-space:normal;
+}
+.tile::after{
+  content:"";position:absolute;inset:0;pointer-events:none;
+  background:radial-gradient(circle at 16% 10%, rgba(232,185,74,.18), transparent 56%);
+}
+.tile .tt{font-size:14px;font-weight:900;letter-spacing:-.01em;position:relative;z-index:1}
+.tile .muted{position:relative;z-index:1;font-size:11.5px;line-height:1.35}
+
+/* Жетон вместо эмодзи. Эмодзи рисует система — и на каждом телефоне по-своему,
+   в чужом стиле и без тени. Жетон сделан из градиентов: латунь, блик сверху,
+   подрезка снизу — и он свой на любом устройстве. */
+.coin{
+  position:relative;z-index:1;flex:none;
+  width:40px;height:40px;border-radius:50%;
+  display:grid;place-items:center;color:#4A3413;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255,250,228,.95) 0 9%, transparent 10%),
+    linear-gradient(155deg,#F7DFA8 0%,#E8B94A 40%,#C7953B 74%,#A87A2B 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,.8),
+    inset 0 -2px 4px rgba(120,84,20,.38),
+    0 3px 8px rgba(36,27,20,.22);
+}
+.coin svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
+
+/* ── Фильтры ────────────────────────────────────────────────── */
+.chips{display:flex;gap:8px;margin-bottom:14px}
+.chips button{
+  flex:1;background:rgba(255,252,244,.6);color:var(--muted);
+  box-shadow:inset 0 0 0 1px rgba(36,27,20,.08), 0 1px 2px rgba(36,27,20,.04);
+  border-radius:12px;
+}
+.chips button.on{
+  background:linear-gradient(160deg,#34261B,#241B14);color:var(--surface);
+  box-shadow:0 4px 12px rgba(36,27,20,.25), inset 0 1px 0 rgba(255,255,255,.1);
+}
+
+/* ── Детали турнира ─────────────────────────────────────────── */
+.detailHead{
+  position:relative;overflow:hidden;
+  margin:0 -14px 16px;padding:16px 18px 22px;
+  border-radius:0 0 var(--r-lg) var(--r-lg);
+  color:var(--surface);
+  background:
+    radial-gradient(120% 130% at 86% -4%, rgba(233,83,31,.4), transparent 62%),
+    linear-gradient(152deg,#34261B 0%,#241B14 52%,#18110B 100%);
+  box-shadow:0 12px 30px rgba(36,27,20,.24), var(--edge-dark);
+}
+.detailHead::after{
+  content:"\2660";position:absolute;right:-16px;bottom:-52px;
+  font:900 148px/1 serif;color:rgba(232,185,74,.05);pointer-events:none;
+}
+.detailHead h1{color:var(--surface);font-size:25px;margin-top:8px;letter-spacing:-.025em;position:relative;z-index:1}
+.detailHead .pills{position:relative;z-index:1}
+.backBtn{
+  position:relative;z-index:1;
+  background:rgba(255,252,244,.13);color:var(--surface);
+  padding:7px 13px;font-size:12px;border-radius:999px;
+  box-shadow:inset 0 0 0 1px rgba(255,252,244,.16);
+}
+
+.card{background:linear-gradient(168deg,#FFFEF9 0%,#FAF3E5 100%);border:var(--hair);box-shadow:var(--sh-card), var(--edge)}
+.specs{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:rgba(36,27,20,.07);border-radius:var(--r-md);overflow:hidden}
+.spec{background:linear-gradient(170deg,#FFFEF9,#F8F1E2);padding:12px 14px}
+.spec .sl{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.spec .sv{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;margin-top:2px}
+.feat{display:flex;gap:9px;font-size:14px;font-weight:600;padding:5px 0}
+.feat::before{content:"\25C6";color:var(--accent);font-size:10px;line-height:1.7}
+
+/* Живой блок — единственное место, где что-то меняется на глазах.
+   Поэтому он ярче всего на экране и с бегущей точкой. */
+.liveBox{
+  position:relative;overflow:hidden;
+  border-radius:var(--r-md);padding:16px 18px;margin-bottom:14px;
+  color:var(--surface);
+  background:
+    radial-gradient(120% 140% at 88% -10%, rgba(255,214,168,.34), transparent 58%),
+    linear-gradient(160deg,#F2622C 0%,#E9531F 46%,#C8420F 100%);
+  box-shadow:0 8px 22px rgba(172,61,23,.3), inset 0 1px 0 rgba(255,255,255,.2);
+}
+.liveBox::after{
+  content:"\2665";position:absolute;right:-8px;bottom:-32px;
+  font:900 110px/1 serif;color:rgba(255,252,244,.1);pointer-events:none;
+}
+.liveBox>*{position:relative;z-index:1}
+.liveBox .lvTime{font-size:42px;font-weight:900;letter-spacing:-.035em;font-variant-numeric:tabular-nums;line-height:1;text-shadow:0 2px 14px rgba(122,40,12,.35)}
+.liveBox .lvMeta{font-size:13px;font-weight:800;color:rgba(255,252,244,.84);margin-top:5px}
+
+/* На экране турнира таб-бар скрыт, поэтому кнопка липнет к самому низу —
+   отступ под несуществующую навигацию оставлял бы её висеть над списком. */
+.stickyCta{position:sticky;bottom:calc(12px + env(safe-area-inset-bottom));z-index:30;padding:10px 0 4px}
+.stickyCta button,.stickyCta a{
+  width:100%;padding:16px;font-size:14px;font-weight:900;
+  letter-spacing:.04em;text-transform:uppercase;border-radius:var(--r-md);
+}
+.stickyCta button:not(.ghost):not(.danger){
+  background:linear-gradient(160deg,#F2622C 0%,#E9531F 44%,#C8420F 100%);
+  box-shadow:
+    0 3px 8px rgba(172,61,23,.32),
+    0 12px 28px rgba(172,61,23,.26),
+    inset 0 1px 0 rgba(255,255,255,.26),
+    inset 0 -2px 0 rgba(0,0,0,.12);
+}
+.stickyCta button:active{transform:scale(.97)}
+
+/* ── История и состав ───────────────────────────────────────── */
+.hRow{display:flex;align-items:center;gap:11px;padding:11px 12px;border-radius:var(--r-md);background:transparent}
+.hRow+.hRow{border-top:1px solid var(--line)}
+.hRow .place{
+  width:32px;height:32px;border-radius:999px;flex:none;display:grid;place-items:center;
+  background:rgba(36,27,20,.05);color:var(--muted);font-size:12.5px;font-weight:900;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.7);
+}
+/* Первое место — жетон, а не серая плашка: победу видно с расстояния. */
+.hRow .place.p1{
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255,250,228,.95) 0 10%, transparent 11%),
+    linear-gradient(155deg,#F7DFA8,#E8B94A 42%,#C7953B 100%);
+  color:#4A3413;
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8), 0 2px 7px rgba(170,125,35,.45);
+}
+.hRow .place.p2{background:linear-gradient(155deg,#FBE3D6,#F3C3AC);color:var(--accent-dark);box-shadow:inset 0 1px 0 rgba(255,255,255,.7)}
+.hRow .hMain{flex:1;min-width:0}
+.hRow .hName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.listRow{background:transparent}
+
+/* ── Профиль ────────────────────────────────────────────────── */
+.kpi{
+  background:linear-gradient(168deg,#FFFDF6,#F5ECD9);
+  border:var(--hair);
+  box-shadow:var(--sh-sm), var(--edge);
+}
+.kpi .kpiValue{letter-spacing:-.03em}
+
+/* ── Пустые состояния, тосты ─────────────────────────────────── */
+.empty{
+  position:relative;overflow:hidden;
+  background:linear-gradient(168deg,#FFFEF9 0%,#FAF3E5 100%);
+  border:var(--hair);border-radius:var(--r-lg);
+  box-shadow:var(--sh-card), var(--edge);
+  padding:32px 20px;text-align:center;
+}
+.empty::before{
+  content:"\2660";position:absolute;left:50%;top:-22px;transform:translateX(-50%);
+  font:900 104px/1 serif;color:rgba(36,27,20,.04);pointer-events:none;
+}
+.empty .eT{font-size:16px;font-weight:900;position:relative;z-index:1}
+.empty .eS{font-size:13px;color:var(--muted);margin-top:4px;position:relative;z-index:1}
+
+/* ── Нижняя навигация ───────────────────────────────────────── */
+.tabbar{
+  background:rgba(255,252,244,.92);
+  backdrop-filter:saturate(1.4) blur(12px);
+  -webkit-backdrop-filter:saturate(1.4) blur(12px);
+  border-top:1px solid rgba(36,27,20,.07);
+  box-shadow:0 -6px 20px rgba(36,27,20,.08);
+}
+.tabbar button .ic{font-size:16px;transition:transform .16s ease}
+.tabbar button.active .ic{transform:translateY(-1px) scale(1.15)}
+
+#toast{
+  position:fixed;left:14px;right:14px;bottom:calc(84px + env(safe-area-inset-bottom));z-index:90;
+  background:linear-gradient(160deg,#34261B,#1C150E);color:var(--surface);border-radius:var(--r-md);
+  padding:13px 16px;font-size:14px;font-weight:800;text-align:center;
+  box-shadow:0 12px 32px rgba(36,27,20,.36), inset 0 1px 0 rgba(255,255,255,.08);
+  opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .2s,transform .2s;
+}
+#toast.on{opacity:1;transform:none}
+#toast.bad{background:linear-gradient(160deg,#D8453F,#A31F1F)}
+#toast.good{background:linear-gradient(160deg,#399460,#1F6B42)}
+
+.gate{min-height:70vh;display:grid;place-items:center;text-align:center}
+.spin{display:inline-block;animation:sp 1s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+
+@media(max-width:400px){
+  .tcName{font-size:18px}
+  .tcard.hero::after{width:168px;right:-56px}
+}
+</style>
 </head>
 <body>
+
 <div class="wrap">
-  <header class="apphead">
+
+<!-- ═══ Заставка ═══════════════════════════════════════════════ -->
+<div id="scrBoot" class="screen on">
+  <div class="gate">
+    <div>
+      <img class="logoMark lg" src="assets/logo.svg" alt="Vyatka Poker Club" style="margin:0 auto 12px"/>
+      <h1 style="margin:8px 0 6px">Клуб «Вятка»</h1>
+      <div class="muted"><span class="spin">◆</span> Загружаем расписание…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Знакомство: имя для нового игрока ══════════════════════ -->
+<div id="scrName" class="screen">
+  <div class="gate">
+    <div style="width:100%">
+      <div class="eyebrow">Первый вход</div>
+      <h1 style="margin:8px 0 6px">Как тебя звать?</h1>
+      <div class="sub" style="margin-bottom:16px">Имя увидят за столом и в списке участников.</div>
+      <div class="card" style="text-align:left">
+        <div class="field"><label>Имя и фамилия</label>
+          <input id="nameInput" type="text" maxlength="60" placeholder="Андрей Кузнецов" autocomplete="name"/></div>
+        <button id="nameSave" type="button" style="width:100%">Продолжить</button>
+        <div id="nameErr" class="err"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Приложение ═════════════════════════════════════════════ -->
+<div id="scrApp" class="screen">
+  <header class="apphead compact">
     <div>
       <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
-      <h1>Таймер турниров</h1>
+      <div class="hi" id="greet">Клуб «Вятка»</div>
+      <h1 id="meName" style="font-size:26px">Гость</h1>
     </div>
-    <div class="headSide"><span class="avatarPill">ВП</span></div>
+    <div class="headSide"><span class="avatarPill" id="meAvatar">ВП</span></div>
   </header>
 
-  <section class="card">
-    <div class="cardHead"><h2>Куда идём</h2></div>
-    <div class="list">
-      <a class="listRow" href="admin.html" style="text-decoration:none;color:inherit">
-        <span class="avatar">♦</span>
-        <span class="nm">Админка<div class="muted">Комнаты, таймер, игроки, структура</div></span>
-        <span class="tag hot">открыть</span>
-      </a>
-      <a class="listRow" href="tournaments.html" style="text-decoration:none;color:inherit">
-        <span class="avatar">♥</span>
-        <span class="nm">Расписание турниров<div class="muted">Создать турнир, записи, операторы</div></span>
-        <span class="tag hot">открыть</span>
-      </a>
-      <a class="listRow" href="app.html" style="text-decoration:none;color:inherit">
-        <span class="avatar">▲</span>
-        <span class="nm">Приложение игрока<div class="muted">Расписание и запись на турниры — то, что видит игрок</div></span>
-        <span class="tag">посмотреть</span>
-      </a>
-      <a class="listRow" href="crm.html" style="text-decoration:none;color:inherit">
-        <span class="avatar">♣</span>
-        <span class="nm">CRM клуба<div class="muted">Показатели игроков и отчёт за период в Excel</div></span>
-        <span class="tag">открыть</span>
-      </a>
-      <a class="listRow" href="display.html?demo=1" style="text-decoration:none;color:inherit">
-        <span class="avatar">★</span>
-        <span class="nm">Дисплей — демо<div class="muted">Как экран выглядит на ТВ, без комнаты</div></span>
-        <span class="tag">посмотреть</span>
-      </a>
+  <!-- ── Главная ─────────────────────────────────────────────── -->
+  <section id="tabHome" class="tab">
+    <div id="heroWrap"></div>
+    <div id="bannerWrap"></div>
+    <div id="nextWrap"></div>
+
+    <div class="cardHead" style="margin:18px 0 10px"><h2>Клуб</h2></div>
+    <div class="tiles">
+      <button class="tile" type="button" data-info="address">
+        <span class="coin"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
+        <span class="tt">Адрес</span><span class="muted" id="tileAddr">—</span></button>
+      <button class="tile" type="button" data-info="rules">
+        <span class="coin"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M8 7.5h7M8 11h5"/></svg></span>
+        <span class="tt">Правила</span><span class="muted">Домашние правила клуба</span></button>
+      <button class="tile" type="button" data-info="about">
+        <span class="coin"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg></span>
+        <span class="tt">О клубе</span><span class="muted">Как всё устроено</span></button>
+      <a class="tile" id="tileSupport" href="#" target="_blank" rel="noopener">
+        <span class="coin"><svg viewBox="0 0 24 24"><path d="M20 12.5c0 3.9-3.6 7-8 7a9.6 9.6 0 0 1-2.6-.35L4.5 21l1.2-3.6A6.6 6.6 0 0 1 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"/></svg></span>
+        <span class="tt">Поддержка</span><span class="muted">Написать организатору</span></a>
     </div>
   </section>
 
-  <section class="card">
-    <div class="cardHead"><h2>Как запускать турнир</h2></div>
-    <ol class="sub" style="line-height:1.8;padding-left:18px;margin:0">
-      <li>Заведи турнир в расписании — игроки увидят его в приложении и запишутся.</li>
-      <li>В админке создай комнату и привяжи её к этому турниру: записавшиеся приедут сами.</li>
-      <li>Открой ссылку дисплея на экране в зале.</li>
-      <li>Отметь пришедших и нажми «Старт».</li>
-    </ol>
+  <!-- ── Турниры ─────────────────────────────────────────────── -->
+  <section id="tabTours" class="tab" style="display:none">
+    <div class="cardHead" style="margin-bottom:12px"><h2>Турниры</h2><span class="tag" id="toursInfo">—</span></div>
+    <div class="chips">
+      <button class="on" data-filter="open" type="button">Открытые</button>
+      <button data-filter="past" type="button">Прошедшие</button>
+    </div>
+    <div id="toursList"></div>
+  </section>
+
+  <!-- ── Профиль ─────────────────────────────────────────────── -->
+  <section id="tabMe" class="tab" style="display:none">
+    <div id="meGuest" class="empty" style="display:none">
+      <div class="eT" id="guestHead">Профиль — в Telegram</div>
+      <div class="eS" id="guestText">Расписание видно и так, а записаться можно из приложения клуба в Telegram.</div>
+      <a id="guestTgLink" class="badge gold" style="margin-top:14px;text-decoration:none" href="#" target="_blank" rel="noopener">Открыть в Telegram</a>
+    </div>
+
+    <div id="meBox" style="display:none">
+      <div class="card">
+        <div class="cardHead"><h2>Профиль</h2><span class="tag" id="meTg">—</span></div>
+        <div class="kpis">
+          <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="stGames">0</div></div>
+          <div class="kpi"><div class="kpiLabel">Победы</div><div class="kpiValue num" id="stWins">0</div></div>
+          <div class="kpi"><div class="kpiLabel">Топ-3</div><div class="kpiValue num" id="stTop3">0</div></div>
+          <div class="kpi hot"><div class="kpiLabel">Ноки</div><div class="kpiValue num" id="stKo">0</div></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><h2>Мои данные</h2></div>
+        <div class="field"><label>Имя за столом</label><input id="pfName" type="text" maxlength="60"/></div>
+        <div class="field"><label>Полное имя (для клуба)</label><input id="pfFull" type="text" maxlength="120" placeholder="необязательно"/></div>
+        <div class="field"><label>Телефон</label><input id="pfPhone" type="tel" maxlength="32" placeholder="необязательно"/></div>
+        <div class="btnrow"><button id="pfSave" type="button">Сохранить</button>
+          <button id="pfLogout" class="danger" type="button">Выйти</button></div>
+        <div id="pfErr" class="err"></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><h2>Я записан</h2><span class="tag" id="myRegsInfo">—</span></div>
+        <div id="myRegs" class="list"></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><h2>Сыгранное</h2><span class="tag" id="histInfo">—</span></div>
+        <div id="histList" class="list"></div>
+      </div>
+    </div>
   </section>
 </div>
+
+<!-- ═══ Турнир: подробно ═══════════════════════════════════════ -->
+<div id="scrTourney" class="screen">
+  <div class="detailHead">
+    <button class="backBtn" id="tdBack" type="button">← Назад</button>
+    <h1 id="tdName">Турнир</h1>
+    <div class="pills" id="tdTop"></div>
+  </div>
+  <div id="tdBody"></div>
+</div>
+
+</div><!-- /wrap -->
+
+<nav class="tabbar" id="tabbar" style="display:none">
+  <button data-tab="home" class="active" type="button"><span class="ic">♦</span>Главная</button>
+  <button data-tab="tours" type="button"><span class="ic">♣</span>Турниры</button>
+  <button data-tab="me" type="button"><span class="ic">♠</span>Профиль</button>
+</nav>
+
+<div class="modal" id="infoModal">
+  <div class="modalCard" style="max-height:86vh;overflow:auto">
+    <h2 id="infoTitle">—</h2>
+    <div id="infoBody" class="sub" style="margin:10px 0 0;font-size:14px;line-height:1.6"></div>
+    <div class="btnrow" style="margin-top:16px"><button id="infoClose" class="ghost" type="button">Закрыть</button></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script src="js/config.js"></script>
+<script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
+<script src="lib/telegram-web-app.js"></script>
+<script src="js/core.js"></script>
+<script src="js/devstub.js"></script>
+<script>
+(() => {
+  "use strict";
+
+  // ── Про клуб ───────────────────────────────────────────────────────────────
+  // Всё, что правится без программиста, — здесь, а не разбросано по разметке.
+  const CLUB = {
+    tgApp:   "https://t.me/vyatkapoker_bot/app",
+    support: "https://t.me/vyatkapoker",
+    address: "Киров, ул. Ленина, 1",
+    addressNote: "Вход со двора, второй этаж. Сбор за полчаса до старта.",
+    mapUrl:  "https://yandex.ru/maps/?text=Киров, ул. Ленина, 1",
+    about: [
+      "«Вятка» — покерный клуб в Кирове. Играем турниры по вечерам: фриз-ауты, ПКО и глубокие стеки.",
+      "Запись — здесь, в приложении. Место держим до старта; если планы поменялись, сними запись — её ждёт кто-то из листа.",
+      "Взнос платят на месте: переводом, наличными или картой.",
+    ],
+    rules: [
+      "Опоздание: поздняя регистрация открыта до уровня, указанного в карточке турнира. Стек выдаётся стартовый.",
+      "Телефон на столе — только лицом вниз, разговоры — от стола.",
+      "Карты и фишки остаются на столе видимыми, самая крупная фишка стека — сверху.",
+      "Объявленное вслух действие обязательно к исполнению: сказал «колл» — колл.",
+      "Все споры решает организатор вечера; решение окончательное.",
+    ],
+  };
+
+  const $ = (id) => document.getElementById(id);
+  const {
+    escHtml, fmtInt, fmtTime, nowMs, initials, clampInt, NF,
+    normalizeState, curLevel, playLevelNum, remainingSec, breakRemainingSec,
+    isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries,
+  } = window.VP;
+
+  const TBL = window.VP_TABLES;
+  const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
+
+  // ── Telegram ───────────────────────────────────────────────────────────────
+  const tg = window.Telegram?.WebApp;
+  if (tg) {
+    try { tg.ready(); tg.expand(); } catch (_) {}
+    try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#EADFC8"); } catch (_) {}
+  }
+  // Песочница подсовывает свою initData — иначе приложение локально не открыть.
+  const initData = tg?.initData || window.VP_DEV_INIT_DATA || "";
+  const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
+
+  const TOKEN_KEY = "vp_app_token";
+  let token = "";
+  try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
+
+  let me = null;              // { player, registrations:[id], history:[] }
+  let tours = [];             // расписание: только публичные статусы
+  let roomStates = {};        // room_id → state комнаты, для живого турнира
+  let filter = "open";
+  let openId = null;          // турнир на экране деталей
+  let rosterCache = {};
+  let resultCache = {};           // итоги завершённого турнира из снимка CRM
+  let liveTimer = null;
+  let pollTimer = null;
+  let authBusy = false;           // вход в процессе — кнопка записи ждёт его
+
+  const myRegs = () => new Set((me?.registrations || []).map(Number));
+  const isReg = (id) => myRegs().has(Number(id));
+
+  // ── Мелочи интерфейса ──────────────────────────────────────────────────────
+  let toastTimer = null;
+  function toast(text, kind) {
+    const el = $("toast");
+    el.textContent = text;
+    el.className = "on" + (kind ? " " + kind : "");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.className = ""; }, 2600);
+  }
+
+  function screen(id) {
+    document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
+    $("tabbar").style.display = (id === "scrApp") ? "" : "none";
+    window.scrollTo(0, 0);
+  }
+
+  function tab(name) {
+    ["home", "tours", "me"].forEach((t) => { $("tab" + t[0].toUpperCase() + t.slice(1)).style.display = t === name ? "" : "none"; });
+    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
+    window.scrollTo(0, 0);
+  }
+
+  // Ошибки из RPC приезжают кодом (`registration_closed`), а не текстом: код
+  // один для всех клиентов, а формулировка — дело приложения.
+  const ERRORS = {
+    tg_bot_token_not_configured: "Вход пока не настроен. Напиши организатору.",
+    init_data_invalid: "Telegram не подтвердил вход. Открой приложение заново.",
+    init_data_expired: "Сессия Telegram устарела. Открой приложение заново.",
+    not_authorized: "Нужно войти заново.",
+    invalid_name: "Имя от 2 до 60 символов.",
+    name_taken: "Такое имя в клубе уже занято — добавь фамилию.",
+    tournament_not_found: "Турнир не найден.",
+    registration_closed: "Запись на этот турнир закрыта.",
+    tournament_full: "Мест больше нет.",
+  };
+  function errText(e) {
+    const raw = String(e?.message || e || "");
+    for (const code in ERRORS) if (raw.includes(code)) return ERRORS[code];
+    if (/relation|does not exist|schema cache|PGRST202|404/i.test(raw)) {
+      return "База ещё не готова — примени migrations/005_player_app.sql";
+    }
+    return "Не получилось. Попробуй ещё раз.";
+  }
+
+  async function rpc(name, args) {
+    const { data, error } = await sb.rpc(name, args || {});
+    if (error) throw error;
+    return data;
+  }
+
+  // ── Даты ───────────────────────────────────────────────────────────────────
+  const dayOf = (d) => new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  function dateLabel(iso) {
+    if (!iso) return "дата не назначена";
+    const d = new Date(iso);
+    if (isNaN(d)) return "дата не назначена";
+    const today = dayOf(new Date());
+    const day = dayOf(d);
+    const time = d.toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
+    if (day === today) return `Сегодня · ${time}`;
+    if (day === today + 864e5) return `Завтра · ${time}`;
+    if (day === today - 864e5) return `Вчера · ${time}`;
+    const head = d.toLocaleDateString("ru-RU", { day: "2-digit", month: "long" });
+    return `${head} · ${time}`;
+  }
+  const money = (v) => (v == null ? "—" : `${NF.format(clampInt(v, 0))} ₽`);
+
+  // Поздняя регистрация идёт часами, и fmtTime писал бы «117:50» — время,
+  // которое человек читает как «час пятьдесят семь». Здесь нужны не секунды.
+  function coarse(sec) {
+    sec = Math.max(0, sec | 0);
+    if (sec >= 3600) {
+      const h = Math.floor(sec / 3600), m = Math.round((sec % 3600) / 60);
+      return m ? `${h} ч ${m} мин` : `${h} ч`;
+    }
+    if (sec >= 60) return `${Math.ceil(sec / 60)} мин`;
+    return `${sec} сек`;
+  }
+
+  // ── Состояние турнира ──────────────────────────────────────────────────────
+  // Статус в таблице ставит админка турниров, но вечер идёт в комнате таймера,
+  // и она честнее: рум запущен — турнир живой, что бы ни стояло в статусе.
+  const roomOf = (t) => (t.room_id ? roomStates[t.room_id] : null);
+  function isRunning(t) {
+    const st = roomOf(t);
+    if (st?.timer?.isRunning) return true;
+    return t.status === "running";
+  }
+  function isPast(t) {
+    if (t.status === "past") return true;
+    if (t.status === "cancelled") return true;
+    if (isRunning(t)) return false;
+    // Турнир без «завершён», но вчерашний, в прошедшие уезжает сам: иначе он
+    // висел бы первым в открытых, пока организатор не вспомнит про статус.
+    if (!t.date) return false;
+    return new Date(t.date).getTime() < Date.now() - 12 * 3600 * 1000;
+  }
+  const seatsLeft = (t) => (t.slots == null ? null : Math.max(0, t.slots - (t.registered_count || 0)));
+
+  // Открыта ли запись прямо сейчас. Для идущего турнира — по поздней
+  // регистрации из комнаты: она единственная знает, какой сейчас уровень.
+  function regOpen(t) {
+    if (t.status === "cancelled" || t.status === "past") return false;
+    if (isPast(t)) return false;
+    const left = seatsLeft(t);
+    if (left === 0 && !isReg(t.id)) return false;
+    if (!isRunning(t)) return true;
+    const st = roomOf(t);
+    if (!st) return t.status === "open";
+    return lateRegRemainingSec(st) > 0;
+  }
+
+  // ── Загрузка ───────────────────────────────────────────────────────────────
+  async function loadTours() {
+    const { data, error } = await sb.from(TBL.tournaments)
+      .select("*")
+      .in("status", ["open", "running", "past"])
+      .order("date", { ascending: false })
+      .limit(80);
+    if (error) throw error;
+    tours = (data || []).map((t) => ({ ...t, id: Number(t.id) }));
+    await loadRooms();
+  }
+
+  // Комнаты нужны только для тех турниров, что могут идти прямо сейчас:
+  // тянуть состояние всех прошедших вечеров — трафик впустую.
+  async function loadRooms() {
+    const ids = tours
+      .filter((t) => t.room_id && t.status !== "past" && t.status !== "cancelled")
+      .map((t) => t.room_id);
+    if (!ids.length) { roomStates = {}; return; }
+    try {
+      const { data } = await sb.from(TBL.rooms).select("room_id,state").in("room_id", ids);
+      const next = {};
+      (data || []).forEach((r) => { const st = normalizeState(r.state); if (st) next[r.room_id] = st; });
+      roomStates = next;
+    } catch (e) { console.warn("loadRooms", e); }
+  }
+
+  async function loadMe() {
+    if (!token) { me = null; return; }
+    try {
+      me = await rpc("vp_app_me", { p_token: token });
+    } catch (e) {
+      if (String(e?.message || "").includes("not_authorized")) {
+        token = ""; try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+        me = null;
+        if (initData) await login();          // сессия протухла — входим заново молча
+        return;
+      }
+      throw e;
+    }
+  }
+
+  async function login(name) {
+    if (!initData) return false;
+    try {
+      const res = await rpc("vp_app_login", { p_init_data: initData, p_name: name || null });
+      token = res?.token || "";
+      if (token) { try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {} }
+      me = { player: res?.player || null, registrations: [], history: [] };
+      await loadMe();
+      return true;
+    } catch (e) {
+      // Телеграм иногда не отдаёт ни имени, ни username — тогда имя спрашиваем.
+      if (String(e?.message || "").includes("invalid_name") && !name) { askName(""); return false; }
+      throw e;
+    }
+  }
+
+  function askName(err) {
+    $("nameErr").textContent = err || "";
+    screen("scrName");
+    setTimeout(() => $("nameInput").focus(), 60);
+  }
+
+  // Значки для пилюль. Эмодзи рисует система: на каждом телефоне свой стиль,
+  // цветной и без связи с палитрой клуба — в тёмной геро-карточке 👥 выходил
+  // фиолетовым пятном. SVG наследует цвет текста пилюли и везде одинаков.
+  const ico = (d) => `<svg class="pIco" viewBox="0 0 24 24" aria-hidden="true">${d}</svg>`;
+  const ICO = {
+    cal: ico('<rect x="3.2" y="4.6" width="17.6" height="16" rx="3"/><path d="M8 2.6v4M16 2.6v4M3.2 10h17.6"/>'),
+    coin: ico('<ellipse cx="12" cy="7.2" rx="7.6" ry="3.2"/><path d="M4.4 7.2v9.6c0 1.77 3.4 3.2 7.6 3.2s7.6-1.43 7.6-3.2V7.2"/><path d="M4.4 12c0 1.77 3.4 3.2 7.6 3.2s7.6-1.43 7.6-3.2"/>'),
+    users: ico('<circle cx="9" cy="8.4" r="3.4"/><path d="M2.8 20a6.2 6.2 0 0 1 12.4 0"/><path d="M16.4 5.4a3.4 3.4 0 0 1 0 6.6M17.6 14.4A6.2 6.2 0 0 1 21.2 20"/>'),
+  };
+
+  // ── Отрисовка: карточка турнира ────────────────────────────────────────────
+  function statusPills(t, big) {
+    const out = [];
+    const running = isRunning(t);
+    const past = isPast(t);
+    const st = roomOf(t);
+
+    out.push(`<span class="pill">${ICO.cal} ${escHtml(dateLabel(t.date))}</span>`);
+    out.push(`<span class="pill${big ? " hot" : ""}">${ICO.coin} ${escHtml(money(t.entry_fee))}</span>`);
+
+    if (past) {
+      out.push(`<span class="pill">Завершён</span>`);
+    } else if (running) {
+      const lvl = st ? playLevelNum(st.structure.levels, st.timer.levelIndex) : 0;
+      out.push(`<span class="pill live">Идёт${lvl ? ` · ур. ${lvl}` : ""}</span>`);
+      if (st) out.push(`<span class="pill">${ICO.users} в игре ${fmtInt(st.stats.alive)}/${fmtInt(calcEntries(st))}</span>`);
+    } else {
+      const left = seatsLeft(t);
+      const cnt = t.registered_count || 0;
+      if (left === null) out.push(`<span class="pill">${ICO.users} записалось ${fmtInt(cnt)}</span>`);
+      else if (left === 0) out.push(`<span class="pill warn">Мест нет</span>`);
+      else if (left <= 5) out.push(`<span class="pill warn">${ICO.users} ${left} ${left === 1 ? "место" : "места"}</span>`);
+      else out.push(`<span class="pill">${ICO.users} ${fmtInt(cnt)}/${fmtInt(t.slots)}</span>`);
+    }
+    if (isReg(t.id) && !past) out.push(`<span class="pill ok">✓ ты записан</span>`);
+    return out.join("");
+  }
+
+  function ctaFor(t) {
+    if (isPast(t)) return { text: "Как прошло", cls: "flat" };
+    if (isReg(t.id)) return { text: "✓ Ты записан · подробнее", cls: "done" };
+    if (!regOpen(t)) return { text: "Подробнее", cls: "flat" };
+    if (isRunning(t)) return { text: "Успеть записаться", cls: "" };
+    return { text: "Записаться", cls: "" };
+  }
+
+  function tcard(t, hero) {
+    const cta = ctaFor(t);
+    return `<div class="tcard${hero ? " hero" : ""}${isPast(t) ? " past" : ""}" data-open="${t.id}">
+      <div class="tcBody">
+        ${hero ? `<div class="eyebrow${hero ? " on-accent" : ""}" style="margin-bottom:6px">${isRunning(t) ? "Идёт сейчас" : "Ближайший турнир"}</div>` : ""}
+        <div class="tcName">${escHtml(t.name || "Турнир")}</div>
+        ${t.start_stack ? `<div class="tcFee">Стек ${fmtInt(t.start_stack)}${t.level_minutes ? ` · уровни ${t.level_minutes} мин` : ""}</div>` : ""}
+        <div class="pills">${statusPills(t, hero)}</div>
+      </div>
+      <button class="tcCta ${cta.cls}" type="button" data-open="${t.id}">${escHtml(cta.text)}</button>
+    </div>`;
+  }
+
+  // ── Главная ────────────────────────────────────────────────────────────────
+  function renderHome() {
+    const p = me?.player;
+    $("meName").textContent = p?.name || "Гость";
+    $("greet").textContent = p ? "Добро пожаловать," : "Клуб «Вятка»";
+    const av = $("meAvatar");
+    av.innerHTML = p?.photo_url
+      ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
+      : escHtml(p ? initials(p.name) : "ВП");
+
+    const upcoming = tours
+      .filter((t) => !isPast(t))
+      .sort((a, b) => (isRunning(b) - isRunning(a)) || (new Date(a.date || 0) - new Date(b.date || 0)));
+
+    // Геро, баннер и «дальше» — три отдельных контейнера: баннер идёт сразу за
+    // главной карточкой, иначе он уезжает под список и середина экрана пустеет.
+    $("heroWrap").innerHTML = upcoming.length
+      ? tcard(upcoming[0], true)
+      : `<div class="empty"><div class="eT">Ближайших турниров нет</div>
+           <div class="eS">Расписание появится здесь — заглядывай.</div></div>`;
+    $("nextWrap").innerHTML = upcoming.length > 1
+      ? `<div class="cardHead" style="margin:18px 0 10px"><h2>Дальше</h2></div>`
+        + upcoming.slice(1, 3).map((t) => tcard(t, false)).join("")
+      : "";
+
+    renderBanner();
+    $("tileAddr").textContent = CLUB.address;
+    $("tileSupport").href = CLUB.support;
+    $("guestTgLink").href = CLUB.tgApp;
+  }
+
+  // Широкая плашка между геро и плитками. У Дойла на этом месте таблица
+  // лидеров; рейтинга в Вятке нет, и придумывать его ради красоты не нужно —
+  // плашка показывает то, что уже есть: сыгранное игрока, а гостю — расписание.
+  function renderBanner() {
+    const hist = me?.history || [];
+    const box = $("bannerWrap");
+    if (!me?.player) {
+      const open = tours.filter((t) => !isPast(t)).length;
+      box.innerHTML = `<div class="banner" data-tab="tours">
+        <div class="bLeft">
+          <div class="bEyebrow">Расписание клуба</div>
+          <div class="bTitle">${open ? `${open} ${plural(open, "турнир", "турнира", "турниров")} впереди` : "Скоро новые турниры"}</div>
+          <div class="bSub">Взносы, стеки и состав участников</div>
+          <div class="bCta">Смотреть →</div>
+        </div>${DECK}</div>`;
+      return;
+    }
+    const wins = hist.filter((h) => h.place === 1).length;
+    box.innerHTML = `<div class="banner" data-tab="me">
+      <div class="bLeft">
+        <div class="bEyebrow">Сыгранное</div>
+        <div class="bTitle">${hist.length
+          ? `${hist.length} ${plural(hist.length, "турнир", "турнира", "турниров")}${wins ? ` · ${wins} ${plural(wins, "победа", "победы", "побед")}` : ""}`
+          : "Первый турнир впереди"}</div>
+        <div class="bSub">${hist.length ? "Места, ноки и очки по вечерам" : "Запишись — и здесь появится история"}</div>
+        <div class="bCta">Открыть профиль →</div>
+      </div>${DECK}</div>`;
+  }
+  const DECK = '<span class="bDeck" aria-hidden="true"><i></i><i></i><i></i></span>';
+
+  const plural = (n, one, few, many) => {
+    const a = Math.abs(n) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    return b === 1 ? one : many;
+  };
+
+  // ── Список турниров ────────────────────────────────────────────────────────
+  function renderTours() {
+    const list = tours
+      .filter((t) => (filter === "past" ? isPast(t) : !isPast(t)))
+      .sort((a, b) => (filter === "past"
+        ? new Date(b.date || 0) - new Date(a.date || 0)
+        : (isRunning(b) - isRunning(a)) || (new Date(a.date || 0) - new Date(b.date || 0))));
+
+    $("toursInfo").textContent = `${list.length}`;
+    $("toursList").innerHTML = list.length
+      ? list.map((t) => tcard(t, false)).join("")
+      : `<div class="empty"><div class="eT">${filter === "past" ? "Прошедших турниров нет" : "Открытых турниров нет"}</div>
+           <div class="eS">${filter === "past" ? "История появится после первого вечера." : "Следи за расписанием."}</div></div>`;
+  }
+
+  // ── Профиль ────────────────────────────────────────────────────────────────
+  function renderMe() {
+    const p = me?.player;
+    $("meGuest").style.display = p ? "none" : "";
+    $("meBox").style.display = p ? "" : "none";
+    if (!p) {
+      // В Telegram профиль есть всегда — предлагаем вернуться в него, а не
+      // ссылку «открой приложение», которое и так открыто.
+      $("guestHead").textContent = initData ? "Ты не вошёл" : "Профиль — в Telegram";
+      $("guestText").textContent = initData
+        ? "Расписание видно и так, а чтобы записаться — войди."
+        : "Расписание видно и так, а записаться можно из приложения клуба в Telegram.";
+      $("guestTgLink").textContent = initData ? "Войти" : "Открыть в Telegram";
+      $("guestTgLink").href = initData ? "javascript:void(0)" : CLUB.tgApp;
+      $("guestTgLink").onclick = initData
+        ? async (e) => { e.preventDefault(); authBusy = true; try { await login(); } catch (err) { toast(errText(err), "bad"); } finally { authBusy = false; renderAll(); } }
+        : null;
+      return;
+    }
+
+    $("meTg").textContent = p.tg_username ? "@" + p.tg_username : "Telegram";
+    const hist = me.history || [];
+    $("stGames").textContent = fmtInt(hist.length);
+    $("stWins").textContent = fmtInt(hist.filter((h) => h.place === 1).length);
+    $("stTop3").textContent = fmtInt(hist.filter((h) => h.place && h.place <= 3).length);
+    $("stKo").textContent = fmtInt(hist.reduce((a, h) => a + clampInt(h.ko, 0), 0));
+
+    // Поля не перезатираем, пока человек в них печатает.
+    if (document.activeElement !== $("pfName")) $("pfName").value = p.name || "";
+    if (document.activeElement !== $("pfFull")) $("pfFull").value = p.full_name || "";
+    if (document.activeElement !== $("pfPhone")) $("pfPhone").value = p.phone || "";
+
+    const regs = tours.filter((t) => isReg(t.id) && !isPast(t))
+      .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+    $("myRegsInfo").textContent = regs.length ? String(regs.length) : "нет записей";
+    $("myRegs").innerHTML = regs.length
+      ? regs.map((t) => `<div class="listRow" data-open="${t.id}" style="cursor:pointer">
+          <span class="avatar">♦</span>
+          <span class="nm">${escHtml(t.name)}<div class="muted">${escHtml(dateLabel(t.date))}</div></span>
+          <span class="tag ok">записан</span></div>`).join("")
+      : `<div class="muted">Пока ни на один турнир не записан.</div>`;
+
+    $("histInfo").textContent = hist.length ? String(hist.length) : "нет турниров";
+    $("histList").innerHTML = hist.length
+      ? hist.map((h) => {
+          const pl = h.place || null;
+          const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
+          const when = h.played_at ? new Date(h.played_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
+          const extra = [];
+          if (h.ko) extra.push(`${h.ko} нок.`);
+          if (h.entries > 1) extra.push(`входов ${h.entries}`);
+          return `<div class="hRow">
+            <span class="place ${cls}">${pl ? pl : "—"}</span>
+            <span class="hMain"><span class="hName">${escHtml(h.name || "Турнир")}</span>
+              <div class="muted">${when}${extra.length ? " · " + escHtml(extra.join(" · ")) : ""}</div></span>
+            ${h.points ? `<span class="tag gold">${fmtInt(h.points)} оч.</span>` : ""}</div>`;
+        }).join("")
+      : `<div class="muted">Сыгранные турниры появятся после первого вечера.</div>`;
+  }
+
+  // ── Турнир: подробно ───────────────────────────────────────────────────────
+  async function openTourney(id) {
+    const t = tours.find((x) => x.id === Number(id));
+    if (!t) return;
+    openId = t.id;
+    $("tdName").textContent = t.name || "Турнир";
+    $("tdTop").innerHTML = statusPills(t, false);
+    $("tdBody").innerHTML = '<div class="muted">Загрузка состава…</div>';
+    screen("scrTourney");
+
+    // Состояние комнаты для деталей перечитываем: на главной оно могло
+    // приехать минуту назад, а тут показывается таймер.
+    if (t.room_id) {
+      try {
+        const { data } = await sb.from(TBL.rooms).select("state").eq("room_id", t.room_id).maybeSingle();
+        const st = normalizeState(data?.state);
+        if (st) roomStates[t.room_id] = st;
+      } catch (_) {}
+    }
+    // У завершённого турнира состав уже неинтересен: игрок открывает его,
+    // чтобы посмотреть, кто выиграл.
+    try {
+      if (isPast(t)) {
+        resultCache[t.id] = await rpc("vp_tournament_results", { p_tournament_id: t.id }) || [];
+      } else {
+        rosterCache[t.id] = await rpc("vp_tournament_roster", { p_tournament_id: t.id }) || [];
+      }
+    } catch (e) {
+      // Список недоступен — это не повод не открыть турнир.
+      if (isPast(t)) resultCache[t.id] = null; else rosterCache[t.id] = null;
+      console.warn("roster", e);
+    }
+    if (openId === t.id) renderTourney();
+  }
+
+  function liveBlock(t) {
+    const st = roomOf(t);
+    if (!st || !isRunning(t)) return "";
+    const lv = curLevel(st);
+    const onBreak = breakRemainingSec(st) !== null || isOnBreak(st);
+    const sec = onBreak ? (breakRemainingSec(st) ?? levelRemainingSec(st) ?? 0) : (remainingSec(st) ?? 0);
+    const num = playLevelNum(st.structure.levels, st.timer.levelIndex);
+    const blinds = lv.isBreak ? "Перерыв" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? " + ante" : ""}`;
+    const late = lateRegRemainingSec(st);
+    return `<div class="liveBox">
+      <div class="eyebrow on-accent">${onBreak ? "Перерыв" : st.timer.isPaused ? "Пауза" : `Уровень ${num}`}</div>
+      <div class="lvTime" data-live="1">${escHtml(fmtTime(sec))}</div>
+      <div class="lvMeta">${escHtml(blinds)} · в игре ${fmtInt(st.stats.alive)} из ${fmtInt(calcEntries(st))}</div>
+      ${late > 0 ? `<div class="lvMeta">Поздняя регистрация ещё ${escHtml(coarse(late))}</div>` : ""}
+    </div>`;
+  }
+
+  // Итоги вечера. Пустой список — не ошибка: отчёт кладёт админка отдельной
+  // кнопкой, и между «турнир завершён» и «отчёт сохранён» есть зазор.
+  function resultsCard(t) {
+    const rows = resultCache[t.id];
+    const myName = (me?.player?.name || "").toLowerCase();
+    return `<div class="card">
+      <div class="cardHead"><h2>Как закончилось</h2>
+        <span class="tag">${rows && rows.length ? rows.length + " игроков" : "—"}</span></div>
+      ${!rows || !rows.length
+        ? '<div class="muted">Итоги этого вечера ещё не выложили.</div>'
+        : `<div class="list">${rows.map((r) => {
+            const pl = r.place || null;
+            const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
+            const mine = myName && String(r.name || "").toLowerCase() === myName;
+            return `<div class="hRow">
+              <span class="place ${cls}">${pl || "—"}</span>
+              <span class="hMain"><span class="hName">${escHtml(r.name)}</span>
+                ${r.ko ? `<div class="muted">${fmtInt(r.ko)} нок.</div>` : ""}</span>
+              ${mine ? '<span class="tag hot">это ты</span>' : ""}
+              ${r.points ? `<span class="tag gold">${fmtInt(r.points)} оч.</span>` : ""}
+            </div>`;
+          }).join("")}</div>`}
+    </div>`;
+  }
+
+  function renderTourney() {
+    const t = tours.find((x) => x.id === openId);
+    if (!t) return;
+    const roster = rosterCache[t.id];
+    const feats = Array.isArray(t.features) ? t.features : [];
+    const left = seatsLeft(t);
+    const reg = isReg(t.id);
+    const open = regOpen(t);
+
+    let cta;
+    if (!me?.player) {
+      // Три разных «не записан»: вход ещё идёт, вход нужен (вышел из профиля
+      // и вернулся) и записи нет вообще — приложение открыли не в Telegram.
+      if (authBusy) cta = `<button class="ghost" type="button" disabled>Входим в клуб…</button>`;
+      else if (initData) cta = `<button type="button" id="btnLogin">Войти и записаться</button>`;
+      else cta = `<a class="badge gold" style="display:block;text-align:center;padding:15px;text-decoration:none;border-radius:var(--r-md)" href="${escHtml(CLUB.tgApp)}" target="_blank" rel="noopener">Записаться — в Telegram</a>`;
+    } else if (isPast(t)) {
+      cta = "";
+    } else if (reg) {
+      cta = `<button class="danger" type="button" id="btnCancel">Снять запись</button>`;
+    } else if (open) {
+      cta = `<button type="button" id="btnReg">Записаться${left != null && left <= 5 ? ` · осталось ${left}` : ""}</button>`;
+    } else {
+      cta = `<button class="ghost" type="button" disabled>${left === 0 ? "Мест нет" : "Запись закрыта"}</button>`;
+    }
+
+    $("tdTop").innerHTML = statusPills(t, false);
+    $("tdBody").innerHTML = `
+      ${liveBlock(t)}
+      <div class="card">
+        <div class="specs">
+          <div class="spec"><div class="sl">Взнос</div><div class="sv">${escHtml(money(t.entry_fee))}</div></div>
+          <div class="spec"><div class="sl">Стартовый стек</div><div class="sv">${t.start_stack ? fmtInt(t.start_stack) : "—"}</div></div>
+          <div class="spec"><div class="sl">Уровень</div><div class="sv">${t.level_minutes ? t.level_minutes + " мин" : "—"}</div></div>
+          <div class="spec"><div class="sl">Поздняя рег.</div><div class="sv">${t.late_reg_level ? "до " + t.late_reg_level + " ур." : "—"}</div></div>
+        </div>
+        ${t.description ? `<div class="sub" style="margin-top:12px;font-size:14px;line-height:1.55">${escHtml(t.description)}</div>` : ""}
+        ${feats.length ? `<div style="margin-top:10px">${feats.map((f) => `<div class="feat">${escHtml(String(f))}</div>`).join("")}</div>` : ""}
+      </div>
+
+      ${isPast(t) ? resultsCard(t) : `<div class="card">
+        <div class="cardHead"><h2>Участники</h2>
+          <span class="tag">${roster === null ? "—" : roster.length + (t.slots ? " / " + t.slots : "")}</span></div>
+        ${roster === null
+          ? '<div class="muted">Список участников сейчас недоступен.</div>'
+          : roster.length
+            ? `<div class="list">${roster.map((r, i) => `<div class="listRow">
+                 <span class="idx">${i + 1}</span>
+                 <span class="avatar">${escHtml(initials(r.name))}</span>
+                 <span class="nm">${escHtml(r.name)}</span>
+                 ${Number(r.player_id) === Number(me?.player?.id) ? '<span class="tag hot">это ты</span>' : ""}
+               </div>`).join("")}</div>`
+            : '<div class="muted">Пока никто не записался — будь первым.</div>'}
+      </div>`}
+
+      ${cta ? `<div class="stickyCta">${cta}</div>` : ""}
+    `;
+
+    $("btnReg")?.addEventListener("click", () => doRegister(t.id, true));
+    $("btnCancel")?.addEventListener("click", () => doRegister(t.id, false));
+    $("btnLogin")?.addEventListener("click", async () => {
+      authBusy = true; renderTourney();
+      try { await login(); } catch (e) { toast(errText(e), "bad"); }
+      finally { authBusy = false; renderAll(); renderTourney(); }
+    });
+  }
+
+  // ── Запись / отмена ────────────────────────────────────────────────────────
+  let regBusy = false;
+  async function doRegister(id, on) {
+    if (regBusy) return;
+    if (!me?.player) { toast("Сначала войди в клуб", "bad"); return; }
+    if (!on && !confirm("Снять запись на турнир?")) return;
+
+    regBusy = true;
+    const btn = $(on ? "btnReg" : "btnCancel");
+    if (btn) { btn.disabled = true; btn.textContent = on ? "Записываю…" : "Снимаю…"; }
+    try {
+      const res = await rpc(on ? "vp_app_register" : "vp_app_cancel", { p_token: token, p_tournament_id: Number(id) });
+      const t = tours.find((x) => x.id === Number(id));
+      if (t && res && res.registered_count != null) t.registered_count = Number(res.registered_count);
+      // Список записей держим локально: перезапрашивать vp_app_me на каждое
+      // нажатие — лишний круг по узкой сети в зале.
+      const set = myRegs();
+      if (on) set.add(Number(id)); else set.delete(Number(id));
+      me.registrations = [...set];
+      haptic(on ? "medium" : "light");
+      toast(on ? "Ты записан ✓" : "Запись снята", on ? "good" : "");
+      renderAll();
+      renderTourney();
+      // Состав перечитываем: себя в списке участников игрок ищет первым делом.
+      try {
+        rosterCache[Number(id)] = await rpc("vp_tournament_roster", { p_tournament_id: Number(id) }) || [];
+        if (openId === Number(id)) renderTourney();
+      } catch (_) {}
+    } catch (e) {
+      toast(errText(e), "bad");
+      renderTourney();
+    } finally {
+      regBusy = false;
+    }
+  }
+
+  // ── Живой таймер ───────────────────────────────────────────────────────────
+  // Секунды на экране деталей крутим локально, состояние комнаты дотягиваем
+  // раз в 20 секунд: приложение не ведущий, ему точность до тика не нужна.
+  function startLive() {
+    stopLive();
+    liveTimer = setInterval(() => {
+      // Раз в секунду перерисовываем только экран идущего турнира: секунды есть
+      // лишь там. Тикать всем приложением незачем — список моргал бы, а поле
+      // профиля теряло бы курсор на ровном месте.
+      if (!$("scrTourney").classList.contains("on")) return;
+      const t = tours.find((x) => x.id === openId);
+      if (t && isRunning(t) && roomOf(t)) renderTourney();
+    }, 1000);
+    pollTimer = setInterval(async () => {
+      if (document.hidden) return;
+      await loadRooms();
+      if ($("scrTourney").classList.contains("on")) renderTourney(); else renderAll();
+    }, 20000);
+  }
+  function stopLive() {
+    if (liveTimer) clearInterval(liveTimer);
+    if (pollTimer) clearInterval(pollTimer);
+    liveTimer = pollTimer = null;
+  }
+
+  function renderAll() { renderHome(); renderTours(); renderMe(); }
+
+  // ── События ────────────────────────────────────────────────────────────────
+  document.addEventListener("click", (ev) => {
+    const opener = ev.target.closest("[data-open]");
+    if (opener) { haptic(); openTourney(opener.dataset.open); return; }
+    const banner = ev.target.closest(".banner[data-tab]");
+    if (banner) { haptic(); tab(banner.dataset.tab); return; }
+    const info = ev.target.closest("[data-info]");
+    if (info) { showInfo(info.dataset.info); return; }
+  });
+
+  $("tdBack").onclick = () => { openId = null; screen("scrApp"); };
+  document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => { haptic(); tab(b.dataset.tab); }; });
+  document.querySelectorAll(".chips button").forEach((b) => {
+    b.onclick = () => {
+      filter = b.dataset.filter;
+      document.querySelectorAll(".chips button").forEach((x) => x.classList.toggle("on", x === b));
+      renderTours();
+    };
+  });
+
+  const INFO = {
+    address: { title: "Наш адрес", body: () =>
+      `<b>${escHtml(CLUB.address)}</b><br/>${escHtml(CLUB.addressNote)}<br/><br/>
+       <a href="${escHtml(CLUB.mapUrl)}" target="_blank" rel="noopener">Открыть на карте →</a>` },
+    rules: { title: "Домашние правила", body: () => CLUB.rules.map((r) => `<div class="feat">${escHtml(r)}</div>`).join("") },
+    about: { title: "О клубе", body: () => CLUB.about.map((p) => `<p style="margin:0 0 10px">${escHtml(p)}</p>`).join("") },
+  };
+  function showInfo(kind) {
+    const i = INFO[kind]; if (!i) return;
+    $("infoTitle").textContent = i.title;
+    $("infoBody").innerHTML = i.body();
+    $("infoModal").classList.add("show");
+  }
+  $("infoClose").onclick = () => $("infoModal").classList.remove("show");
+  $("infoModal").onclick = (e) => { if (e.target === $("infoModal")) $("infoModal").classList.remove("show"); };
+
+  $("nameSave").onclick = async () => {
+    const v = ($("nameInput").value || "").trim();
+    if (v.length < 2) { $("nameErr").textContent = "Имя от 2 символов."; return; }
+    $("nameErr").textContent = "Входим…";
+    try {
+      if (await login(v)) { $("nameErr").textContent = ""; renderAll(); screen("scrApp"); }
+    } catch (e) { $("nameErr").textContent = errText(e); }
+  };
+  $("nameInput").onkeydown = (e) => { if (e.key === "Enter") $("nameSave").click(); };
+
+  $("pfSave").onclick = async () => {
+    $("pfErr").textContent = "";
+    const btn = $("pfSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
+    try {
+      const player = await rpc("vp_app_update_profile", {
+        p_token: token,
+        p_name: ($("pfName").value || "").trim() || null,
+        p_full_name: ($("pfFull").value || "").trim() || null,
+        p_phone: ($("pfPhone").value || "").trim() || null,
+      });
+      me.player = player;
+      toast("Сохранено", "good");
+      renderAll();
+    } catch (e) { $("pfErr").textContent = errText(e); }
+    finally { btn.disabled = false; btn.textContent = "Сохранить"; }
+  };
+
+  $("pfLogout").onclick = async () => {
+    if (!confirm("Выйти из профиля? Запись на турниры останется.")) return;
+    try { await rpc("vp_app_logout", { p_token: token }); } catch (_) {}
+    token = ""; me = null;
+    try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+    renderAll(); tab("home");
+  };
+
+  // Вернулись в приложение — расписание могло уехать (запись закрыли, вечер
+  // начался). Перечитываем, но молча: экран не должен мигать «загрузка».
+  document.addEventListener("visibilitychange", async () => {
+    if (document.hidden) return;
+    try { await loadTours(); await loadMe(); renderAll(); if (openId) renderTourney(); } catch (_) {}
+  });
+
+  // ── Старт ──────────────────────────────────────────────────────────────────
+  (async function boot() {
+    try {
+      await window.syncServerClock?.();
+      await loadTours();
+    } catch (e) {
+      $("scrBoot").innerHTML = `<div class="gate"><div>
+        <h1 style="margin-bottom:8px">Не открывается</h1>
+        <div class="sub">${escHtml(errText(e))}</div>
+        <div class="btnrow" style="justify-content:center;margin-top:16px">
+          <button type="button" onclick="location.reload()">Повторить</button></div></div></div>`;
+      return;
+    }
+    // Расписание уже есть — показываем его, не дожидаясь входа: в Telegram
+    // логин иногда идёт секунду, и пустой экран за неё выглядит поломкой.
+    renderAll();
+    screen("scrApp");
+    startLive();
+
+    authBusy = !!(token || initData);
+    renderAll();
+    try {
+      if (token) await loadMe();
+      else if (initData) await login();
+    } catch (e) {
+      toast(errText(e), "bad");
+    }
+    authBusy = false;
+    renderAll();
+  })();
+})();
+</script>
 </body>
 </html>

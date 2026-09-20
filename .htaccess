@@ -1,0 +1,69 @@
+# Хостинг клуба на reg.ru (Apache). Фронт — статика без сборки, поэтому весь
+# «роутинг» живёт здесь и больше нигде.
+#
+# Корень домена = приложение игрока (index.html). Именно этот адрес
+# (https://vyatkapoker.ru/) вбивается в BotFather как Mini App URL, поэтому он
+# должен открываться без редиректов и без www: Telegram запоминает домен, и
+# лишний хоп на www ломает проверку initData не сразу, а в самый неподходящий
+# момент.
+
+DirectoryIndex index.html
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # HTTPS. На shared-хостинге TLS терминирует фронтовый nginx, до Apache
+  # доезжает http — поэтому смотрим X-Forwarded-Proto, а не %{HTTPS}.
+  RewriteCond %{HTTP:X-Forwarded-Proto} =http [OR]
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [R=301,L]
+
+  # www → голый домен. Один канонический адрес: на нём выписан сертификат,
+  # он же прописан в Telegram и в ссылке на ТВ-дисплей.
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^ https://%1%{REQUEST_URI} [R=301,L]
+
+  # Человеческие адреса. Ссылку на дисплей оператор набирает на пульте от
+  # телевизора руками — /display?room=ABC123 набирается, display.html — нет.
+  RewriteRule ^admin/?$        admin.html       [L]
+  RewriteRule ^display/?$      display.html     [L]
+  RewriteRule ^crm/?$          crm.html         [L]
+  RewriteRule ^tournaments/?$  tournaments.html [L]
+  RewriteRule ^start/?$        start.html       [L]
+
+  # Старый адрес приложения: до переезда игрокам могли раздать app.html.
+  RewriteRule ^app\.html$ / [R=301,L]
+</IfModule>
+
+# ── Кэш ───────────────────────────────────────────────────────────────────────
+# У файлов нет хэшей в именах: js/core.js так и остаётся js/core.js. Значит
+# долгий кэш на код — это админка, которая после выкладки продолжает работать
+# по старому ядру. Для турнира это потерянный вечер, поэтому код и страницы
+# всегда перепроверяются на сервере, а долгий кэш достаётся только картинкам и
+# шрифтам, которые при изменении переименовываются руками.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache, must-revalidate"
+  </FilesMatch>
+  <FilesMatch "\.(png|jpg|jpeg|svg|webp|ico|woff2?)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+
+  Header set X-Content-Type-Options "nosniff"
+  Header set Referrer-Policy "strict-origin-when-cross-origin"
+  # X-Frame-Options здесь намеренно НЕ выставляется: Telegram Web открывает
+  # Mini App в iframe, и DENY убил бы приложение у всех, кто играет с десктопа.
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml
+</IfModule>
+
+# Служебное наружу не отдаём: на shared-хостинге выкладка идёт целой папкой,
+# и .sql со схемой базы или тесты уезжают на сервер вместе со всем остальным.
+<FilesMatch "\.(sql|md|mjs|sh|conf)$">
+  Require all denied
+</FilesMatch>
+RedirectMatch 404 ^/(migrations|deploy|tests|\.git)(/|$)

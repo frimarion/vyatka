@@ -7,6 +7,6 @@
 
 update public.profiles
    set role = 'admin'
- where email = 'admin@vyatka.ru';
+ where email = 'admin@vyatkapoker.ru';
 
 select id, email, role from public.profiles order by created_at;

@@ -625,7 +625,7 @@ create policy players_update_staff on public.players
 -- ⚠ ПОСЛЕДНИЙ ШАГ — токен бота
 -- Без него vp_app_login отвечает tg_bot_token_not_configured и в приложение
 -- никто не войдёт. Токен выдаёт @BotFather; Mini App должен указывать на
--- страницу app.html этого клуба.
+-- корень домена клуба (https://vyatkapoker.ru/).
 -- ═══════════════════════════════════════════════════════════════════════════
 -- insert into public.app_secrets (key, value)
 -- values ('tg_bot_token', '123456:ВСТАВЬ_СЮДА_ТОКЕН_БОТА')

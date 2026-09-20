@@ -660,7 +660,7 @@
       err.textContent = "Вход…";
       try {
         let email = $("authEmail").value.trim();
-        if (!email.includes("@")) email = email.toLowerCase() + "@doyle.ru";
+        if (!email.includes("@")) email = email.toLowerCase() + "@vyatkapoker.ru";
         const { error } = await sb.auth.signInWithPassword({ email, password: $("authPassword").value });
         if (error) { err.textContent = "Неверный логин или пароль"; return; }
         err.textContent = "";
