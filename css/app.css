@@ -190,8 +190,19 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
   border-radius:var(--r-md);padding:14px;box-shadow:inset 0 0 0 1px var(--line);
 }
 .presetCard.active{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}
-.presetCard .pName{font-size:15px;font-weight:900}
+.presetCard .pName{font-size:15px;font-weight:900;padding-right:30px}
 .presetCard .pMeta{font-size:12px;font-weight:600;color:var(--muted);margin-top:4px}
+/* Правка макета — отдельная кнопка поверх карточки, а не значок внутри неё:
+   вложенная в <button> она и кликается мимо, и невалидна по разметке. */
+.presetWrap{position:relative;display:grid}
+.presetWrap .presetCard{width:100%}
+.bpEdit{
+  position:absolute;top:6px;right:6px;width:30px;height:30px;padding:0;
+  display:grid;place-items:center;border-radius:var(--r-sm);
+  background:var(--surface);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);
+  font-size:14px;line-height:1;
+}
+.bpEdit:hover{color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* ── Оплата ──────────────────────────────────────────────────── */
 .payRow{display:flex;align-items:flex-start;gap:10px;padding:11px 12px;border-radius:var(--r-md);background:var(--surface)}
@@ -213,7 +224,18 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .payBtns button{padding:6px 10px;font-size:12px;border-radius:10px}
 button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
 
+
 /* ── Нижняя навигация (как в приложении) ─────────────────────── */
+/* «Наверх» — над таб-баром, появляется только когда уже прокрутили */
+#btnScrollTop{
+  position:fixed;right:14px;z-index:45;
+  bottom:calc(76px + env(safe-area-inset-bottom));
+  width:42px;height:42px;padding:0;border-radius:50%;
+  background:var(--ink);color:var(--surface);font-size:18px;line-height:1;
+  box-shadow:0 6px 18px rgba(36,27,20,.28);
+}
+#btnScrollTop:hover{background:var(--accent)}
+
 .tabbar{
   position:fixed;left:0;right:0;bottom:0;z-index:40;
   background:var(--surface-2);border-top:1px solid var(--line);
@@ -237,6 +259,23 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
 .modal.show{display:flex}
 .modalCard{background:var(--surface);border-radius:var(--r-lg);padding:20px;width:min(420px,100%);box-shadow:var(--shadow)}
 .modalCard h2{margin-bottom:6px}
+
+/* Подбор игрока из базы */
+.pickResults{
+  max-height:300px;overflow-y:auto;margin:10px 0 4px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+}
+.pickResults:empty{display:none}
+.pickItem{
+  padding:10px 12px;cursor:pointer;border-bottom:1px solid var(--line);
+  font-weight:800;line-height:1.3;
+}
+.pickItem:last-child{border-bottom:none}
+.pickItem:hover{background:var(--surface-2)}
+.pickItem.sel{background:var(--accent-soft);color:var(--accent-dark)}
+.pickItem .full{display:block;font-size:12px;font-weight:600;color:var(--muted);margin-top:2px}
+.pickItem.sel .full{color:var(--accent-dark);opacity:.75}
+.pickNote{padding:12px;color:var(--muted);font-size:13px;text-align:center}
 
 /* ── Экран авторизации ───────────────────────────────────────── */
 .authLock{

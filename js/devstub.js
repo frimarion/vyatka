@@ -47,7 +47,9 @@
   const dk = (d) => `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
 
   function seed() {
-    const players = NAMES.map((name, i) => ({ id: 100 + i, name }));
+    const players = NAMES.map((name, i) => ({ id: 100 + i, name, full_name: `${name}, Киров` }));
+    // Латиницей — чтобы транслит-поиск было на чём проверить
+    players.push({ id: 90, name: "Petr Shabalin", full_name: "Пётр Шабалин, Слободской" });
     const tomorrow = new Date(Date.now() + 864e5);
     return {
       profiles: [
@@ -66,6 +68,19 @@
       })),
       tournament_operators: [],
       rooms: [],
+      // Макеты: те же три, что в migrations/003_blueprints.sql, но короткими
+      // лестницами — песочнице важно, что грузится из «базы», а не сама сетка.
+      tournament_blueprints: [
+        { id: 1, name: "Вятский Дейли", start_stack: 30000, late_reg_until_level: 9, default_buy_in: 1000, sort_order: 1,
+          levels: [{min:16,sb:100,bb:100,anteMode:"BB"},{min:16,sb:100,bb:200,anteMode:"BB"},
+                   {isBreak:true,min:15,label:"Перерыв"},{min:16,sb:200,bb:400,anteMode:"BB"}] },
+        { id: 2, name: "Турбо", start_stack: 20000, late_reg_until_level: 6, default_buy_in: 1000, sort_order: 2,
+          levels: [{min:10,sb:100,bb:100,anteMode:"BB"},{min:10,sb:100,bb:200,anteMode:"BB"},
+                   {isBreak:true,min:10,label:"Перерыв"},{min:10,sb:200,bb:400,anteMode:"BB"}] },
+        { id: 3, name: "Глубокий стек", start_stack: 50000, late_reg_until_level: 12, default_buy_in: 2000, sort_order: 3,
+          levels: [{min:20,sb:100,bb:100,anteMode:"BB"},{min:20,sb:100,bb:200,anteMode:"BB"},
+                   {isBreak:true,min:15,label:"Перерыв"},{min:20,sb:200,bb:400,anteMode:"BB"}] },
+      ],
     };
   }
 
@@ -131,6 +146,16 @@
       return this;
     }
     eq(f, v) { this.filters.push((r) => String(r[f]) === String(v)); return this; }
+    // «name.ilike.%пет%,full_name.ilike.%пет%» — форма PostgREST, которой ищут игроков
+    or(cond) {
+      const terms = String(cond || "").split(",").map((t) => {
+        const m = /^(\w+)\.ilike\.%?(.*?)%?$/.exec(t.trim());
+        return m ? { field: m[1], needle: m[2].toLowerCase() } : null;
+      }).filter(Boolean);
+      if (!terms.length) return this;
+      this.filters.push((r) => terms.some((t) => String(r[t.field] ?? "").toLowerCase().includes(t.needle)));
+      return this;
+    }
     in(f, vs) { const s = new Set(vs.map(String)); this.filters.push((r) => s.has(String(r[f]))); return this; }
     is(f, v) { this.filters.push((r) => (v === null ? r[f] == null : r[f] === v)); return this; }
     gte(f, v) { this.filters.push((r) => String(r[f]) >= String(v)); return this; }
@@ -230,6 +255,8 @@
   };
 
   window.supabase = { createClient: () => client };
+  // VP_BLUEPRINTS намеренно не трогаем: песочница должна идти тем же путём,
+  // что и боевая админка, — через служебную строку в rooms.
 
   // Наружу из песочницы ничего не уходит: отчёт в таблицу подтверждаем сами,
   // остальное — явная ошибка, чтобы забытый вызов не постучался в боевую базу.

@@ -154,3 +154,90 @@ console.log('все проверки прошли');
 }
 
 console.log('пост, слияние и оплата — проверки прошли');
+
+// ── Разбор поста с результатами ─────────────────────────────────────────────
+// Ключевое свойство: пост, разобранный обратно, даёт те же места.
+{
+  const s = VP.normalizeState(VP.initialState());
+  s.players = ['Пётр Иванов','Сергей Втюрин','Олег Русских','Илья Метелёв','Павел Огородов']
+    .map((n) => ({ name:n, present:true, status:'registered' }));
+  VP.computeStatsFromPlayers(s);
+  // вылетают четверо: Павел первым (5 место), Пётр последним из них (2 место)
+  ['Павел Огородов','Илья Метелёв','Олег Русских','Пётр Иванов'].forEach((n, i) => {
+    const p = s.players.find((x) => x.name === n);
+    p.status = 'busted'; p.bustOrder = i + 1; p.ko = i;
+  });
+  VP.computeStatsFromPlayers(s);
+  const post = VP.buildTelegramPost(s);
+  A.ok(post.includes('Сергей Втюрин'), 'победитель в посте');
+
+  // разбираем тот же пост в чистое состояние — места должны совпасть
+  const s2 = VP.normalizeState(VP.initialState());
+  s2.players = s.players.map((p) => ({ name:p.name, present:true, status:'registered' }));
+  const rows = VP.parseResultsPost(post);
+  A.equal(rows.length, 5, 'разобраны все пять строк');
+  A.equal(rows[0].name, 'Сергей Втюрин');
+  const res = VP.applyResults(s2, rows);
+  A.equal(res.applied, 5); A.equal(res.notFound.length, 0); A.equal(res.missing.length, 0);
+  VP.computeStatsFromPlayers(s2);
+  // У вылетевших место обязано совпасть; победитель в исходном состоянии ещё
+  // в игре (place=null) — пост объявляет его первым, это и проверяем отдельно.
+  s.players.filter((p) => p.status === 'busted').forEach((p) => {
+    const q = s2.players.find((x) => x.name === p.name);
+    A.equal(q.place, p.place, `место ${p.name} пережило круг пост → разбор`);
+    A.equal(q.ko, p.ko, `ноки ${p.name} пережили круг`);
+  });
+  A.equal(s2.players.find((x) => x.name === 'Сергей Втюрин').place, 1, 'победитель — первое место');
+  A.equal(s2.stats.alive, 0, 'после разбора поста живых не осталось');
+
+  // имя не из этой комнаты уходит в notFound, а не молча теряется
+  const s3 = VP.normalizeState(VP.initialState());
+  s3.players = [{ name:'Сергей Втюрин', present:true, status:'registered' }];
+  const r3 = VP.applyResults(s3, VP.parseResultsPost(post));
+  A.equal(r3.applied, 1);
+  A.equal(r3.notFound.length, 4, 'остальные четверо — notFound');
+
+  // «4. Имя (2 ko)» — вторая нумерация своего же поста
+  const plain = VP.parseResultsPost('1. Анна Ш. (3 ko)\n2) Борис К.\nмусор\n3. Вера Л.');
+  A.equal(plain.length, 3);
+  A.equal(plain[0].ko, 3);
+  A.equal(plain[1].name, 'Борис К.');
+}
+
+console.log('разбор поста — проверки прошли');
+
+// Пришедший, которого нет в посте, остаётся в игре и сдвигает места — про него
+// обязаны сказать, иначе оператор увидит «победитель на 2 месте» без причины.
+{
+  const s = VP.normalizeState(VP.initialState());
+  s.players = ['Анна','Борис','Вера'].map((n) => ({ name:n, present:true, status:'registered' }));
+  const res = VP.applyResults(s, VP.parseResultsPost('1. Борис\n2. Вера'));
+  VP.computeStatsFromPlayers(s);
+  A.deepEqual(res.missing, ['Анна'], 'не упомянутый в посте попал в missing');
+  A.equal(s.players.find((p) => p.name === 'Борис').place, 2, 'места сдвинулись на живую Анну');
+  A.equal(s.stats.alive, 1);
+}
+
+console.log('пропущенные в посте — проверки прошли');
+
+// ── Транслит-поиск по базе игроков ──────────────────────────────────────────
+// Одного человека в базе пишут и кириллицей, и латиницей — запрос обязан
+// уходить обоими вариантами, иначе «Petr» не найдёт «Пётр».
+{
+  A.equal(VP.translitRuToEn('Пётр'), 'petr');
+  A.equal(VP.translitRuToEn('Щукин'), 'schukin');
+  A.equal(VP.translitEnToRu('shabalin'), 'шабалин');
+  A.equal(VP.translitEnToRu('zhukov'), 'жуков', 'диграф zh разбирается раньше z');
+
+  const v = VP.searchVariants('Петр');
+  A.ok(v.includes('Петр') && v.includes('petr'), 'оба варианта в наборе: ' + v.join('|'));
+  A.ok(VP.searchVariants('petr').includes('петр'), 'латиница даёт кириллический вариант');
+
+  // Дубли не плодим: для латиницы транслит ru→en совпадает с исходником
+  A.equal(new Set(VP.searchVariants('ivan')).size, VP.searchVariants('ivan').length);
+  // Короткие запросы и спецсимволы ilike отсекаются
+  A.deepEqual(VP.searchVariants('п'), [], 'один символ — не ищем');
+  A.ok(VP.searchVariants('пет%р(').every((p) => !/[%,()]/.test(p)), 'спецсимволы вырезаны');
+}
+
+console.log('транслит-поиск — проверки прошли');

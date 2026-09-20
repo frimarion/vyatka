@@ -28,6 +28,20 @@ window.VP_TABLES = {
   players: "doyle_players",
 };
 
+// ── Макеты турниров ──────────────────────────────────────────────────────────
+// Два хранилища, одно на переходный период.
+//
+// Сейчас: служебная строка в общей таблице rooms под своим branch. Туда Вятка
+// уже пишет и имеет права, дойловскую схему трогать не надо. Строка не комната:
+// из списка комнат она отфильтрована по id.
+window.VP_BLUEPRINTS_ROOM = "__BP__";
+
+// После переезда: собственная таблица (migrations/003_blueprints.sql). Ставится
+// вместе с остальными настройками ниже, и тогда служебная строка игнорируется.
+// Именно null, а не "tournament_blueprints": в общей с Дойлом инсталляции такая
+// таблица есть, но лежат в ней дойловские форматы, и Вятка показала бы чужие.
+window.VP_BLUEPRINTS = null;
+
 // Drop-in fetch for supabase-js: createClient(url, key, { global: { fetch: window.sbFetchFailover } }).
 // Tries the current host, fails over to the other on a timeout / connection error, swapping the
 // host in the request URL. The whole BODY is read under the timeout (the throttle slows the body,

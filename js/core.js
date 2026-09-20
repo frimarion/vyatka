@@ -229,6 +229,103 @@
     return st.players.reduce((m, p) => Math.max(m, clampInt(p.bustOrder ?? 0, 0)), 0) + 1;
   }
 
+  // ── Поиск по базе игроков ─────────────────────────────────────────────────
+  // В базе одного человека пишут то кириллицей, то латиницей («Пётр» и «Petr»),
+  // поэтому запрос уходит в БД тремя вариантами: как набрали и два транслита.
+  const TRANSLIT_RU2EN = {
+    а:"a",б:"b",в:"v",г:"g",д:"d",е:"e",ё:"e",ж:"zh",з:"z",и:"i",й:"y",к:"k",л:"l",
+    м:"m",н:"n",о:"o",п:"p",р:"r",с:"s",т:"t",у:"u",ф:"f",х:"kh",ц:"ts",ч:"ch",
+    ш:"sh",щ:"sch",ъ:"",ы:"y",ь:"",э:"e",ю:"yu",я:"ya",
+  };
+  // Порядок важен: диграфы разбираются раньше одиночных букв, иначе «sh» станет «сх».
+  const TRANSLIT_EN2RU = [
+    ["shch","щ"],["sch","щ"],["zh","ж"],["kh","х"],["ch","ч"],["sh","ш"],["ts","ц"],
+    ["yu","ю"],["ya","я"],["yo","ё"],["iy","ий"],["y","й"],["a","а"],["b","б"],["v","в"],
+    ["g","г"],["d","д"],["e","е"],["z","з"],["i","и"],["k","к"],["l","л"],["m","м"],
+    ["n","н"],["o","о"],["p","п"],["r","р"],["s","с"],["t","т"],["u","у"],["f","ф"],
+    ["h","х"],["c","к"],["j","дж"],["w","в"],["x","кс"],["q","к"],
+  ];
+  const translitRuToEn = (s) => String(s ?? "").toLowerCase().split("")
+    .map((ch) => (Object.prototype.hasOwnProperty.call(TRANSLIT_RU2EN, ch) ? TRANSLIT_RU2EN[ch] : ch)).join("");
+  const translitEnToRu = (s) => {
+    let out = String(s ?? "").toLowerCase();
+    for (const [from, to] of TRANSLIT_EN2RU) out = out.split(from).join(to);
+    return out;
+  };
+  // Шаблоны для ilike: символы % , ( ) вырезаем — они ломают фильтр PostgREST.
+  function searchVariants(q) {
+    const base = String(q ?? "").trim();
+    const seen = new Set(), out = [];
+    for (const v of [base, translitRuToEn(base), translitEnToRu(base)]) {
+      const p = v.replace(/[%,()]/g, " ").trim();
+      const k = p.toLowerCase();
+      if (p.length >= 2 && !seen.has(k)) { seen.add(k); out.push(p); }
+    }
+    return out;
+  }
+
+  // ── Разбор поста с результатами ───────────────────────────────────────────
+  // Обратная операция к buildTelegramPost: вечер вели в чате, а не в админке —
+  // готовый пост возвращает места и ноки в состояние.
+  // Понимает обе нумерации своего же поста: «1️⃣ Имя» и «4. Имя», плюс «1) Имя».
+  function parseResultsPost(text) {
+    const rows = [];
+    for (const raw of String(text || "").split(/\r?\n/)) {
+      const line = raw.trim();
+      if (!line) continue;
+      const m = line.match(/^(\d{1,3})\s*(?:[️⃣]+|[.)])\s*(.+)$/u);
+      if (!m) continue;
+      const place = parseInt(m[1], 10);
+      if (!Number.isFinite(place) || place <= 0) continue;
+      let rest = m[2].trim();
+      let ko = 0, koPts = 0;
+      const km = rest.match(/\(\s*(\d{1,3})\s*ko(?:\s*[·•*]\s*(\d{1,4})\s*очк)?\s*\)/i);
+      if (km) {
+        ko = parseInt(km[1], 10) || 0;
+        koPts = parseInt(km[2], 10) || 0;
+        rest = rest.replace(km[0], "").trim();
+      }
+      rest = rest.replace(/[–—-]\s*@\S+$/, "").trim();   // хвост с телеграм-ником
+      const name = normName(rest);
+      if (!name) continue;
+      rows.push({ place, name, ko, koPts });
+    }
+    return rows;
+  }
+
+  // Места в Вятке выводятся из bustOrder, а не хранятся: записываем хронологию,
+  // а place пересчитает recomputePlaces — иначе проставленное место тут же затрут.
+  // Пришедшие, которых в посте нет, уходят в конец (худшие места): в итоговом
+  // списке их не было, и молча смешать их с разобранными — исказить места.
+  function applyResults(st, results) {
+    ensurePlayers(st);
+    const byKey = new Map(st.players.map((p) => [keyName(p.name), p]));
+    const rows = (results || []).slice().sort((a, b) => a.place - b.place);
+    const applied = [], notFound = [], seen = new Set();
+    for (const r of rows) {
+      const p = byKey.get(keyName(r.name));
+      if (!p) { notFound.push(r.name); continue; }
+      if (seen.has(p)) continue;                        // дубль строки в посте
+      seen.add(p);
+      applied.push({ p, r });
+    }
+    // Пришедший, которого в посте нет, — главная ловушка этой операции: он
+    // остаётся в игре и забирает первое место, а весь список едет на единицу.
+    // Молчать об этом нельзя, поэтому возвращаем такие имена наверх.
+    const missing = st.players.filter((p) => p.present && !seen.has(p));
+    // Худшее место вылетело первым: bustOrder растёт к победителю.
+    const chain = [...missing.filter((p) => p.status === "busted"),
+                   ...applied.map((a) => a.p).reverse()];
+    chain.forEach((p, i) => { p.bustOrder = i + 1; p.place = null; });
+    applied.forEach(({ p, r }) => {
+      p.present = true;
+      p.status = "busted";
+      p.ko = clampInt(r.ko ?? 0, 0);
+      p.koPts = clampInt(r.koPts ?? 0, 0);
+    });
+    return { applied: applied.length, notFound, missing: missing.map((p) => p.name) };
+  }
+
   // Откат ошибочного BUSTED: ноки накопительные за турнир, поэтому снимаем
   // только прибавку отменяемого вылета.
   function rollbackBustKo(p) {
@@ -637,7 +734,8 @@
     clampInt, fmtInt, fmtTime, fmtDuration, nowMs, escHtml, normName, keyName, initials,
     defaultLevels, normalizeLevels, initialState, normalizeState,
     ensurePlayers, recomputePlaces, computeStatsFromPlayers, nextBustOrder, rollbackBustKo,
-    buildTelegramPost, mergePlayers,
+    buildTelegramPost, parseResultsPost, applyResults, mergePlayers,
+    translitRuToEn, translitEnToRu, searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, isPayMethod, payMethodTitle, payMethodLabel,
     normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveFreeEntries,
     addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,

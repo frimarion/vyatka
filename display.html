@@ -6,90 +6,233 @@
 <title>Вятка — таймер</title>
 <link rel="stylesheet" href="css/app.css"/>
 <style>
-/* Дисплей для ТВ: та же палитра, но на тёмной «ink»-подложке —
-   яркий песочный фон на большом экране в зале слепит. */
+/* Дисплей для ТВ. Раскладка снята с дойловского экрана один в один — она уже
+   обкатана в зале: три колонки без карточек, разделённые волосяной линией,
+   блайнды сверху, время оптически по центру, NEXT прижат к низу. Своё здесь
+   только оформление: светлая вятская палитра и шрифты вместо золота и Oswald. */
+:root{
+  --d-fg:#241B14;                       /* текст на светлом — тёмный ink */
+  --d-fg-soft:rgba(36,27,20,.62);
+  --d-fg-dim:rgba(36,27,20,.42);
+  --d-stroke:rgba(36,27,20,.14);
+  --d-display:var(--sans);              /* дисплейного шрифта у клуба нет — тот же гротеск, но тяжёлый */
+}
 html,body{height:100%;overflow:hidden}
-body{background:var(--ink);color:var(--surface)}
+body{margin:0;background:var(--bg);color:var(--d-fg);font-family:var(--sans)}
 
-.dwrap{height:100%;display:flex;flex-direction:column;padding:18px;gap:14px;position:relative}
-.dhead{display:flex;align-items:center;gap:14px;flex:none}
-.dhead .wordmark{font-size:clamp(16px,1.5vw,22px);font-weight:900;letter-spacing:.14em;text-transform:uppercase;color:var(--accent)}
-.dhead .tname{font-size:clamp(14px,1.3vw,20px);font-weight:800;color:rgba(255,252,244,.62)}
-.dhead .clock{margin-left:auto;font-size:clamp(14px,1.3vw,20px);font-weight:800;color:rgba(255,252,244,.62);font-variant-numeric:tabular-nums}
+/* Карточный паттерн — как у Дойла, но масти вятским оранжевым */
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Ctext x='16' y='46' font-size='30' fill='none' stroke='%23E9531F' stroke-width='1.3' opacity='0.22' font-family='serif'%3E%E2%99%A0%3C/text%3E%3Ctext x='84' y='118' font-size='30' fill='none' stroke='%23E9531F' stroke-width='1.3' opacity='0.18' font-family='serif'%3E%E2%99%A6%3C/text%3E%3C/svg%3E");
+  background-size:140px 140px;background-repeat:repeat}
+/* У Дойла центр затемнён, здесь наоборот высветлен — задача та же:
+   убрать паттерн из-под цифр, чтобы он с ними не спорил. */
+body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background:radial-gradient(ellipse 90% 75% at 50% 55%,var(--surface) 0%,rgba(255,252,244,.55) 45%,transparent 100%)}
 
-.dgrid{flex:1;min-height:0;display:grid;gap:14px;grid-template-columns:minmax(0,1fr);}
-.dgrid.hasSide{grid-template-columns:minmax(230px,.9fr) minmax(0,2.6fr) minmax(230px,.9fr)}
-.dgrid.hasRight{grid-template-columns:minmax(0,2.6fr) minmax(230px,.9fr)}
+.dwrap{position:relative;z-index:1;width:100vw;height:100vh;
+  padding:clamp(20px,3vh,58px) clamp(24px,3.75vw,74px) clamp(24px,3.2vh,60px);
+  display:flex;flex-direction:column;box-sizing:border-box;overflow:hidden}
 
-.panel{background:rgba(255,252,244,.06);border-radius:var(--r-lg);padding:18px;min-height:0;display:flex;flex-direction:column}
-.panel .pTitle{font-size:12px;font-weight:900;letter-spacing:.18em;text-transform:uppercase;color:var(--accent);margin-bottom:12px;flex:none}
+/* Шапка: марка по центру, турнир и часы — плашкой справа (у Дойла там номер рума) */
+.dhead{position:relative;display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+  margin-bottom:clamp(14px,2.2vh,32px)}
+.dhead .wordmark{font-family:var(--d-display);font-size:clamp(20px,2.4vw,46px);font-weight:900;
+  letter-spacing:.18em;text-transform:uppercase;color:var(--accent)}
+.dhead .hmeta{position:absolute;right:0;top:50%;transform:translateY(-50%);
+  display:flex;align-items:center;gap:10px;max-width:30vw}
+.dhead .tname,.dhead .clock{font-size:clamp(11px,.9vw,17px);font-weight:800;letter-spacing:.10em;
+  text-transform:uppercase;color:var(--d-fg-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dhead .clock{font-variant-numeric:tabular-nums;border:1px solid var(--d-stroke);
+  background:var(--surface);padding:8px 12px;border-radius:999px;flex:none}
 
-.main{position:relative;background:var(--surface);color:var(--ink);border-radius:var(--r-lg);
-  padding:22px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;overflow:hidden}
-.levelTop{display:flex;align-items:center;gap:12px}
-.levelName{font-size:clamp(20px,2.2vw,32px);font-weight:900;letter-spacing:-.02em}
-.statusPill{font-size:12px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;
-  padding:5px 12px;border-radius:999px;background:var(--accent-soft);color:var(--accent-dark)}
-.blindsLabel{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.blindsMain{font-size:clamp(46px,9vw,150px);font-weight:900;letter-spacing:-.04em;line-height:1;white-space:nowrap}
-.blindsMain .slash{color:var(--accent);margin:0 .08em}
-.anteLine{font-size:clamp(14px,1.6vw,24px);font-weight:900;color:var(--accent-dark)}
+/* Три колонки без карточек: центр отбит волосяными линиями */
+.dgrid{flex:1 1 auto;min-height:0;display:grid;
+  grid-template-columns:clamp(300px,23vw,460px) minmax(0,1fr) clamp(280px,21vw,420px)}
+/* Без левой панели колонка не схлопывается, а становится шириной с правую:
+   иначе центр центрируется в остатке и визуально уезжает влево. */
+.dgrid.hasRight{grid-template-columns:clamp(280px,21vw,420px) minmax(0,1fr) clamp(280px,21vw,420px)}
+
+.panel{min-height:0;min-width:0;display:flex;flex-direction:column;background:none;border:none;padding:0}
+/* Колонки закреплены явно: инфо и призовая зона делят левую и никогда не видны
+   разом, а без них авто-раскладка утащила бы центр в схлопнутую колонку. */
+.panel#infoCard,.panel#ratingCard{grid-column:1;padding-right:clamp(16px,2.3vw,46px)}
+.main{grid-column:2}
+.panel#statsCard{grid-column:3;padding-left:clamp(16px,2.3vw,46px)}
+.panel .pTitle{font-family:var(--d-display);font-weight:900;font-size:clamp(15px,1.46vw,30px);
+  letter-spacing:.2em;text-transform:uppercase;color:var(--accent);margin-bottom:clamp(10px,1.15vh,22px);flex:none}
+
+/* ── Центр ── */
+.main{position:relative;overflow:hidden;min-width:0;background:none;border-radius:0;
+  padding:0 clamp(20px,2.9vw,58px);display:flex;flex-direction:column;align-items:center;text-align:center;
+  border-left:1px solid var(--d-stroke);border-right:1px solid var(--d-stroke)}
+/* contents — чтобы уровень и блайнды стали прямыми детьми колонки:
+   иначе margin:auto у таймера не разведёт блоки по высоте */
+.levelTop{display:contents}
+.levelName{font-family:var(--d-display);font-weight:900;font-size:clamp(30px,3.13vw,66px);letter-spacing:.02em;
+  text-transform:uppercase;color:var(--accent);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+/* Статус на ТВ не нужен: паузу и перерыв показывают оверлеи (как у Дойла) */
+.statusPill{display:none}
+.blindsLabel{font-weight:800;font-size:clamp(10px,.83vw,17px);letter-spacing:.34em;text-transform:uppercase;
+  color:var(--d-fg-dim);margin-top:clamp(14px,1.9vh,34px)}
+.blindsMain{font-family:var(--d-display);font-weight:900;font-size:clamp(40px,5.6vw,120px);line-height:.95;
+  letter-spacing:-.02em;color:var(--d-fg);white-space:nowrap;overflow:hidden;width:100%;text-align:center;
+  margin-top:clamp(6px,.8vh,14px)}
+.blindsMain .slash{color:var(--accent);font-weight:400;padding:0 .11em;margin:0}
+.blindsRule{margin-top:clamp(6px,.9vh,10px);width:clamp(180px,17.7vw,360px);height:2px;flex:0 0 auto;
+  background:linear-gradient(90deg,transparent,var(--accent),transparent)}
+.anteLine{margin-top:clamp(8px,1.1vh,16px);font-family:var(--d-display);font-weight:900;
+  font-size:clamp(18px,1.77vw,38px);color:var(--d-fg);white-space:nowrap;max-width:100%}
 .anteLine .gold{background:var(--gold);color:var(--ink);padding:2px 10px;border-radius:999px;margin-right:8px}
-.timerWrap{width:min(100%,900px);text-align:center;margin-top:4px}
-.timerLabel{font-size:12px;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--muted)}
-.time{font-size:clamp(56px,11vw,180px);font-weight:900;letter-spacing:-.04em;line-height:1;font-variant-numeric:tabular-nums}
-.timerBar{height:10px;border-radius:999px;background:var(--surface-2);overflow:hidden;margin-top:8px}
-.timerBar i{display:block;height:100%;width:0;background:var(--accent);transition:width .4s linear}
-.nextBox{font-size:clamp(13px,1.4vw,20px);font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+/* margin:auto сверху и снизу — таймер встаёт оптически по центру остатка */
+.timerWrap{margin-top:auto;margin-bottom:auto;display:flex;flex-direction:column;align-items:center;width:100%}
+.timerLabel{font-weight:800;font-size:clamp(9px,.78vw,16px);letter-spacing:.26em;text-transform:uppercase;
+  color:var(--d-fg-dim);margin-bottom:clamp(4px,.8vh,10px)}
+.time{font-family:var(--d-display);font-weight:900;font-size:clamp(80px,11.46vw,240px);line-height:.9;
+  letter-spacing:-.04em;color:var(--d-fg);font-variant-numeric:tabular-nums;text-shadow:0 18px 60px rgba(36,27,20,.16)}
+.timerBar{margin-top:clamp(8px,1.1vh,14px);width:clamp(220px,27vw,560px);max-width:100%;
+  height:clamp(3px,.26vw,6px);background:rgba(36,27,20,.14);border-radius:3px;overflow:hidden}
+.timerBar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
+.nextBox{font-family:var(--d-display);font-weight:800;font-size:clamp(14px,1.35vw,28px);letter-spacing:.06em;
+  text-transform:uppercase;color:var(--d-fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
 .nextBox span{color:var(--accent)}
 
-.statRow{display:flex;align-items:baseline;gap:10px;padding:9px 0;border-bottom:1px solid rgba(255,252,244,.10)}
+/* ── Турнир ── */
+#stats{display:flex;flex-direction:column}
+.statRow{display:flex;flex-direction:column;align-items:flex-start;gap:0;
+  padding:clamp(10px,1.6vh,24px) 0;border-bottom:1px solid var(--d-stroke)}
 .statRow:last-child{border-bottom:none}
-.statLabel{font-size:clamp(11px,1vw,14px);font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,252,244,.55)}
-.statValue{margin-left:auto;font-size:clamp(18px,1.9vw,30px);font-weight:900;font-variant-numeric:tabular-nums}
-.statValue small{font-size:.55em;color:rgba(255,252,244,.5);font-weight:800}
-.statValue.gold{color:var(--gold)}
-.statValue.hot{color:var(--accent)}
+.statLabel{font-weight:800;font-size:clamp(10px,.83vw,17px);letter-spacing:.24em;text-transform:uppercase;
+  color:var(--d-fg-dim)}
+.statValue{margin:clamp(5px,.65vh,10px) 0 0;font-family:var(--d-display);font-weight:900;
+  font-size:clamp(26px,3.02vw,64px);line-height:1;color:var(--d-fg);font-variant-numeric:tabular-nums}
+.statValue small{font-size:.58em;color:var(--d-fg-dim);font-weight:800}
+/* На кремовом золото не читается — для акцентных чисел берём оливковый из палитры */
+.statValue.gold{color:var(--olive)}
+.statValue.hot{color:var(--accent);animation:lateRegPulse 1.2s ease-in-out infinite}
+@keyframes lateRegPulse{0%,100%{opacity:1}50%{opacity:.68}}
 
-.rGrid{display:flex;flex-direction:column;gap:4px;overflow:hidden}
-.rItem{display:flex;align-items:center;gap:9px;padding:6px 10px;border-radius:12px;background:rgba(255,252,244,.05)}
-.rItem.rGold{background:var(--accent);color:var(--surface)}
-.rItem.rSilver{background:rgba(255,252,244,.16)}
-.rItem.rBronze{background:rgba(232,185,74,.22)}
-.rPlace{width:22px;font-weight:900;font-size:14px;opacity:.75;text-align:center}
-.rName{flex:1;min-width:0;font-weight:800;font-size:clamp(12px,1.05vw,17px);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.rPts{font-weight:900;font-variant-numeric:tabular-nums;font-size:clamp(12px,1.05vw,17px)}
-.rItem.rGold .rPts{color:var(--surface)}
-.rItem:not(.rGold) .rPts{color:var(--gold)}
+/* ── Призовая зона ── */
+.rGrid{display:flex;flex-direction:column;overflow:hidden;--rs:1}
+.rGrid.rDense{--rs:.86}
+.rGrid.rDense2{--rs:.74}
+.rGrid.rDense3{--rs:.64}
+.rItem{display:flex;align-items:center;gap:calc(clamp(7px,.68vw,14px)*var(--rs));
+  padding:calc(clamp(4px,.7vh,10px)*var(--rs)) 0;border-bottom:1px solid var(--d-stroke);
+  background:none;border-radius:0;min-width:0}
+.rItem:last-child{border-bottom:none}
+.rPlace{width:calc(clamp(15px,1.2vw,24px)*var(--rs));text-align:right;font-family:var(--d-display);font-weight:800;
+  font-size:calc(clamp(11px,.94vw,19px)*var(--rs));color:var(--d-fg-dim);flex-shrink:0;opacity:1}
+.rName{flex:1 1 auto;min-width:0;font-weight:800;font-size:calc(clamp(13px,1.2vw,24px)*var(--rs));line-height:1.1;
+  color:var(--d-fg-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rPts{font-family:var(--d-display);font-weight:900;font-size:calc(clamp(16px,1.56vw,32px)*var(--rs));
+  color:var(--d-fg);font-variant-numeric:tabular-nums;flex-shrink:0}
+.rItem.rGold .rPlace{color:color-mix(in srgb,var(--accent) 65%,transparent)}
+.rItem.rGold .rName,.rItem.rGold .rPts{color:var(--accent)}
+.rItem.rSilver .rName,.rItem.rSilver .rPts{color:var(--d-fg)}
+.rItem.rBronze .rName,.rItem.rBronze .rPts{color:var(--olive)}
 
-.infoBlock{margin-bottom:14px}
-.infoLabel{font-size:11px;font-weight:900;letter-spacing:.16em;text-transform:uppercase;color:rgba(255,252,244,.5);margin-bottom:6px}
-.infoValue{font-size:clamp(14px,1.3vw,20px);font-weight:800;line-height:1.35}
-.dCards{display:flex;gap:8px}
-.dCard{width:clamp(42px,3.4vw,58px);aspect-ratio:.7;background:var(--surface);color:var(--ink);border-radius:8px;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;font-weight:900;line-height:1}
-.dCard i{font-style:normal;font-size:clamp(15px,1.3vw,21px)}
-.dCard em{font-style:normal;font-size:clamp(14px,1.2vw,20px)}
+/* ── Инфо ── */
+.infoBlock{flex-direction:column;margin:0;padding:clamp(10px,1.6vh,24px) 0;border-bottom:1px solid var(--d-stroke)}
+.infoBlock:last-child{border-bottom:none}
+.infoLabel{font-weight:800;font-size:clamp(10px,.83vw,17px);letter-spacing:.24em;text-transform:uppercase;
+  color:var(--d-fg-dim);margin-bottom:clamp(5px,.65vh,10px)}
+.infoValue{font-size:clamp(18px,1.7vw,28px);font-weight:800;line-height:1.25;white-space:pre-wrap;word-break:break-word}
+.dCards{display:flex;gap:clamp(8px,.8vw,16px);align-items:center}
+.dCard{--h:clamp(70px,7vw,120px);width:calc(var(--h)*.72);height:var(--h);border-radius:calc(var(--h)*.11);
+  background:var(--surface);color:var(--ink);border:1px solid rgba(36,27,20,.25);box-shadow:var(--shadow);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  font-family:var(--d-display);font-weight:900;line-height:1;aspect-ratio:auto}
+.dCard i{font-style:normal;font-size:calc(var(--h)*.35)}
+.dCard em{font-style:normal;font-size:calc(var(--h)*.31)}
 .dCard.s-h,.dCard.s-d{color:var(--accent)}
 
-.overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;gap:16px;
-  border-radius:var(--r-lg);color:var(--surface);text-align:center;padding:24px;
-  background:radial-gradient(900px 520px at 50% 42%,rgba(233,83,31,.22),transparent 62%),var(--ink)}
-.overlay .oTitle{font-size:clamp(40px,6vw,92px);font-weight:900;letter-spacing:.06em;color:var(--accent)}
-.overlay .oTime{font-size:clamp(40px,5vw,86px);font-weight:900;font-variant-numeric:tabular-nums}
-.overlay .oHint{font-size:13px;font-weight:800;letter-spacing:.18em;text-transform:uppercase;color:rgba(255,252,244,.5)}
-.ftGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;width:min(100%,1100px)}
-.ftSlot{display:flex;align-items:center;gap:10px;background:rgba(255,252,244,.08);border-radius:16px;padding:12px 14px}
-.ftNum{width:26px;text-align:center;font-weight:900;color:var(--gold)}
-.ftName{font-size:clamp(14px,1.4vw,22px);font-weight:900;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* ── Оверлеи ── */
+.overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;
+  gap:16px;border-radius:0;color:var(--d-fg);text-align:center;padding:24px;backdrop-filter:blur(6px);
+  /* На светлом просвечивающий таймер заметнее, чем на тёмном фоне Дойла, — кроем плотнее */
+  background:radial-gradient(900px 500px at 50% 40%,rgba(233,83,31,.10),transparent 60%),rgba(255,252,244,.965)}
+.overlay .oTitle{font-family:var(--d-display);font-size:clamp(52px,5vw,90px);font-weight:900;letter-spacing:.08em;
+  color:var(--accent)}
+.overlay .oTime{font-family:var(--d-display);font-size:clamp(48px,4.5vw,82px);font-weight:900;
+  font-variant-numeric:tabular-nums;color:var(--d-fg)}
+.overlay .oHint{font-size:14px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--d-fg-soft)}
+#ftOverlay{gap:28px}
+.ftGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:min(96%,960px)}
+.ftSlot{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;
+  border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.ftNum{min-width:22px;width:auto;text-align:center;font-family:var(--mono);font-weight:900;font-size:15px;
+  color:var(--accent);flex-shrink:0}
+.ftName{font-size:clamp(16px,1.45vw,24px);font-weight:900;line-height:1.2;color:var(--d-fg);
+  white-space:normal;word-break:break-word;overflow:visible}
 
-@keyframes pulseIn{from{transform:scale(.9);opacity:0}to{transform:scale(1);opacity:1}}
-.zoom{animation:pulseIn .45s ease-out}
-.derr{position:absolute;left:18px;bottom:14px;color:var(--accent);font-size:13px;font-weight:800}
+@keyframes pulseIn{0%{transform:scale(1)}30%{transform:scale(1.18)}60%{transform:scale(1.12)}100%{transform:scale(1)}}
+.zoom{animation:pulseIn .7s cubic-bezier(.22,.68,0,1.4) both}
+.derr{position:absolute;left:clamp(24px,3.75vw,74px);bottom:clamp(8px,1.2vh,20px);
+  color:var(--accent);font-size:14px;font-weight:800}
 
-@media(max-width:900px){
-  .dgrid.hasSide,.dgrid.hasRight{grid-template-columns:minmax(0,1fr)}
-  .dwrap{overflow:auto}
+/* ── Планшет / ландшафт ── */
+@media(max-width:1100px){
+  .dgrid{grid-template-columns:minmax(0,1fr) minmax(0,1.7fr) minmax(0,1fr)}
+  .dgrid.hasRight{grid-template-columns:minmax(0,1fr) minmax(0,1.8fr) minmax(0,1fr)}
+  .dwrap{padding:16px 22px 20px}
+  .main{padding:0 20px}
+  .panel#infoCard,.panel#ratingCard{padding-right:18px}
+  .panel#statsCard{padding-left:18px}
+}
+
+/* ── Мобильный портрет: одна колонка ── */
+@media(max-width:860px) and (orientation:portrait){
+  html,body{height:auto;overflow-y:auto}
+  .dwrap{width:100vw;height:auto;min-height:100vh;padding:14px 14px 22px;overflow:visible}
+  /* Марка в одну строку: по центру она рвётся на три и наезжает на часы */
+  .dhead{margin-bottom:14px;justify-content:space-between;gap:10px}
+  .dhead .wordmark{font-size:clamp(13px,4vw,20px);letter-spacing:.12em;white-space:nowrap}
+  .dhead .hmeta{position:static;transform:none;max-width:none;margin-left:auto;gap:8px;flex:none}
+  /* Название турнира в строку не влезает — на телефоне остаются марка и часы */
+  .dhead .tname{display:none}
+  .dhead .clock{padding:5px 9px}
+  .dgrid,.dgrid.hasRight{grid-template-columns:1fr !important;height:auto !important;gap:14px}
+  .main,.panel#statsCard,.panel#ratingCard,.panel#infoCard{grid-column:1 !important}
+  .main{order:1;border-left:none;border-right:none;padding:8px 4px 18px}
+  .panel#statsCard{order:2;padding-left:0}
+  .panel#ratingCard{order:3;padding-right:0}
+  .panel#infoCard{order:4;padding-right:0}
+  .blindsMain{font-size:clamp(48px,15vw,96px) !important}
+  .time{font-size:clamp(64px,22vw,120px) !important}
+  .timerWrap{margin:18px 0}
+  .panel .pTitle{font-size:clamp(16px,4.5vw,24px)}
+}
+
+/* ── Мобильный ландшафт ── */
+@media(max-height:600px) and (orientation:landscape){
+  .dwrap{padding:8px 14px 10px}
+  .dhead{margin-bottom:6px}
+  .dhead .wordmark{font-size:clamp(14px,2.2vw,24px)}
+  .dgrid,.dgrid.hasRight{grid-template-columns:minmax(0,1fr) minmax(0,1.9fr) minmax(0,1fr)}
+  .panel .pTitle{font-size:clamp(12px,2.2vw,18px);margin-bottom:6px}
+  .main{padding:0 10px}
+  .levelName{font-size:clamp(18px,3.6vw,34px)}
+  .blindsLabel{font-size:clamp(8px,1.2vw,13px);margin-top:6px}
+  .blindsMain{font-size:clamp(30px,7vw,66px) !important}
+  .blindsRule{margin-top:5px}
+  .anteLine{font-size:clamp(13px,1.8vw,24px);margin-top:4px}
+  .timerLabel{font-size:clamp(8px,1.1vw,13px);margin-bottom:3px}
+  .time{font-size:clamp(40px,9vw,90px) !important}
+  .timerBar{margin-top:6px}
+  .nextBox{font-size:clamp(11px,1.6vw,20px)}
+  .statRow{padding:6px 0}
+  .statLabel{font-size:clamp(8px,1.1vw,13px)}
+  .statValue{font-size:clamp(18px,3.2vw,34px) !important}
+  .rItem{padding:calc(3px*var(--rs)) 0}
+  .rName{font-size:calc(clamp(11px,1.5vw,18px)*var(--rs))}
+  .rPts{font-size:calc(clamp(13px,1.8vw,22px)*var(--rs))}
+  .rPlace{font-size:calc(clamp(9px,1.1vw,15px)*var(--rs))}
+  .overlay .oTitle{font-size:clamp(20px,5vw,38px)}
+  .overlay .oTime{font-size:clamp(18px,4.5vw,32px)}
+  .ftGrid{gap:6px}
+  .ftSlot{padding:6px 10px;gap:6px}
+  .ftNum{font-size:11px}
+  .ftName{font-size:12px}
 }
 </style>
 </head>
@@ -97,8 +240,10 @@ body{background:var(--ink);color:var(--surface)}
 <div class="dwrap">
   <header class="dhead">
     <div class="wordmark">Vyatka Poker Club</div>
-    <div class="tname" id="tourName"></div>
-    <div class="clock" id="wallClock"></div>
+    <div class="hmeta">
+      <div class="tname" id="tourName"></div>
+      <div class="clock" id="wallClock"></div>
+    </div>
   </header>
 
   <div class="dgrid" id="dgrid">
@@ -126,6 +271,7 @@ body{background:var(--ink);color:var(--surface)}
       </div>
       <div class="blindsLabel" id="blindsLabel">Текущие блайнды</div>
       <div class="blindsMain" id="blindsMain">—</div>
+      <div class="blindsRule"></div>
       <div class="anteLine" id="anteLine"></div>
       <div class="timerWrap">
         <div class="timerLabel" id="durationPill">Осталось</div>

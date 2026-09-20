@@ -33,6 +33,7 @@
       <span class="badge" id="badgeRole"><span class="dot" id="roleDot"></span><span id="roleText">…</span></span>
       <span class="badge" id="badgeUser" style="display:none"><span id="userText">—</span></span>
       <span class="badge" id="badgeSync"><span id="syncText">sync: —</span></span>
+      <button class="ghost tiny" id="btnRefresh" type="button" style="display:none" title="Перечитать состояние из базы">↻</button>
       <button class="ghost tiny" id="logoutBtn" type="button" style="display:none">Выйти</button>
     </div>
   </header>
@@ -118,6 +119,36 @@
         </div>
         <div class="switchRow"><span class="switchLabel">ПКО <span class="muted">(очки за головы)</span></span><input id="pkoEnabled" type="checkbox"/></div>
         <button id="btnSaveQuick" type="button">Сохранить</button>
+      </div>
+    </div>
+
+    <!-- Счётчики без имён: турнир, который ведут «по головам». Как только
+         появляется список игроков, статистика считается из него, и блок
+         схлопывается — два источника правды развалили бы места и оплату. -->
+    <div id="countersWrap" style="margin-top:14px">
+      <div id="countersToggleRow" style="display:none;align-items:center;gap:8px;margin-bottom:6px">
+        <span class="sub" style="flex:1">Счётчики без имён — считаются из списка игроков</span>
+        <button id="btnCountersToggle" class="tiny ghost" type="button">▶ Раскрыть</button>
+      </div>
+      <div id="countersBody" class="grid2">
+        <div class="field" style="margin:0"><label>Игроков</label>
+          <div class="stepper">
+            <input id="cntRegistered" type="number" min="0" step="1" value="0" inputmode="numeric"/>
+            <button id="btnRegMinus" class="ghost" type="button">−</button>
+            <button id="btnRegPlus" class="ghost" type="button">+</button>
+          </div></div>
+        <div class="field" style="margin:0"><label>Ре-энтри</label>
+          <div class="stepper">
+            <input id="cntReentries" type="number" min="0" step="1" value="0" inputmode="numeric"/>
+            <button id="btnReMinus" class="ghost" type="button">−</button>
+            <button id="btnRePlus" class="ghost" type="button">+</button>
+          </div></div>
+        <div class="field" style="margin:0"><label>Вылетело</label>
+          <div class="stepper">
+            <input id="cntBusted" type="number" min="0" step="1" value="0" inputmode="numeric"/>
+            <button id="btnBustMinus" class="ghost" type="button">−</button>
+            <button id="btnBustPlus" class="ghost" type="button">+</button>
+          </div></div>
       </div>
     </div>
 
@@ -227,13 +258,32 @@
       <button id="btnClearPost" class="ghost" type="button">Очистить</button>
     </div>
     <textarea id="postOut" spellcheck="false" readonly style="min-height:220px;margin-top:10px;font-family:var(--mono);font-size:13px"></textarea>
+
+    <details style="margin-top:14px">
+      <summary style="cursor:pointer;font-weight:800">Разобрать пост обратно</summary>
+      <div class="sub" style="margin:6px 0 10px">
+        Если вечер вели в чате, а не в админке — вставь готовый пост, и места с ноками
+        вернутся в состояние. Пришедшие, которых в посте нет, уедут в конец списка.
+      </div>
+      <textarea id="resultsIn" spellcheck="false"
+        style="min-height:160px;font-family:var(--mono);font-size:13px"
+        placeholder="1&#65039;&#8419; Сергей Втюрин (3 ko)&#10;2&#65039;&#8419; Пётр Иванов&#10;3&#65039;&#8419; Олег Русских"></textarea>
+      <div class="btnrow" style="margin-top:10px">
+        <button id="btnResultsApply" type="button">Применить результаты</button>
+        <span class="tag" id="resultsInfo">—</span>
+      </div>
+    </details>
   </section>
 
   <!-- ── Структура ─────────────────────────────────────────────────────── -->
   <section id="screenPreset" class="card" style="display:none">
-    <div class="cardHead"><h2>Формат турнира</h2></div>
+    <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span></div>
     <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
     <div id="presetGrid" class="presetGrid"></div>
+    <div class="btnrow" id="bpAdminRow" style="margin-top:12px;display:none">
+      <button id="btnBpNew" type="button">+ Новый макет</button>
+      <span class="sub">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
+    </div>
   </section>
 
   <section id="screenStructure" class="card" style="display:none">
@@ -260,6 +310,9 @@
   <button data-tab="pay" type="button"><span class="ic">₽</span>Оплата</button>
   <button data-tab="struct" type="button"><span class="ic">♠</span>Структура</button>
 </nav>
+
+<!-- Списки игроков и оплаты длинные — возврат наверх без долгого скролла -->
+<button id="btnScrollTop" type="button" title="Наверх" style="display:none">↑</button>
 
 <!-- ── Модалки ───────────────────────────────────────────────────────── -->
 <div class="modal" id="confirmModal">
@@ -300,6 +353,69 @@
   </div>
 </div>
 
+<div class="modal" id="bustFixModal">
+  <div class="modalCard">
+    <h2>Исправить вылет</h2>
+    <div class="sub" id="bustFixMeta" style="margin-bottom:10px">—</div>
+    <div class="field" style="margin:0 0 10px">
+      <label>Нокауты за этот вылет</label>
+      <input id="bustFixKo" type="number" min="0" step="1" inputmode="numeric"/>
+    </div>
+    <div class="field" id="bustFixPtsField" style="display:none;margin:0 0 10px">
+      <label>Очки за головы</label>
+      <input id="bustFixPts" type="number" min="0" step="1" inputmode="numeric"/>
+    </div>
+    <div class="field" style="margin:0">
+      <label>Перенести вылет на другого (необязательно)</label>
+      <input id="bustFixSearch" type="search" placeholder="🔎 Кто вылетел на самом деле" autocomplete="off"/>
+    </div>
+    <div id="bustFixList" class="pickResults"></div>
+    <div class="err" id="bustFixErr" style="margin-top:8px"></div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="bustFixOk" type="button">Сохранить</button>
+      <button id="bustFixCancel" class="ghost" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="bpModal">
+  <div class="modalCard" style="width:min(760px,100%);max-height:92vh;overflow:auto">
+    <h2 id="bpTitle">Новый макет</h2>
+    <div class="sub" style="margin-bottom:10px">Макет общий для клуба. Уже идущие турниры не изменятся.</div>
+    <div class="grid2">
+      <div class="field"><label>Название</label><input id="bpName" type="text" maxlength="80"/></div>
+      <div class="field"><label>Стартовый стек</label><input id="bpStack" type="number" min="1" inputmode="numeric"/></div>
+      <div class="field"><label>Поздняя рег. до уровня (0 — нет)</label><input id="bpLateReg" type="number" min="0" inputmode="numeric"/></div>
+      <div class="field"><label>Взнос, ₽ (пусто — не задавать)</label><input id="bpBuyIn" type="number" min="0" inputmode="numeric"/></div>
+    </div>
+    <div class="cardHead" style="margin-top:14px"><h2 style="font-size:17px">Уровни</h2><span class="tag" id="bpLevelsInfo">—</span></div>
+    <div class="btnrow" style="margin:8px 0">
+      <button id="bpAddLevel" class="ghost" type="button">+ Уровень</button>
+      <button id="bpAddBreak" class="ghost" type="button">+ Перерыв</button>
+    </div>
+    <div id="bpLevelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="err" id="bpErr" style="margin-top:8px"></div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="bpSave" type="button">Сохранить</button>
+      <button id="bpDelete" class="ghost danger" type="button" style="display:none">Удалить</button>
+      <button id="bpCancel" class="ghost" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="playerPickModal">
+  <div class="modalCard">
+    <h2>Игрок из базы</h2>
+    <div class="sub" style="margin-bottom:8px">Ищет и по-русски, и латиницей: «Петр», «Petr» — одно и то же.</div>
+    <div class="field"><label>Имя или фамилия</label><input id="pickInput" type="text" maxlength="60" autocomplete="off"/></div>
+    <div id="pickResults" class="pickResults"></div>
+    <div class="btnrow">
+      <button id="pickAdd" type="button" disabled>Добавить</button>
+      <button id="pickCancel" class="ghost" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
 <script src="js/core.js"></script>
@@ -314,7 +430,8 @@
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
     calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
-    genRoomId, PRESETS, BRANCH, buildTelegramPost, mergePlayers, NF,
+    genRoomId, PRESETS, BRANCH, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
+    searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, payMethodLabel, getPayments, totalPaid, entriesOf,
     effectiveBuyIn, effectiveFreeEntries, addonCostFor, calcExpected, remainingAmount,
     payStatus, tariffOf, buyInForTariff, calcPayTotals,
@@ -323,7 +440,10 @@
   const TBL = window.VP_TABLES;
   const ROOMS_BRANCH = window.VP_ROOMS_BRANCH ?? null;   // null — комнаты только свои
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
-  const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
+  // Служебная строка макетов комнатой не открывается: ссылка на неё показала бы
+  // пустой турнир и позволила бы затереть макеты таймером.
+  const rawRoomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
+  const roomId = (rawRoomId && rawRoomId === window.VP_BLUEPRINTS_ROOM) ? "" : rawRoomId;
   const CLIENT_ID = genRoomId(10);
 
   let state = null;
@@ -510,7 +630,9 @@
       const { data, error } = await q;
       if (error) throw error;
       await loadAllowedRooms();
-      const visible = allowedRooms ? (data || []).filter((r) => allowedRooms.has(r.room_id)) : (data || []);
+      // Служебная строка макетов лежит в той же таблице, но комнатой не является
+      const rooms = (data || []).filter((r) => r.room_id !== window.VP_BLUEPRINTS_ROOM);
+      const visible = allowedRooms ? rooms.filter((r) => allowedRooms.has(r.room_id)) : rooms;
       if (!visible.length) {
         box.innerHTML = isOperator()
           ? '<div class="muted">На вас не назначен ни один турнир — попроси администратора.</div>'
@@ -732,6 +854,30 @@
   };
   $("btnClearPost").onclick = () => { $("postOut").value = ""; $("postInfo").textContent = "—"; };
 
+  // Разбор поста переписывает всю хронологию вылетов, поэтому спрашиваем: применили
+  // к не той комнате — вечер придётся собирать руками.
+  $("btnResultsApply").onclick = async () => {
+    const info = $("resultsInfo");
+    setErr(null);
+    const rows = parseResultsPost($("resultsIn").value);
+    if (!rows.length) { info.textContent = "строк не найдено"; return; }
+    const ok = await confirm2(`Применить ${rows.length} строк?`,
+      "Места, ноки и хронология вылетов в этой комнате будут перезаписаны.");
+    if (!ok) return;
+    const btn = $("btnResultsApply");
+    btn.disabled = true; info.textContent = "Применяю…";
+    try {
+      let res = null;
+      await saveWithReload((st) => { res = applyResults(st, rows); return computeStatsFromPlayers(st); });
+      const parts = [`применено: ${res.applied}`];
+      if (res.notFound.length) parts.push(`нет в комнате: ${res.notFound.join(", ")}`);
+      // Не упомянутый в посте пришедший сдвигает все места — говорим прямо
+      if (res.missing.length) parts.push(`не в посте (места сдвинутся): ${res.missing.join(", ")}`);
+      info.textContent = parts.join(" · ");
+    } catch (e) { setErr(e); info.textContent = "ошибка"; }
+    finally { btn.disabled = false; }
+  };
+
   function setLinks(id) {
     const base = location.origin + location.pathname.replace(/\/[^/]*$/, "/");
     $("adminLink").value = `${base}admin.html?room=${id}`;
@@ -818,6 +964,74 @@
     } catch (e) {}
   };
 
+  // ── Счётчики без имён ────────────────────────────────────────────────────
+  // Турнир, который ведут «по головам», без списка. Ядро это уже умеет:
+  // normalizeState не пересчитывает stats, пока players пуст. Появился список —
+  // счётчики блокируются, иначе два источника правды разойдутся.
+  let countersExpanded = false;
+
+  const hasPlayerList = () => (state?.players?.length ?? 0) > 0;
+
+  function renderCounters() {
+    const locked = hasPlayerList();
+    const row = $("countersToggleRow"), body = $("countersBody");
+    row.style.display = locked ? "flex" : "none";
+    body.style.display = (!locked || countersExpanded) ? "" : "none";
+    if (!locked) countersExpanded = false;
+    $("btnCountersToggle").textContent = countersExpanded ? "▼ Свернуть" : "▶ Раскрыть";
+    ["cntRegistered", "cntReentries", "cntBusted"].forEach((id) => {
+      const el = $(id);
+      el.disabled = locked;
+      el.title = locked ? "Считается из списка игроков" : "";
+    });
+    ["btnRegMinus", "btnRegPlus", "btnReMinus", "btnRePlus", "btnBustMinus", "btnBustPlus"]
+      .forEach((id) => { $(id).disabled = locked; });
+    const s = state?.stats || {};
+    setIfNotFocused("cntRegistered", clampInt(s.registered ?? 0, 0));
+    setIfNotFocused("cntReentries", clampInt(s.reentries ?? 0, 0));
+    setIfNotFocused("cntBusted", clampInt(s.busted ?? 0, 0));
+  }
+
+  $("btnCountersToggle").onclick = () => { countersExpanded = !countersExpanded; renderCounters(); };
+
+  // Правка счётчиков сбрасывает посчитанную призовую зону: она считалась от
+  // другого числа входов и молча разошлась бы с новым.
+  async function bumpStats(mut, keepRating = false) {
+    if (hasPlayerList()) return;
+    setErr(null);
+    try {
+      await saveWithReload((st) => {
+        mut(st.stats);
+        st.stats.registered = clampInt(st.stats.registered, 0);
+        st.stats.reentries = clampInt(st.stats.reentries, 0);
+        st.stats.busted = Math.min(clampInt(st.stats.busted, 0), st.stats.registered);
+        st.stats.alive = Math.max(0, st.stats.registered - st.stats.busted);
+        if (!keepRating && st.rating) { st.rating.isActive = false; st.rating.calculatedAt = null; }
+        return st;
+      });
+    } catch (e) {}
+  }
+
+  const STEPS = {
+    btnRegPlus:   [(s) => { s.registered = clampInt(s.registered, 0) + 1; }, false],
+    btnRegMinus:  [(s) => { s.registered = Math.max(0, clampInt(s.registered, 0) - 1); }, false],
+    btnRePlus:    [(s) => { s.reentries = clampInt(s.reentries, 0) + 1; }, false],
+    btnReMinus:   [(s) => { s.reentries = Math.max(0, clampInt(s.reentries, 0) - 1); }, false],
+    // Вылет не меняет число входов — призовую зону пересчитывать незачем
+    btnBustPlus:  [(s) => { s.busted = clampInt(s.busted, 0) + 1; }, true],
+    btnBustMinus: [(s) => { s.busted = Math.max(0, clampInt(s.busted, 0) - 1); }, true],
+  };
+  Object.entries(STEPS).forEach(([id, [mut, keepRating]]) => {
+    $(id).onclick = () => bumpStats(mut, keepRating);
+  });
+  ["cntRegistered", "cntReentries", "cntBusted"].forEach((id) => {
+    const key = { cntRegistered: "registered", cntReentries: "reentries", cntBusted: "busted" }[id];
+    $(id).onchange = () => {
+      const v = clampInt($(id).value, 0);
+      bumpStats((s) => { s[key] = v; }, key === "busted");
+    };
+  });
+
   // ── Призовая зона ────────────────────────────────────────────────────────
   $("btnCalcRating").onclick = async () => {
     setErr(null);
@@ -870,13 +1084,92 @@
     if (!list.length) return;
     try { await saveWithReload((st) => mergePlayers(st, list.map((name) => ({ name })), "add")); } catch (e) {}
   };
+  // Подбор игрока из базы. Имя, набранное руками, тоже принимается: в зале
+  // приходят и те, кого в базе ещё нет, и стопорить посадку из-за этого нельзя —
+  // просто уйдёт без player_id, как раньше.
+  function askPlayerFromDB() {
+    return new Promise((resolve) => {
+      const modal = $("playerPickModal"), input = $("pickInput"), box = $("pickResults"), add = $("pickAdd");
+      let selected = null, timer = null, reqSeq = 0;
+      input.value = ""; box.innerHTML = ""; add.disabled = true;
+      modal.classList.add("show");
+      setTimeout(() => input.focus(), 50);
+
+      const done = (val) => {
+        modal.classList.remove("show");
+        clearTimeout(timer);
+        input.oninput = null; input.onkeydown = null;
+        box.onclick = null; add.onclick = null;
+        $("pickCancel").onclick = null; modal.onclick = null;
+        resolve(val);
+      };
+      const note = (text) => { box.innerHTML = `<div class="pickNote">${escHtml(text)}</div>`; };
+
+      async function search(q) {
+        const pats = searchVariants(q);
+        if (!pats.length) return;
+        // Ответы приходят вразнобой: показываем только самый свежий запрос.
+        const seq = ++reqSeq;
+        const or = pats.map((p) => `name.ilike.%${p}%,full_name.ilike.%${p}%`).join(",");
+        try {
+          const { data, error } = await sb.from(TBL.players)
+            .select("id,name,full_name").or(or).order("name").limit(20);
+          if (seq !== reqSeq) return;
+          if (error) throw error;
+          if (!data?.length) { note("В базе не нашлось — можно добавить как есть"); selected = null; add.disabled = false; return; }
+          box.innerHTML = data.map((p) => {
+            const full = p.full_name ? `<span class="full">${escHtml(p.full_name)}</span>` : "";
+            return `<div class="pickItem" data-id="${p.id}" data-name="${escHtml(p.name)}">${escHtml(p.name)}${full}</div>`;
+          }).join("");
+          selected = null; add.disabled = false;
+        } catch (e) {
+          if (seq !== reqSeq) return;
+          note("Ошибка загрузки");
+          add.disabled = false;
+        }
+      }
+
+      input.oninput = () => {
+        clearTimeout(timer);
+        selected = null;
+        const q = input.value.trim();
+        if (q.length < 2) { note("Введи минимум 2 символа"); add.disabled = true; return; }
+        timer = setTimeout(() => search(q), 300);
+      };
+      box.onclick = (e) => {
+        const item = e.target.closest(".pickItem");
+        if (!item) return;
+        box.querySelectorAll(".pickItem").forEach((el) => el.classList.remove("sel"));
+        item.classList.add("sel");
+        selected = { name: item.dataset.name, id: Number(item.dataset.id) || null };
+        add.disabled = false;
+      };
+      add.onclick = () => {
+        const typed = normName(input.value);
+        done(selected || (typed ? { name: typed, id: null } : null));
+      };
+      $("pickCancel").onclick = () => done(null);
+      modal.onclick = (e) => { if (e.target === modal) done(null); };
+      input.onkeydown = (e) => {
+        if (e.key === "Escape") done(null);
+        if (e.key === "Enter") { e.preventDefault(); if (!add.disabled) add.onclick(); }
+      };
+    });
+  }
+
   $("btnPlayerAdd").onclick = async () => {
-    const name = await askName("Новый игрок");
+    const picked = await askPlayerFromDB();
+    if (!picked) return;
+    const name = normName(picked.name);
     if (!name) return;
     try {
       await saveWithReload((st) => {
-        if (st.players.some((p) => keyName(p.name) === keyName(name))) return st;
-        st.players.push({ name, present: true, reentries: 0, status: "registered", ko: 0, koPts: 0 });
+        const exists = st.players.find((p) => keyName(p.name) === keyName(name));
+        // Повторное добавление не плодит дубль, но доклеивает player_id —
+        // он нужен, чтобы регистрация из приложения нашла своего игрока.
+        if (exists) { if (picked.id && !exists.player_id) exists.player_id = picked.id; return st; }
+        st.players.push({ name, present: true, reentries: 0, status: "registered",
+          ko: 0, koPts: 0, player_id: picked.id ?? null });
         return computeStatsFromPlayers(st);
       });
     } catch (e) {}
@@ -928,6 +1221,97 @@
       });
     } catch (e) {}
   }
+  // Вылет записали не на того — обычная ошибка за столом. Отмена с повторным
+  // вводом сдвинула бы хронологию: отменённый вылет уходит в конец очереди, и
+  // места всех, кто вылетел после, съезжают. Перенос сохраняет bustOrder.
+  function askBustFix(p, pko) {
+    return new Promise((resolve) => {
+      const modal = $("bustFixModal"), search = $("bustFixSearch"), list = $("bustFixList");
+      let target = null;
+      $("bustFixMeta").innerHTML =
+        `Вылет №${clampInt(p.bustOrder ?? 0, 0)} · место ${p.place ?? "—"} · записан на <b>${escHtml(p.name)}</b>`;
+      $("bustFixKo").value = String(clampInt(p.ko ?? 0, 0));
+      $("bustFixPtsField").style.display = pko ? "" : "none";
+      $("bustFixPts").value = String(clampInt(p.koPts ?? 0, 0));
+      search.value = ""; $("bustFixErr").textContent = "";
+
+      // Переносить можно только на того, кто ещё в игре: у вылетевшего уже
+      // есть своя позиция в хронологии, и обмен местами — другая операция.
+      const candidates = (state?.players || [])
+        .filter((x) => x.present && x.status !== "busted" && keyName(x.name) !== keyName(p.name));
+
+      const draw = () => {
+        const q = keyName(search.value);
+        const rows = candidates.filter((x) => !q || keyName(x.name).includes(q));
+        list.innerHTML = rows.length
+          ? rows.map((x) => `<div class="pickItem${target && keyName(target.name) === keyName(x.name) ? " sel" : ""}"
+              data-name="${escHtml(x.name)}">${escHtml(x.name)}</div>`).join("")
+          : '<div class="pickNote">В игре никого не найдено</div>';
+        list.querySelectorAll(".pickItem").forEach((el) => {
+          el.onclick = () => {
+            const n = el.dataset.name;
+            target = (target && keyName(target.name) === keyName(n)) ? null : { name: n };  // повторный клик снимает
+            draw();
+          };
+        });
+      };
+      draw();
+      modal.classList.add("show");
+
+      const done = (r) => {
+        modal.classList.remove("show");
+        search.oninput = null; list.onclick = null; modal.onclick = null;
+        $("bustFixOk").onclick = null; $("bustFixCancel").onclick = null;
+        resolve(r);
+      };
+      search.oninput = draw;
+      $("bustFixOk").onclick = () => done({
+        ko: clampInt($("bustFixKo").value, 0),
+        koPts: clampInt($("bustFixPts").value, 0),
+        moveTo: target?.name || null,
+      });
+      $("bustFixCancel").onclick = () => done(null);
+      modal.onclick = (e) => { if (e.target === modal) done(null); };
+    });
+  }
+
+  async function fixBust(name) {
+    const cur = findPlayer(state, name);
+    if (!cur) return;
+    const res = await askBustFix(cur, !!state?.tournament?.pko);
+    if (!res) return;
+    setErr(null);
+    try {
+      await saveWithReload((st) => {
+        const from = findPlayer(st, name);
+        if (!from) return st;
+        const ko = res.ko, koPts = res.koPts;
+        if (res.moveTo) {
+          const to = findPlayer(st, res.moveTo);
+          if (!to) return st;
+          // Позиция в хронологии принадлежит вылету, а не игроку: переносим её
+          // целиком, иначе места пересчитаются и разойдутся с реальностью.
+          to.status = "busted";
+          to.bustOrder = from.bustOrder;
+          to.ko = clampInt(to.ko ?? 0, 0) + ko;
+          to.koPts = clampInt(to.koPts ?? 0, 0) + koPts;
+          to.koDelta = { ko, koPts };
+          from.status = "registered";
+          from.bustOrder = null;
+          from.place = null;
+          rollbackBustKo(from);
+        } else {
+          // Только правка ноков: пересчитываем прибавку этого вылета
+          const d = from.koDelta || { ko: 0, koPts: 0 };
+          from.ko = Math.max(0, clampInt(from.ko ?? 0, 0) - clampInt(d.ko ?? 0, 0) + ko);
+          from.koPts = Math.max(0, clampInt(from.koPts ?? 0, 0) - clampInt(d.koPts ?? 0, 0) + koPts);
+          from.koDelta = { ko, koPts };
+        }
+        return computeStatsFromPlayers(st);
+      });
+    } catch (e) {}
+  }
+
   async function undoBust(name) {
     try {
       await saveWithReload((st) => {
@@ -960,7 +1344,7 @@
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, reentryPlayer, removePlayer,
+  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
     payTariff, payFreeEntry, payAddonFree, payAdd, payUndo, payClear, opsRemove };
 
   function renderPlayers() {
@@ -993,10 +1377,13 @@
         ? `<button class="tiny" onclick="_vp.togglePresent(${j})">Пришёл</button>`
         : busted
           ? `<button class="tiny ghost" onclick="_vp.reentryPlayer(${j})">↩ Реентри</button>
-             <button class="tiny ghost" onclick="_vp.undoBust(${j})">✎ Отменить</button>`
+             <button class="tiny ghost" onclick="_vp.fixBust(${j})">✎ Исправить</button>
+             <button class="tiny ghost" onclick="_vp.undoBust(${j})">Отменить</button>`
           : `<button class="tiny" onclick="_vp.bustPlayer(${j})">BUSTED</button>
              <button class="tiny ghost" onclick="_vp.addReentry(${j},1)">R+</button>
-             ${addon ? `<button class="tiny ghost" onclick="_vp.toggleAddon(${j})">A${p.addon ? "✓" : "+"}</button>` : ""}`;
+             ${p.reentries ? `<button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри">R−</button>` : ""}
+             ${addon ? `<button class="tiny ghost" onclick="_vp.toggleAddon(${j})">A${p.addon ? "✓" : "+"}</button>` : ""}
+             <button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>`;
       return `<div class="listRow${busted ? " busted" : ""}">
         <span class="avatar">${escHtml(initials(p.name))}</span>
         <span class="nm">${n}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${tags}</div></span>
@@ -1254,8 +1641,15 @@
   };
 
   // ── Структура ────────────────────────────────────────────────────────────
-  function readLevels() {
-    return [...$("levelsBox").querySelectorAll("[data-lv]")].map((row) => {
+  // Таблица уровней живёт в двух местах — структура комнаты и редактор макета,
+  // поэтому контейнер приходит контекстом. Отметку «правится вручную» ставит
+  // только структура: она борется с перерисовкой по приходящему состоянию,
+  // а модалка макета от состояния не зависит.
+  const STRUCT_CTX = { box: "levelsBox", info: "structInfo", tracksEdits: true };
+  const BP_CTX = { box: "bpLevelsBox", info: "bpLevelsInfo", tracksEdits: false };
+
+  function readLevels(ctx = STRUCT_CTX) {
+    return [...$(ctx.box).querySelectorAll("[data-lv]")].map((row) => {
       const isBreak = row.dataset.break === "1";
       const val = (sel) => row.querySelector(sel)?.value;
       return isBreak
@@ -1264,10 +1658,12 @@
             anteMode: row.querySelector(".lvAnte").checked ? "BB" : "NONE" };
     });
   }
-  function renderLevels(levels) {
-    const cur = state?.timer?.levelIndex ?? 0;
-    $("structInfo").textContent = `${levels.filter((l) => !l.isBreak).length} уровней · ${levels.filter((l) => l.isBreak).length} перерывов`;
-    $("levelsBox").innerHTML = levels.map((l, i) => {
+  function renderLevels(levels, ctx = STRUCT_CTX) {
+    // Текущий уровень подсвечиваем только в структуре идущей комнаты
+    const cur = ctx.tracksEdits ? (state?.timer?.levelIndex ?? 0) : -1;
+    const markEdit = () => { if (ctx.tracksEdits) editingStructure = true; };
+    $(ctx.info).textContent = `${levels.filter((l) => !l.isBreak).length} уровней · ${levels.filter((l) => l.isBreak).length} перерывов`;
+    $(ctx.box).innerHTML = levels.map((l, i) => {
       const num = l.isBreak ? "☕" : playLevelNum(levels, i);
       return `<div class="levelRow${l.isBreak ? " isBreak" : ""}${i === cur ? " current" : ""}" data-lv="${i}" data-break="${l.isBreak ? 1 : 0}">
         <span class="lvIdx">${num}</span>
@@ -1280,29 +1676,29 @@
         <button class="tiny ghost" data-del="${i}" type="button">✕</button>
       </div>`;
     }).join("");
-    $("levelsBox").querySelectorAll("[data-del]").forEach((b) => {
+    $(ctx.box).querySelectorAll("[data-del]").forEach((b) => {
       b.onclick = () => {
-        editingStructure = true;
-        const lv = readLevels();
+        markEdit();
+        const lv = readLevels(ctx);
         lv.splice(Number(b.dataset.del), 1);
-        renderLevels(lv);
+        renderLevels(lv, ctx);
       };
     });
-    $("levelsBox").querySelectorAll("input").forEach((el) => { el.oninput = () => { editingStructure = true; }; });
+    $(ctx.box).querySelectorAll("input").forEach((el) => { el.oninput = markEdit; });
   }
-  $("addLevel").onclick = () => {
-    editingStructure = true;
-    const lv = readLevels();
+  const addLevelTo = (ctx) => {
+    const lv = readLevels(ctx);
     const last = [...lv].reverse().find((x) => !x.isBreak) || { min: 15, sb: 100, bb: 200, anteMode: "BB" };
     lv.push({ min: last.min, sb: last.sb * 2, bb: last.bb * 2, anteMode: last.anteMode });
-    renderLevels(lv);
+    renderLevels(lv, ctx);
   };
-  $("addBreak").onclick = () => {
-    editingStructure = true;
-    const lv = readLevels();
+  const addBreakTo = (ctx) => {
+    const lv = readLevels(ctx);
     lv.push({ isBreak: true, min: 15, label: "Перерыв" });
-    renderLevels(lv);
+    renderLevels(lv, ctx);
   };
+  $("addLevel").onclick = () => { editingStructure = true; addLevelTo(STRUCT_CTX); };
+  $("addBreak").onclick = () => { editingStructure = true; addBreakTo(STRUCT_CTX); };
   $("btnStructureSave").onclick = async () => {
     setErr(null);
     const levels = readLevels();
@@ -1326,17 +1722,124 @@
     } catch (e) {}
   };
 
+  // ── Макеты турниров ──────────────────────────────────────────────────────
+  // Источник — таблица VP_BLUEPRINTS, если она настроена; пока не настроена
+  // (и если запрос упал), работают хардкодные PRESETS из ядра. Падать на
+  // недоступной таблице нельзя: без формата турнир не начать.
+  const BP_TABLE = window.VP_BLUEPRINTS || null;
+  const BP_ROOM = BP_TABLE ? null : (window.VP_BLUEPRINTS_ROOM || null);
+  let presets = { ...PRESETS };      // id → макет, в форме PRESETS
+  let presetsFromDb = false;
+
+  const rowToPreset = (row) => ({
+    id: String(row.id),
+    name: row.name,
+    startStack: clampInt(row.start_stack, 0),
+    lateRegUntilLevel: clampInt(row.late_reg_until_level ?? 0, 0),
+    defaultBuyIn: row.default_buy_in ?? null,
+    levels: window.VP.normalizeLevels(Array.isArray(row.levels) ? row.levels : []),
+    sortOrder: clampInt(row.sort_order ?? 0, 0),
+  });
+
+  // Приводим к одной форме независимо от хранилища: из служебной строки макеты
+  // приходят уже в «фронтовом» виде, из таблицы — колонками.
+  const normPreset = (p, i) => ({
+    id: String(p.id ?? i + 1),
+    name: String(p.name ?? "").slice(0, 80),
+    startStack: clampInt(p.startStack, 0),
+    lateRegUntilLevel: clampInt(p.lateRegUntilLevel ?? 0, 0),
+    defaultBuyIn: p.defaultBuyIn == null ? null : clampInt(p.defaultBuyIn, 0),
+    levels: window.VP.normalizeLevels(Array.isArray(p.levels) ? p.levels : []),
+    sortOrder: clampInt(p.sortOrder ?? i + 1, 0),
+  });
+
+  // Служебная строка rooms: та же таблица, куда пишутся комнаты, но это не
+  // комната — из списка она отфильтрована по id.
+  async function readBlueprintRoom() {
+    const { data, error } = await sb.from(TBL.rooms).select("state").eq("room_id", BP_ROOM).maybeSingle();
+    if (error) throw error;
+    const list = data?.state?.blueprints;
+    return Array.isArray(list) ? list : null;
+  }
+
+  async function writeBlueprintRoom(list) {
+    const state = { blueprints: list, _savedAt: nowMs() };
+    // Первый раз строки нет — создаём; дальше просто обновляем.
+    const { data } = await sb.from(TBL.rooms).select("room_id").eq("room_id", BP_ROOM).maybeSingle();
+    if (data) {
+      const { error } = await sb.from(TBL.rooms).update({ state }).eq("room_id", BP_ROOM);
+      if (error) throw error;
+    } else {
+      const row = { room_id: BP_ROOM, state };
+      if (ROOMS_BRANCH) row.branch = ROOMS_BRANCH;
+      const { error } = await sb.from(TBL.rooms).insert(row);
+      if (error) throw error;
+    }
+  }
+
+  async function loadBlueprints() {
+    if (!BP_TABLE && !BP_ROOM) { presets = { ...PRESETS }; presetsFromDb = false; buildPresetGrid(); return; }
+    try {
+      let list;
+      if (BP_TABLE) {
+        const { data, error } = await sb.from(BP_TABLE)
+          .select("id,name,start_stack,late_reg_until_level,default_buy_in,levels,sort_order")
+          .order("sort_order");
+        if (error) throw error;
+        list = (data || []).map(rowToPreset);
+      } else {
+        // Служебной строки ещё нет — значит макеты не заводили: показываем
+        // встроенные, но редактор доступен, и первое сохранение её создаст.
+        list = (await readBlueprintRoom()) || Object.values(PRESETS);
+        list = list.map(normPreset);
+      }
+      list = list.filter((p) => p.name && p.levels.length)
+        .sort((a, b) => a.sortOrder - b.sortOrder);
+      if (!list.length) throw new Error("макетов нет");
+      const next = {};
+      list.forEach((p) => { next[p.id] = p; });
+      presets = next; presetsFromDb = true;
+    } catch (e) {
+      console.warn("loadBlueprints", e);
+      presets = { ...PRESETS }; presetsFromDb = false;
+    }
+    buildPresetGrid();
+  }
+
+  // Запись в служебную строку: читаем свежий список, правим, кладём целиком.
+  async function saveBlueprintToRoom(preset, deleting) {
+    const list = ((await readBlueprintRoom()) || Object.values(PRESETS)).map(normPreset);
+    const i = list.findIndex((p) => String(p.id) === String(preset.id));
+    if (deleting) {
+      if (i >= 0) list.splice(i, 1);
+    } else if (i >= 0) {
+      list[i] = { ...list[i], ...preset };
+    } else {
+      list.push({ ...preset, sortOrder: preset.sortOrder ?? (list.length + 1) });
+    }
+    await writeBlueprintRoom(list);
+  }
+
   function buildPresetGrid() {
-    $("presetGrid").innerHTML = Object.values(PRESETS).map((p) => {
+    $("presetSrc").textContent = presetsFromDb ? "из базы" : "встроенные";
+    $("bpAdminRow").style.display = (presetsFromDb && isAdmin()) ? "" : "none";
+    $("presetGrid").innerHTML = Object.values(presets).map((p) => {
       const lvl = p.levels.filter((l) => !l.isBreak).length;
-      return `<button class="presetCard${state?.presetKey === p.id ? " active" : ""}" data-preset="${p.id}" type="button">
-        <div class="pName">${escHtml(p.name)}</div>
-        <div class="pMeta">${fmtInt(p.startStack)} фишек · ${lvl} уровней · ПР до ${p.lateRegUntilLevel}</div>
-      </button>`;
+      const edit = (presetsFromDb && isAdmin())
+        ? `<button class="bpEdit" data-edit="${escHtml(p.id)}" type="button" title="Редактировать макет">✎</button>` : "";
+      return `<div class="presetWrap">
+        <button class="presetCard${state?.presetKey === p.id ? " active" : ""}" data-preset="${escHtml(p.id)}" type="button">
+          <div class="pName">${escHtml(p.name)}</div>
+          <div class="pMeta">${fmtInt(p.startStack)} фишек · ${lvl} уровней · ПР до ${p.lateRegUntilLevel}</div>
+        </button>${edit}
+      </div>`;
     }).join("");
+    $("presetGrid").querySelectorAll("[data-edit]").forEach((el) => {
+      el.onclick = (e) => { e.stopPropagation(); openBlueprintEditor(presets[el.dataset.edit]); };
+    });
     $("presetGrid").querySelectorAll("[data-preset]").forEach((b) => {
       b.onclick = async () => {
-        const p = PRESETS[b.dataset.preset];
+        const p = presets[b.dataset.preset];
         const ok = await confirm2(`Применить «${p.name}»?`, "Структура блайндов и стартовый стек будут заменены. Игроки сохранятся.");
         if (!ok) return;
         try {
@@ -1354,6 +1857,88 @@
       };
     });
   }
+
+  let bpEditingId = null;
+  function openBlueprintEditor(preset) {
+    bpEditingId = preset?.id ?? null;
+    $("bpTitle").textContent = preset ? "Редактировать макет" : "Новый макет";
+    $("bpName").value = preset?.name ?? "";
+    $("bpStack").value = preset?.startStack ?? 30000;
+    $("bpLateReg").value = preset?.lateRegUntilLevel ?? 0;
+    $("bpBuyIn").value = preset?.defaultBuyIn ?? "";
+    $("bpDelete").style.display = preset ? "" : "none";
+    $("bpErr").textContent = "";
+    renderLevels(preset ? preset.levels.map((l) => ({ ...l })) : window.VP.defaultLevels(), BP_CTX);
+    $("bpModal").classList.add("show");
+  }
+  const closeBp = () => $("bpModal").classList.remove("show");
+
+  $("btnBpNew").onclick = () => openBlueprintEditor(null);
+  $("bpAddLevel").onclick = () => addLevelTo(BP_CTX);
+  $("bpAddBreak").onclick = () => addBreakTo(BP_CTX);
+  $("bpCancel").onclick = closeBp;
+  $("bpModal").onclick = (e) => { if (e.target === $("bpModal")) closeBp(); };
+
+  $("bpSave").onclick = async () => {
+    const err = $("bpErr");
+    const name = normName($("bpName").value);
+    const startStack = clampInt($("bpStack").value, 0);
+    const levels = readLevels(BP_CTX);
+    if (!name) { err.textContent = "Введи название"; return; }
+    if (startStack <= 0) { err.textContent = "Стартовый стек должен быть больше нуля"; return; }
+    if (!levels.length) { err.textContent = "В макете нет ни одного уровня"; return; }
+    const buyInRaw = $("bpBuyIn").value.trim();
+    const payload = {
+      name,
+      start_stack: startStack,
+      late_reg_until_level: clampInt($("bpLateReg").value, 0),
+      default_buy_in: buyInRaw === "" ? null : clampInt(buyInRaw, 0),
+      levels,
+      updated_at: new Date().toISOString(),
+    };
+    const btn = $("bpSave");
+    btn.disabled = true; err.textContent = "";
+    try {
+      if (BP_TABLE) {
+        if (bpEditingId != null) {
+          const { error } = await sb.from(BP_TABLE).update(payload).eq("id", bpEditingId);
+          if (error) throw error;
+        } else {
+          // sort_order временем создания: новый макет встаёт в конец списка
+          const { error } = await sb.from(BP_TABLE).insert({ ...payload, sort_order: Date.now() });
+          if (error) throw error;
+        }
+      } else {
+        await saveBlueprintToRoom({
+          id: bpEditingId ?? `bp${Date.now()}`,
+          name, startStack,
+          lateRegUntilLevel: payload.late_reg_until_level,
+          defaultBuyIn: payload.default_buy_in,
+          levels,
+          ...(bpEditingId == null ? { sortOrder: Date.now() } : {}),
+        }, false);
+      }
+      closeBp();
+      await loadBlueprints();
+    } catch (e) { err.textContent = e.message || String(e); }
+    finally { btn.disabled = false; }
+  };
+
+  $("bpDelete").onclick = async () => {
+    if (bpEditingId == null) return;
+    const ok = await confirm2("Удалить макет?", "Идущие турниры не изменятся — у них своя копия уровней.");
+    if (!ok) return;
+    try {
+      if (BP_TABLE) {
+        const { error } = await sb.from(BP_TABLE).delete().eq("id", bpEditingId);
+        if (error) throw error;
+      } else {
+        await saveBlueprintToRoom({ id: bpEditingId }, true);
+      }
+      closeBp();
+      await loadBlueprints();
+    } catch (e) { $("bpErr").textContent = e.message || String(e); }
+  };
 
   // ── Рендер ───────────────────────────────────────────────────────────────
   function renderTimerCard() {
@@ -1422,6 +2007,7 @@
     safe(fillFields, "fields");
     safe(renderTimerCard, "timer");
     safe(renderKpis, "kpis");
+    safe(renderCounters, "counters");
     safe(renderPlayers, "players");
     safe(renderPayments, "payments");
     safe(renderRating, "rating");
@@ -1440,12 +2026,28 @@
     await saveWithReload((st) => { advanceExpiredLevels(st); return st; });
   }
 
+  $("btnScrollTop").onclick = () => window.scrollTo({ top: 0, behavior: "smooth" });
+  const syncScrollTop = () => {
+    $("btnScrollTop").style.display = (roomId && window.scrollY > 400) ? "" : "none";
+  };
+  window.addEventListener("scroll", syncScrollTop, { passive: true });
+  syncScrollTop();
+
+  $("btnRefresh").onclick = async () => {
+    if (!roomId) return;
+    setSync("loading");
+    try { state = await loadStateFresh(); renderAll(); setSync("ok"); }
+    catch (e) { setSync("error"); setErr(e); }
+  };
+
   function boot() {
     setLinks(roomId);
     $("metaRoom").textContent = roomId;
+    $("btnRefresh").style.display = "";
     $("tabbar").style.display = "";
     switchTab("timer");
     loadStateFresh().then((st) => { state = st; renderAll(); setSync("ok"); }).catch(setErr);
+    loadBlueprints().catch(() => {});
     subscribeRealtime();
     findLinkedTournament().then((t) => {
       $("tgRegInfo").textContent = t ? `«${t.name}» · записалось ${t.registered_count || 0}` : "турнир не привязан";
