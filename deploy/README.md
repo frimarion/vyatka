@@ -4,7 +4,7 @@ Self-hosted на своём VPS — как у Дойла. Причина та ж
 России душат, а таймер в зале не должен зависеть от настроения магистрали.
 
 Нужно: VPS (2 vCPU / 4 ГБ / 40 ГБ — минимум для полного стека), Docker с
-плагином compose, домен вида `api.<домен>` с A-записью на сервер.
+плагином compose, домен вида `api.vyatkapoker.ru` с A-записью на сервер.
 
 ## 1. Стек
 
@@ -30,8 +30,8 @@ node deploy/gen-keys.mjs
 
 | Переменная | Значение |
 |---|---|
-| `API_EXTERNAL_URL`, `SUPABASE_PUBLIC_URL` | `https://api.<домен>` |
-| `SITE_URL` | адрес, где лежит фронт |
+| `API_EXTERNAL_URL`, `SUPABASE_PUBLIC_URL` | `https://api.vyatkapoker.ru` |
+| `SITE_URL` | `https://vyatkapoker.ru` — там лежит фронт |
 | `DISABLE_SIGNUP` | `true` — аккаунты заводит админ, самозапись клуба не нужна |
 | `ENABLE_EMAIL_AUTOCONFIRM` | `true` — почты у операторов рабочие не всегда, письма подтверждения слать некуда |
 | `STUDIO_DEFAULT_ORGANIZATION` / `STUDIO_DEFAULT_PROJECT` | `Vyatka Poker Club` / `vyatka` |
@@ -53,11 +53,11 @@ cd /opt/vyatka && docker compose up -d && docker compose ps
 
 ## 4. Домен и TLS
 
-`nginx-vyatka.conf` → `/etc/nginx/sites-available/vyatka`, поменять
-`api.example.ru` на свой домен, включить симлинком, затем:
+`nginx-vyatka.conf` → `/etc/nginx/sites-available/vyatka`, включить симлинком,
+затем:
 
 ```bash
-certbot --nginx -d api.<домен> && nginx -t && systemctl reload nginx
+certbot --nginx -d api.vyatkapoker.ru && nginx -t && systemctl reload nginx
 ```
 
 Studio наружу закрыт намеренно: к нему ходят через туннель.
@@ -77,7 +77,7 @@ ssh -L 3000:localhost:3000 root@<сервер>
 В [../js/config.js](../js/config.js):
 
 ```js
-window.SUPABASE_HOSTS = ["https://api.<домен>"];
+window.SUPABASE_HOSTS = ["https://api.vyatkapoker.ru"];
 window.SUPABASE_ANON_KEY = "<ANON_KEY из шага 2>";
 window.VP_ROOMS_BRANCH = null;
 window.VP_TABLES = { rooms: "rooms", profiles: "profiles", operators: "tournament_operators",
@@ -85,6 +85,9 @@ window.VP_TABLES = { rooms: "rooms", profiles: "profiles", operators: "tournamen
 ```
 
 И домен логина в [../admin.html](../admin.html): `@doyle.ru` → свой.
+
+Выкладка самого фронта описана отдельно — [site.md](site.md): он живёт не на
+этом VPS, а на shared-хостинге reg.ru.
 
 Про запасные хосты: у Дойла их три, потому что один адрес периодически
 душат. Вятке второй путь тоже понадобится — но заводить его есть смысл

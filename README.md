@@ -15,8 +15,15 @@
 | `js/config.js` | Supabase URL/anon key, карта таблиц `VP_TABLES`, failover по хостам, синхронизация часов |
 | `css/app.css` | Дизайн-система клуба |
 | `tests/core.test.js` | Проверки ядра: `node tests/core.test.js` |
+| `deploy/site.md` | Выкладка сайта на vyatkapoker.ru через GitHub Actions |
 
 ## Запуск
+
+Боевой адрес — **https://vyatkapoker.ru** (`vyatkapoker.online` редиректом на
+него). Выкладывает пуш в `main`: GitHub Actions гоняет тесты ядра и синхронизирует
+статику на хостинг — [deploy/site.md](deploy/site.md).
+
+Локально:
 
 ```bash
 python3 -m http.server 4173

@@ -1,0 +1,40 @@
+# Apache-конфиг вебрута vyatkapoker.ru (на хостинге лежит как .htaccess).
+# nginx-конфиг на shared-хостинге нам недоступен, поэтому всё, что настраивается
+# на стороне сайта, живёт здесь.
+
+DirectoryIndex index.html
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Доменов два (.ru и .online) и оба смотрят в этот же каталог. Канонический —
+  # vyatkapoker.ru: ссылку на дисплей открывают на ТВ вручную, и она должна быть
+  # одна и та же, откуда бы её ни скопировали. Остальное сюда же и на https.
+  RewriteCond %{HTTPS} !=on [OR]
+  RewriteCond %{HTTP_HOST} !^vyatkapoker\.ru$ [NC]
+  RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
+
+  # Ссылки вида /admin и /display — без .html.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^(.+)$ $1.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Версионирования у статики нет, поэтому длинный кэш опасен: ведущий откроет
+  # админку перед турниром и получит вчерашний js. Свои файлы — с ревалидацией,
+  # библиотека supabase (меняется раз в год) — надолго.
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "^supabase-js\.min\.js$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </FilesMatch>
+
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript
+</IfModule>

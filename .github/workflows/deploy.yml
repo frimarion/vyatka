@@ -1,0 +1,90 @@
+# Выкладка фронта на vyatkapoker.ru (shared-хостинг reg.ru, Host-0).
+#
+# Сайт — статика без сборки, поэтому «деплой» = синхронизация файлов в каталог
+# сайта на хостинге. Собирать нечего, но тесты ядра перед выкладкой прогнать
+# стоит: таймер правят вечером перед турниром, и сломанный расчёт уровня уедет
+# на ТВ в зале быстрее, чем кто-то его заметит.
+#
+# Секреты (Settings → Secrets and variables → Actions):
+#   DEPLOY_HOST        — сервер хостинга из раздела «Доступы» (вида sXX.hosting.reg.ru)
+#   DEPLOY_USER        — пользователь SSH/SFTP (вида uXXXXXXX)
+#   DEPLOY_SSH_KEY     — приватный ключ этого пользователя, целиком
+#   DEPLOY_KNOWN_HOSTS — вывод `ssh-keyscan -p <порт> <сервер>`
+#   DEPLOY_PATH        — каталог сайта, вида /var/www/uXXXXXXX/data/www/vyatkapoker.ru
+# Переменная (Variables):
+#   DEPLOY_PORT        — порт SSH, если не 22
+
+name: deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  # Две выкладки подряд не должны синхронизироваться друг поверх друга на полпути.
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: node tests/core.test.js
+
+  deploy:
+    needs: test
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Каталог ровно с тем, что должно лежать в вебруте: на хостинг не уезжают
+      # ни миграции, ни рунбук с именами хостов, ни тесты.
+      - name: Собрать каталог сайта
+        run: |
+          mkdir -p dist
+          cp index.html admin.html display.html dist/
+          cp deploy/htaccess dist/.htaccess
+          cp -r css js lib dist/
+
+      - name: Ключ и known_hosts
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+          # Отпечаток берём из секрета, а не keyscan-ом на лету: иначе первый же
+          # подменённый ответ DNS мы бы приняли как «новый сервер» и отдали доступ.
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      # --delete убирает с хостинга то, чего нет в репозитории: вебрут держим
+      # зеркалом main, иначе забытый старый файл переживёт переименование.
+      # Если на тарифе нет rsync, замени шаг на lftp-вариант из deploy/site.md.
+      - name: rsync на хостинг
+        env:
+          RHOST: ${{ secrets.DEPLOY_HOST }}
+          RUSER: ${{ secrets.DEPLOY_USER }}
+          RPATH: ${{ secrets.DEPLOY_PATH }}
+          RPORT: ${{ vars.DEPLOY_PORT || '22' }}
+        run: |
+          rsync -rlptz --delete --checksum \
+            -e "ssh -i ~/.ssh/id_deploy -p $RPORT -o IdentitiesOnly=yes" \
+            dist/ "$RUSER@$RHOST:$RPATH/"
+
+      - name: Убрать ключ
+        if: always()
+        run: rm -f ~/.ssh/id_deploy
+
+      - name: Проверить, что сайт отвечает
+        run: |
+          code=$(curl -sS -o /dev/null -w '%{http_code}' https://vyatkapoker.ru/)
+          echo "GET / → $code"
+          test "$code" = "200"
