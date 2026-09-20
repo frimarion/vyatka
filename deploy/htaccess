@@ -7,10 +7,17 @@ DirectoryIndex index.html
 <IfModule mod_rewrite.c>
   RewriteEngine On
 
+  # На https. Перед Apache стоит nginx, который терминирует TLS, поэтому внутри
+  # .htaccess %{HTTPS} всегда off — по нему одному правило гнало бы на https то,
+  # что уже на https, и получалась петля. Настоящий протокол знает только прокси,
+  # и говорит он о нём заголовком.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
+
   # Доменов два (.ru и .online) и оба смотрят в этот же каталог. Канонический —
   # vyatkapoker.ru: ссылку на дисплей открывают на ТВ вручную, и она должна быть
-  # одна и та же, откуда бы её ни скопировали. Остальное сюда же и на https.
-  RewriteCond %{HTTPS} !=on [OR]
+  # одна и та же, откуда бы её ни скопировали.
   RewriteCond %{HTTP_HOST} !^vyatkapoker\.ru$ [NC]
   RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
 
