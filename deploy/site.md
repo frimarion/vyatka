@@ -25,6 +25,9 @@
 DNS: A-записи обоих доменов на IP хостинга (если домены в reg.ru — панель
 проставит сама).
 
+Хостинг: reg.ru Host-0, панель ispmanager на `https://server40.hosting.reg.ru:1500/`,
+пользователь `u3653852`, домашний каталог `/var/www/u3653852/data`.
+
 ## 2. Ключ для выкладки
 
 На рабочей машине:
@@ -33,12 +36,21 @@ DNS: A-записи обоих доменов на IP хостинга (если
 ssh-keygen -t ed25519 -C "github-actions vyatkapoker" -f ~/.ssh/vyatka_deploy -N ""
 ```
 
-Публичную часть (`~/.ssh/vyatka_deploy.pub`) — в панели хостинга,
-**Доступы → SSH-ключи**. Проверить, что пускает, и снять отпечаток сервера:
+Раздела SSH-ключей у reg.ru на шареде нет, а `ssh-copy-id` не годится: SSH там
+не OpenSSH, а **dropbear**, и ключ он пытается положить в `/etc/dropbear/`, куда
+прав нет. Кладём в свой домашний каталог руками (пароль спросит один раз):
 
 ```bash
-ssh -i ~/.ssh/vyatka_deploy uXXXXXXX@sXX.hosting.reg.ru "pwd && ls"
-ssh-keyscan sXX.hosting.reg.ru
+ssh u3653852@server40.hosting.reg.ru 'mkdir -p ~/.ssh && chmod 700 ~/.ssh \
+  && printf "%s\n" "<содержимое vyatka_deploy.pub>" >> ~/.ssh/authorized_keys \
+  && chmod 600 ~/.ssh/authorized_keys'
+```
+
+Проверить, что пускает без пароля, и снять отпечаток сервера:
+
+```bash
+ssh -i ~/.ssh/vyatka_deploy -o IdentitiesOnly=yes u3653852@server40.hosting.reg.ru "pwd && ls www"
+ssh-keyscan server40.hosting.reg.ru
 ```
 
 Приватный ключ никуда, кроме секрета GitHub, не копируем — он даёт доступ
@@ -97,6 +109,19 @@ git push origin main
 
 `.htaccess` заодно даёт короткие адреса: `/admin` и `/display` работают без
 `.html`. Ссылка на ТВ выглядит как `https://vyatkapoker.ru/display?room=ABC123`.
+
+Про редирект на https: внутри `.htaccess` смотрим на `X-Forwarded-Proto`, а не
+на `%{HTTPS}`. TLS терминирует nginx перед Apache, поэтому для Apache соединение
+всегда «не защищено» — по `%{HTTPS}` сайт редиректил сам на себя и падал в
+ERR_TOO_MANY_REDIRECTS.
+
+## 6a. SSL
+
+ispmanager → **SSL-сертификаты** → «Добавить сертификат» → Let's Encrypt, домены
+`vyatkapoker.ru www.vyatkapoker.ru`, почтовый ящик — реальный, на него приходят
+напоминания об истечении. Самоподписанный, который панель заводит сама, браузер
+покажет как «Подключение не защищено», и выкладка это поймает: последний шаг
+workflow проверяет домен настоящим curl.
 
 ## 7. Бэкенд
 
