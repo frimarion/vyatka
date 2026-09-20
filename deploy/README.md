@@ -5,7 +5,14 @@
 | Что | Где | Почему там |
 |---|---|---|
 | `vyatkapoker.ru` — фронт | shared-хостинг reg.ru (Host-0) | Статика без сборки. 400 КБ HTML на 13 ГБ тарифа, PHP и MySQL не нужны вовсе. |
-| `api.vyatkapoker.ru` — Supabase | свой VPS, 4 ГБ | Self-hosted Supabase — это Docker-стек из десятка контейнеров. На shared-хостинге Docker'а нет, поэтому бэкенд физически не может жить рядом с фронтом. |
+| `api.vyatkapoker.ru` — Supabase | Timeweb VPS `176.57.214.63` | Self-hosted Supabase — это Docker-стек из десятка контейнеров. На shared-хостинге Docker'а нет, поэтому бэкенд физически не может жить рядом с фронтом. |
+
+Сервер: Premium 2 × 3.3 ГГц, 4 ГБ RAM, 50 ГБ NVMe, Ubuntu 24.04. Размер взят
+не с потолка: боевой бэкенд Дойла — тот же стек из 13 контейнеров — живёт на
+1 ядре и 2 ГБ, и там постоянно занято больше гигабайта свопа. Вдвое больше
+памяти убирает своп, вдвое больше ядер — запас на docker compose и миграции.
+Дальше расти незачем: сама база клуба весит десятки мегабайт, место на диске
+съедают образы Docker, а не данные.
 
 Почему self-hosted, а не облако Supabase: причина та же, что у Дойла —
 облачные адреса из России душат, а таймер в зале не должен зависеть от
@@ -20,13 +27,45 @@
 |---|---|---|
 | `@` | A | IP хостинга Host-0 (панель → Хостинг → Доступы) |
 | `www` | A | тот же IP |
-| `api` | A | IP нового VPS |
+| `api` | A | `176.57.214.63` |
 
 Домен в панели хостинга надо ещё и **привязать к сайту** (Хостинг → Сайты →
 Добавить сайт), иначе A-запись доедет, а Apache отдаст заглушку.
 
 Пока `api` не резолвится, certbot на шаге 4 выдаст ошибку — это нормально,
 DNS расходится до получаса. Проверить: `nslookup api.vyatkapoker.ru`.
+
+**Перед certbot убедись, что зона согласована на всех NS.** Одного успешного
+`nslookup` мало: у reg.ru зона обслуживается `ns1`/`ns2.hosting.reg.ru`, и при
+разворачивании Вятки они больше часа отдавали разные версии — запись была на
+одном сервере и отсутствовала на другом, при этом каждый отвечал авторитетно.
+Let's Encrypt проверяет домен с нескольких точек, попадал на отставший сервер и
+отказывал. Две попытки выпуска ушли впустую, а неудачных проверок разрешено
+пять в час на домен — упереться в лимит легко.
+
+Проба, которая это ловит (запускать с сервера, где есть `dig`):
+
+```bash
+for ns in ns1.hosting.reg.ru ns2.hosting.reg.ru; do
+  ok=0; for i in $(seq 1 15); do
+    [ -n "$(dig +short +time=5 +tries=1 A api.vyatkapoker.ru @$ns)" ] && ok=$((ok+1))
+  done; echo "$ns: $ok/15"
+done
+```
+
+Запускать certbot только при `15/15` на обоих. Полезно и сравнить SOA serial:
+`dig +short SOA vyatkapoker.ru @ns1...` против `@ns2...` — расхождение серийников
+и есть та самая рассинхронизация. Лечится обращением в поддержку reg.ru;
+добавление любой новой записи поднимает serial и иногда подталкивает синхронизацию.
+
+Отдельно про кэш: после неудачных попыток резолверы запоминают `NXDOMAIN`.
+Негативный TTL в этой зоне — час (`min` от TTL записи SOA и её `minimum`), так
+что даже после починки имя ещё какое-то время не резолвится. Сервер при этом
+проверяется в обход DNS:
+
+```bash
+curl --resolve api.vyatkapoker.ru:443:127.0.0.1 https://api.vyatkapoker.ru/auth/v1/settings -H "apikey: <ANON_KEY>"
+```
 
 ## 1. Фронт на Host-0
 
@@ -52,12 +91,53 @@ DNS расходится до получаса. Проверить: `nslookup ap
 выкладка идёт целой папкой, и схема базы уезжает на сервер вместе с фронтом.
 Закрыть её — дешевле, чем помнить не заливать.
 
-## 2. VPS: стек и ключи
+## 2. VPS: подготовка, стек и ключи
+
+На чистой Ubuntu Docker'а нет, а свопа у Timeweb нет тоже. Своп нужен: у Дойла
+на таком же стеке постоянно занято больше гигабайта, и без свопа всплеск памяти
+превращается не в замедление, а в OOM-killer, который гасит контейнер посреди
+вечера.
+
+```bash
+fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+echo '/swapfile none swap sw 0 0' >> /etc/fstab
+
+apt-get update && apt-get install -y ca-certificates curl git
+install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" > /etc/apt/sources.list.d/docker.list
+apt-get update && apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
 
 ```bash
 git clone --depth 1 https://github.com/supabase/supabase
 mkdir -p /opt/vyatka && cp -r supabase/docker/* /opt/vyatka/
 cd /opt/vyatka && cp .env.example .env
+```
+
+### Порты: дефолтный compose смотрит наружу
+
+Это первое, что надо поправить, и до `up -d`. В `docker-compose.yml` проброски
+висят на всех интерфейсах, то есть **Postgres и API-шлюз доступны из интернета**
+напрямую, в обход nginx и TLS:
+
+```
+- ${API_GW_HTTP_PORT:-${KONG_HTTP_PORT:-8000}}:8000/tcp
+- ${POSTGRES_PORT}:5432
+- ${POOLER_PROXY_PORT_TRANSACTION}:6543
+```
+
+Каждую надо привязать к петле, дописав `127.0.0.1:` перед значением. Править
+именно проброски, а не переменные: `POSTGRES_PORT` подставляется ещё в десяток
+строк подключения (`GOTRUE_DB_DATABASE_URL`, `PGRST_DB_URI` и прочие), и адрес
+в ней всё там сломает.
+
+Сверху — файрвол, наружу только SSH и HTTP(S):
+
+```bash
+apt-get install -y ufw
+ufw allow 22/tcp && ufw allow 80/tcp && ufw allow 443/tcp && ufw --force enable
 ```
 
 Ключи генерируются на рабочей машине, из репозитория Вятки:
@@ -76,8 +156,11 @@ node deploy/gen-keys.mjs
 
 | Переменная | Значение |
 |---|---|
-| `API_EXTERNAL_URL`, `SUPABASE_PUBLIC_URL` | `https://api.vyatkapoker.ru` |
+| `SUPABASE_PUBLIC_URL` | `https://api.vyatkapoker.ru` |
+| `API_EXTERNAL_URL` | `https://api.vyatkapoker.ru/auth/v1` — **с суффиксом**: в текущей версии это полный адрес сервиса Auth, а не базовый |
 | `SITE_URL` | `https://vyatkapoker.ru` |
+| `SECRET_KEY_BASE`, `VAULT_ENC_KEY` | свои случайные (в примере лежат общеизвестные значения из репозитория); `VAULT_ENC_KEY` — ровно 32 символа |
+| `DASHBOARD_USERNAME` / `DASHBOARD_PASSWORD` | логин в Studio; дефолтный пароль в примере так и называется `this_password_is_insecure_and_should_be_updated` |
 | `DISABLE_SIGNUP` | `true` — аккаунты заводит админ, самозапись клуба не нужна |
 | `ENABLE_EMAIL_AUTOCONFIRM` | `true` — почты у операторов рабочие не всегда, письма подтверждения слать некуда |
 | `STUDIO_DEFAULT_ORGANIZATION` / `STUDIO_DEFAULT_PROJECT` | `Vyatka Poker Club` / `vyatka` |
@@ -111,7 +194,7 @@ certbot --nginx -d api.vyatkapoker.ru && nginx -t && systemctl reload nginx
 через туннель.
 
 ```bash
-ssh -L 3000:localhost:3000 root@<IP VPS>
+ssh -L 3000:localhost:3000 root@176.57.214.63
 ```
 
 ## 5. Первый админ

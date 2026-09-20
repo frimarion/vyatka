@@ -14,7 +14,7 @@ window.SUPABASE_URL = (() => {
 // Ключ публичный по назначению: он уходит в браузер каждому игроку, и всё, что
 // им можно, ограничено RLS. Секретный — SERVICE_ROLE_KEY, он живёт только на
 // сервере и в репозиторий не попадает никогда.
-window.SUPABASE_ANON_KEY = "PASTE_ANON_KEY_FROM_GEN_KEYS";
+window.SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlIjoiYW5vbiIsImlzcyI6InN1cGFiYXNlIiwiaWF0IjoxNzg5OTQ1MzM3LCJleHAiOjIxMDUzMDUzMzd9.oV8xwj1bBXYc6DwH_9GfmPRiIGd6BtNMoCy4dTS72uI";
 if (window.SUPABASE_ANON_KEY.indexOf("PASTE_") === 0) {
   // Иначе первый же запрос падает с невнятным 401, и полчаса уходит на поиск
   // опечатки там, где ключ просто не вставили.
