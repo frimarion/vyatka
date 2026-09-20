@@ -21,11 +21,18 @@ reg.ru). Бэкенд — свой self-hosted Supabase на **api.vyatkapoker.r
 | `js/xlsx.js` | Минимальный писатель `.xlsx` без зависимостей |
 | `js/config.js` | Supabase URL/anon key, карта таблиц `VP_TABLES`, failover по хостам, синхронизация часов |
 | `css/app.css` | Дизайн-система клуба |
-| `.htaccess` | Роутинг, HTTPS и кэш на хостинге: корень → приложение, `/admin`, `/display`, `/crm` |
+| `deploy/htaccess` | Роутинг, HTTPS и кэш на хостинге; уезжает в вебрут как `.htaccess` |
 | `tests/core.test.js` | Проверки ядра: `node tests/core.test.js` |
 | `tests/crm.test.js` | Проверки CRM и `.xlsx`: `node tests/crm.test.js` |
+| `deploy/site.md` | Выкладка сайта на vyatkapoker.ru через GitHub Actions |
 
 ## Запуск
+
+Боевой адрес — **https://vyatkapoker.ru** (`vyatkapoker.online` редиректом на
+него). Выкладывает пуш в `main`: GitHub Actions гоняет тесты ядра и синхронизирует
+статику на хостинг — [deploy/site.md](deploy/site.md).
+
+Локально:
 
 ```bash
 python3 -m http.server 4173

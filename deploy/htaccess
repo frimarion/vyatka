@@ -1,0 +1,59 @@
+# Apache-конфиг вебрута vyatkapoker.ru (на хостинге лежит как .htaccess).
+# nginx-конфиг на shared-хостинге нам недоступен, поэтому всё, что настраивается
+# на стороне сайта, живёт здесь.
+
+DirectoryIndex index.html
+Options -Indexes
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+
+  # Приложение игрока переехало из app.html в корень: адрес корня уходит в
+  # BotFather, и он же открывается локально. Старую ссылку могли раздать
+  # игрокам, поэтому она не умирает, а ведёт на новое место.
+  RewriteRule ^app\.html$ / [R=301,L]
+
+  # На https. Перед Apache стоит nginx, который терминирует TLS, поэтому внутри
+  # .htaccess %{HTTPS} всегда off — по нему одному правило гнало бы на https то,
+  # что уже на https, и получалась петля. Настоящий протокол знает только прокси,
+  # и говорит он о нём заголовком.
+  RewriteCond %{HTTPS} !=on
+  RewriteCond %{HTTP:X-Forwarded-Proto} !=https
+  RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
+
+  # Доменов два (.ru и .online) и оба смотрят в этот же каталог. Канонический —
+  # vyatkapoker.ru: ссылку на дисплей открывают на ТВ вручную, и она должна быть
+  # одна и та же, откуда бы её ни скопировали.
+  RewriteCond %{HTTP_HOST} !^vyatkapoker\.ru$ [NC]
+  RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
+
+  # Ссылки вида /admin и /display — без .html.
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME}.html -f
+  RewriteRule ^(.+)$ $1.html [L]
+</IfModule>
+
+<IfModule mod_headers.c>
+  # Версионирования у статики нет, поэтому длинный кэш опасен: ведущий откроет
+  # админку перед турниром и получит вчерашний js. Свои файлы — с ревалидацией,
+  # библиотека supabase (меняется раз в год) — надолго.
+  <FilesMatch "\.(html|js|css)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+  <FilesMatch "^supabase-js\.min\.js$">
+    Header set Cache-Control "public, max-age=2592000, immutable"
+  </FilesMatch>
+  # Логотип и шрифты меняются переименованием, а не правкой на месте.
+  <FilesMatch "\.(png|jpe?g|svg|webp|ico|woff2?)$">
+    Header set Cache-Control "public, max-age=2592000"
+  </FilesMatch>
+
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  # X-Frame-Options здесь намеренно НЕ выставляется: Telegram Web открывает
+  # Mini App в iframe, и DENY убил бы приложение у всех, кто играет с десктопа.
+</IfModule>
+
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript
+</IfModule>
