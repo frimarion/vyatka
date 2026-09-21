@@ -48,9 +48,14 @@ jobs:
       - name: Собрать каталог сайта
         run: |
           mkdir -p dist
+          # Страницы не перечисляем руками: в корне репозитория .html — это и
+          # есть страницы сайта, других там нет. Список был захардкожен, и
+          # первая выкладка /legal уехала без самой страницы: на хостинге она
+          # молча стала 404, потому что проверка ниже смотрела тот же список.
           # index.html — приложение игрока, оно же Mini App на корне домена.
           # start.html — служебный хаб со ссылками (/start).
-          cp index.html start.html admin.html tournaments.html crm.html display.html dist/
+          PAGES=$(ls *.html)
+          cp $PAGES dist/
           cp deploy/htaccess dist/.htaccess
           cp -r css js lib assets dist/
           # Растровый оригинал логотипа нужен для правок макета, а не браузеру.
@@ -73,7 +78,7 @@ jobs:
           grep -q "js/config.js?v=$VER" dist/index.html || { echo "версия не проставилась"; exit 1; }
           # Страница, которой нет в dist, на хостинге превращается в 404 молча:
           # rsync --delete уберёт старую копию, а новую кто-то забыл положить.
-          for f in index.html start.html admin.html tournaments.html crm.html display.html; do
+          for f in $PAGES; do
             test -s "dist/$f" || { echo "не собралось: $f"; exit 1; }
           done
 
