@@ -61,7 +61,7 @@ body{
 .apphead.compact{
   position:relative;overflow:hidden;
   padding:18px 20px 38px;margin-bottom:16px;
-  border-radius:0;
+  border-radius:var(--r-lg) var(--r-lg) 0 0;
   background:
     radial-gradient(120% 140% at 88% -10%, rgba(255,214,168,.38), transparent 60%),
     linear-gradient(160deg,#F2622C 0%,#E9531F 46%,#C8420F 100%);
@@ -82,9 +82,10 @@ body{
   overflow:hidden;
 }
 .avatarPill img{width:100%;height:100%;border-radius:999px;object-fit:cover}
-/* Наезжает на шапку только геро-карточка. Тянуть наверх саму шапку нельзя:
-   тогда под неё заезжает и первая карточка профиля, пряча её заголовок. */
-#heroWrap{position:relative;z-index:2;margin-top:-40px}
+/* Наезжает на шапку только геро-карточка — пустое состояние (нет турниров)
+   остаётся обычной светлой карточкой и на шапку не лезет. */
+#heroWrap{position:relative;z-index:2}
+#heroWrap .tcard.hero{margin-top:-40px}
 
 /* ── Карточка турнира ───────────────────────────────────────── */
 .tcard{
