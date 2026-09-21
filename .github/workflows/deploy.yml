@@ -63,7 +63,7 @@ jobs:
           # Растровый оригинал логотипа нужен для правок макета, а не браузеру.
           rm -f dist/assets/logo-source.png
 
-          # Версия в адресе css/js/lib. Кэшем этих файлов мы не управляем:
+          # Версия в адресе css/js/lib/assets. Кэшем этих файлов мы не управляем:
           # `.htaccess` просит `no-cache`, но до Apache они не доходят — на
           # shared-хостинге их отдаёт фронтовый сервер, и отдаёт со своим
           # `max-age=3888000`, то есть на сорок пять дней. Проверяется одной
@@ -75,9 +75,10 @@ jobs:
           # с каждой выкладкой, поэтому браузеру нечего доставать из кэша.
           VER=$(git rev-parse --short HEAD)
           for f in dist/*.html; do
-            sed -i -E "s#(src|href)=\"((js|css|lib)/[^\"?]+)\"#\1=\"\2?v=$VER\"#g" "$f"
+            sed -i -E "s#(src|href)=\"((js|css|lib|assets)/[^\"?]+)\"#\1=\"\2?v=$VER\"#g" "$f"
           done
           grep -q "js/config.js?v=$VER" dist/index.html || { echo "версия не проставилась"; exit 1; }
+          grep -q "assets/logo.svg?v=$VER" dist/index.html || { echo "версия логотипа не проставилась"; exit 1; }
           # Страница, которой нет в dist, на хостинге превращается в 404 молча:
           # rsync --delete уберёт старую копию, а новую кто-то забыл положить.
           for f in $PAGES; do

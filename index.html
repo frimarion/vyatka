@@ -458,6 +458,62 @@ body{
 .spin{display:inline-block;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
+/* ── Фирменная заставка ─────────────────────────────────────── */
+/* Как в приложении Дойла: логотип мягко появляется, по нему проходит один
+   световой блик, после чего весь слой растворяется. Заставка независима от
+   scrBoot — данные начинают грузиться сразу и не ждут окончания анимации. */
+#splashScreen{
+  position:fixed;inset:0;z-index:9999;
+  display:grid;place-items:center;overflow:hidden;
+  background:
+    radial-gradient(ellipse 72% 44% at 50% 48%,rgba(233,83,31,.20),transparent 72%),
+    radial-gradient(circle at 50% 118%,rgba(232,185,74,.12),transparent 42%),
+    linear-gradient(155deg,#2e2118 0%,#21170f 52%,#160f0a 100%);
+  opacity:1;visibility:visible;pointer-events:all;
+  transition:opacity .46s ease,visibility .46s ease;
+}
+#splashScreen::before{
+  content:"";position:absolute;inset:-20%;pointer-events:none;opacity:.22;
+  background-image:
+    radial-gradient(circle at 50% 50%,transparent 0 42%,rgba(232,185,74,.16) 42.4% 42.8%,transparent 43.2%),
+    repeating-conic-gradient(from 15deg,transparent 0 25deg,rgba(232,185,74,.045) 25deg 30deg);
+  transform:scale(.72);animation:splashHalo 1.25s cubic-bezier(.22,1,.36,1) both;
+}
+#splashScreen.fade-out{opacity:0;visibility:hidden;pointer-events:none}
+.splashInner{position:relative;width:min(74vw,330px);isolation:isolate}
+.splashLogo{
+  display:block;width:100%;height:auto;
+  opacity:0;transform:translateY(7px) scale(.92);
+  filter:drop-shadow(0 12px 28px rgba(0,0,0,.30));
+  animation:splashIn .72s cubic-bezier(.22,1,.36,1) .12s forwards;
+}
+.splashShine{
+  position:absolute;z-index:2;inset:-18% 0;border-radius:10px;
+  overflow:hidden;pointer-events:none;
+  -webkit-mask-image:linear-gradient(#000,#000);mask-image:linear-gradient(#000,#000);
+}
+.splashShine::after{
+  content:"";position:absolute;top:0;bottom:0;left:-70%;width:42%;
+  background:linear-gradient(105deg,transparent 25%,rgba(255,236,196,.42) 50%,transparent 75%);
+  transform:skewX(-16deg);opacity:0;
+  animation:splashGlint .56s ease .74s forwards;
+}
+.splashCaption{
+  margin-top:18px;text-align:center;color:rgba(255,252,244,.48);
+  font-size:10px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
+  opacity:0;animation:splashCaptionIn .45s ease .55s forwards;
+}
+@keyframes splashIn{to{opacity:1;transform:translateY(0) scale(1)}}
+@keyframes splashGlint{0%{left:-70%;opacity:1}100%{left:130%;opacity:1}}
+@keyframes splashHalo{from{opacity:0;transform:scale(.62) rotate(-4deg)}to{opacity:.22;transform:scale(.82) rotate(0)}}
+@keyframes splashCaptionIn{to{opacity:1}}
+
+@media(prefers-reduced-motion:reduce){
+  #splashScreen{transition-duration:.2s}
+  #splashScreen::before,.splashLogo,.splashShine::after,.splashCaption{animation:none}
+  .splashLogo,.splashCaption{opacity:1;transform:none}
+}
+
 @media(max-width:400px){
   .tcName{font-size:18px}
   .tcard.hero::after{width:168px;right:-56px}
@@ -465,6 +521,26 @@ body{
 </style>
 </head>
 <body>
+
+<!-- Показывается при каждом новом открытии документа. Скрипт запускается здесь,
+     до тяжёлых SDK внизу страницы, поэтому их загрузка не задерживает анимацию. -->
+<div id="splashScreen" aria-hidden="true">
+  <div class="splashInner">
+    <img class="splashLogo" src="assets/logo.svg" alt="Vyatka Poker Club"/>
+    <span class="splashShine"></span>
+    <div class="splashCaption">Poker Club · Kirov</div>
+  </div>
+</div>
+<script>
+(() => {
+  const splash = document.getElementById("splashScreen");
+  if (!splash) return;
+  window.setTimeout(() => {
+    splash.classList.add("fade-out");
+    window.setTimeout(() => splash.remove(), 480);
+  }, 1350);
+})();
+</script>
 
 <div class="wrap">
 
