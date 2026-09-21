@@ -149,18 +149,13 @@
       })),
       tournament_operators: [],
       rooms: [],
-      // Макеты: те же три, что в migrations/003_blueprints.sql, но короткими
-      // лестницами — песочнице важно, что грузится из «базы», а не сама сетка.
+      // Макет: тот же «Классика», что в migrations/014_blueprint_classic.sql, но
+      // короткой лестницей — песочнице важно, что грузится из «базы», а не сама сетка.
       tournament_blueprints: [
-        { id: 1, name: "Вятский Дейли", start_stack: 30000, late_reg_until_level: 9, default_buy_in: 800, default_reentry: 500, sort_order: 1,
-          levels: [{min:16,sb:100,bb:100,anteMode:"BB"},{min:16,sb:100,bb:200,anteMode:"BB"},
-                   {isBreak:true,min:15,label:"Перерыв"},{min:16,sb:200,bb:400,anteMode:"BB"}] },
-        { id: 2, name: "Турбо", start_stack: 20000, late_reg_until_level: 6, default_buy_in: 800, default_reentry: 500, sort_order: 2,
-          levels: [{min:10,sb:100,bb:100,anteMode:"BB"},{min:10,sb:100,bb:200,anteMode:"BB"},
-                   {isBreak:true,min:10,label:"Перерыв"},{min:10,sb:200,bb:400,anteMode:"BB"}] },
-        { id: 3, name: "Глубокий стек", start_stack: 50000, late_reg_until_level: 12, default_buy_in: 800, default_reentry: 500, sort_order: 3,
-          levels: [{min:20,sb:100,bb:100,anteMode:"BB"},{min:20,sb:100,bb:200,anteMode:"BB"},
-                   {isBreak:true,min:15,label:"Перерыв"},{min:20,sb:200,bb:400,anteMode:"BB"}] },
+        { id: 1, name: "Классика", start_stack: 40000, late_reg_until_level: 8, default_buy_in: 700, default_reentry: 500,
+          default_addon_stack: 80000, default_addon_cost: 700, sort_order: 1,
+          levels: [{min:20,sb:100,bb:200,anteMode:"BB"},{min:20,sb:200,bb:400,anteMode:"BB"},
+                   {isBreak:true,min:12,label:"Перерыв"},{min:18,sb:500,bb:1000,anteMode:"BB"}] },
       ],
     };
   }
