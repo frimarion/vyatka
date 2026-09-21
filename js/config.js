@@ -59,10 +59,8 @@ window.VP_TABLES = {
 window.VP_BLUEPRINTS = "tournament_blueprints";
 window.VP_BLUEPRINTS_ROOM = null;
 
-// Редакция документов клуба, под которой игрок дал согласие. Меняется вместе с
-// текстом в legal.html: у кого в профиле записана старая, у того приложение
-// спросит согласие заново — иначе доказать согласие именно с этой редакцией
-// было бы нечем (152-ФЗ, п. 10.2 Политики).
+// Редакция документов клуба, под которой игрок впервые дал согласие. Нужна для
+// журнала и аудита; само приложение спрашивает согласие только один раз.
 window.VP_CONSENT_VERSION = "1.0";
 
 // Drop-in fetch for supabase-js: createClient(url, key, { global: { fetch: window.sbFetchFailover } }).

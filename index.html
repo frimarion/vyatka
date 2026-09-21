@@ -754,7 +754,8 @@ body{
   const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
 
   const TOKEN_KEY = "vp_app_token";
-  // Редакция документов клуба (js/config.js). Сменилась — согласие спросим заново.
+  // Редакция документов клуба (js/config.js) сохраняется вместе с согласием
+  // для аудита; само согласие приложение спрашивает только один раз.
   const CONSENT_VERSION = String(window.VP_CONSENT_VERSION || "1.0");
   let token = "";
   try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
@@ -832,6 +833,7 @@ body{
     email_taken: "Эта почта уже привязана к другому профилю.",
     player_not_found: "Профиль не найден.",
     same_player: "Это один и тот же профиль.",
+    consent_not_saved: "Согласие не сохранилось. Попробуй ещё раз.",
   };
   function errText(e) {
     const raw = String(e?.message || e || "");
@@ -961,7 +963,7 @@ body{
     email: (proof, name) => ["vp_app_login_email", { p_jwt: proof,          p_name: name }],
   };
 
-  async function login(name) {
+  async function login(name, { deferScreen = false } = {}) {
     if (!pendingAuth) return false;
     const [fn, args] = LOGIN_RPC[pendingAuth.kind](pendingAuth.proof, name || null);
     try {
@@ -975,9 +977,15 @@ body{
       // пропускать нельзя: иначе игрок, заведённый до этой редакции, никогда
       // его и не увидит.
       if (!name && needsConsent(me?.player)) { askConsent(); return true; }
-      screen(authReturn);
-      if (authReturn === "scrTourney") renderTourney();
-      authReturn = "scrApp";
+      // Во время знакомства остаёмся на этом экране до тех пор, пока имя и
+      // согласие действительно не записались. Раньше экран приложения
+      // открывался сразу после логина, и ошибка RPC согласия становилась
+      // невидимой — пользователь замечал её только при следующем запуске.
+      if (!deferScreen) {
+        screen(authReturn);
+        if (authReturn === "scrTourney") renderTourney();
+        authReturn = "scrApp";
+      }
       return true;
     } catch (e) {
       const raw = String(e?.message || "");
@@ -992,12 +1000,12 @@ body{
 
   // Экран работает в двух режимах. «Знакомство» — первый вход: спрашиваем
   // никнейм, имя и согласия. «Только согласие» — человек в клубе давно, но
-  // редакция документов сменилась (или он завёлся до того, как согласие стали
-  // спрашивать): имя у него уже есть, переспрашивать его незачем.
+  // завёлся до того, как согласие стали сохранять: имя переспрашивать незачем.
   let consentOnly = false;
 
-  const needsConsent = (p) =>
-    !!p && (!p.pd_consent_at || String(p.pd_consent_version || "") !== CONSENT_VERSION);
+  // Согласие спрашиваем один раз. Версию документа продолжаем писать в БД для
+  // аудита, но смена текста сама по себе больше не открывает форму повторно.
+  const needsConsent = (p) => !!p && !p.pd_consent_at;
 
   function askName(err) {
     consentOnly = false;
@@ -1015,12 +1023,11 @@ body{
     consentOnly = true;
     $("nameEyebrow").textContent = "Документы клуба";
     $("nameTitle").textContent = "Нужно согласие";
-    $("nameLead").textContent = "Редакция документов обновилась — подтверди согласие, чтобы продолжить.";
+    $("nameLead").textContent = "Подтверди согласие, чтобы продолжить.";
     $("nameFields").style.display = "none";
     $("nameErr").textContent = "";
-    // Фото и рассылку показываем в том виде, в каком они стоят сейчас: человек
-    // уже сказал по ним «да», и молча снять это при смене редакции нечестно.
-    // Галочку ПД не ставим: согласие на новую редакцию должно быть действием.
+    // У старых профилей могли сохраниться отдельные согласия на фото и
+    // рассылку — показываем их как есть. ПД человек подтверждает действием.
     $("agreePd").checked = false;
     $("agreePhoto").checked = !!me?.player?.photo_consent;
     $("agreePromo").checked = !!me?.player?.marketing_consent;
@@ -1039,17 +1046,20 @@ body{
   // Согласие пишется отдельным вызовом, а не полем логина: журнал согласий
   // append-only и живёт своей жизнью, в том числе когда имя уже есть.
   async function logConsent() {
-    if (!token) return;
+    if (!token) throw new Error("not_authorized");
     try {
+      const rawSource = pendingAuth?.kind || me?.player?.auth_provider || "email";
+      const source = rawSource === "telegram" ? "tg" : rawSource;
       const player = await rpc("vp_app_log_consent", {
         p_token: token,
         p_consent_version: CONSENT_VERSION,
-        p_source: pendingAuth?.kind || me?.player?.auth_provider || "email",
+        p_source: source,
         p_user_agent: navigator.userAgent,
         p_photo_consent: $("agreePhoto").checked,
         p_marketing_consent: $("agreePromo").checked,
       });
       if (me && player) me.player = player;
+      if (!player?.pd_consent_at) throw new Error("consent_not_saved");
     } catch (e) {
       // Молчать нельзя: без записи согласия его нечем подтвердить, и пускать
       // дальше как ни в чём не бывало значит соврать самим себе.
@@ -1766,12 +1776,17 @@ body{
 
     // Режим «только согласие»: человек уже в клубе, писать надо одно согласие.
     if (consentOnly) {
+      const btn = $("nameSave");
+      btn.disabled = true;
       $("nameErr").textContent = "Сохраняем…";
       try {
         await logConsent();
         $("nameErr").textContent = "";
         renderAll(); screen("scrApp");
-      } catch (e) { $("nameErr").textContent = errText(e); }
+      } catch (e) {
+        $("nameErr").textContent = errText(e);
+        syncNameSave();
+      }
       return;
     }
 
@@ -1779,16 +1794,25 @@ body{
     const full = ($("fullInput").value || "").trim();
     if (nick.length < 2) { $("nameErr").textContent = "Никнейм от 2 символов."; return; }
     if (full.length < 2) { $("nameErr").textContent = "Имя и фамилия от 2 символов."; return; }
+    const btn = $("nameSave");
+    btn.disabled = true;
     $("nameErr").textContent = "Входим…";
     try {
       // login кладёт никнейм в players.name — это он виден за столом и в посте.
-      if (!await login(nick)) return;
+      if (!await login(nick, { deferScreen: true })) return;
       await rpc("vp_app_update_profile", { p_token: token, p_full_name: full });
       await logConsent();
       await loadMe();
+      if (needsConsent(me?.player)) throw new Error("consent_not_saved");
       $("nameErr").textContent = "";
-      renderAll(); screen("scrApp");
-    } catch (e) { $("nameErr").textContent = errText(e); }
+      renderAll();
+      screen(authReturn);
+      if (authReturn === "scrTourney") renderTourney();
+      authReturn = "scrApp";
+    } catch (e) {
+      $("nameErr").textContent = errText(e);
+      syncNameSave();
+    }
   };
   ["nameInput", "fullInput"].forEach((id) => {
     $(id).oninput = syncNameSave;
