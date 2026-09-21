@@ -98,57 +98,56 @@
   </section>
 
   <!-- ── Ссылки ────────────────────────────────────────────────────────── -->
-  <section id="screenLinks" class="card" style="display:none">
-    <div class="cardHead"><h2>Ссылки</h2></div>
+  <section id="screenLinks" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Ссылки</h2><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="field"><label>Админка</label>
       <div class="row2"><input id="adminLink" class="mono" readonly/><button id="copyAdmin" class="ghost" type="button">Копировать</button></div></div>
     <div class="field" style="margin-bottom:0"><label>Дисплей для ТВ</label>
       <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
+    </div>
   </section>
 
   <!-- ── Структура ─────────────────────────────────────────────────────── -->
   <!-- Формат выбирается сразу при создании турнира, поэтому карточка стоит
        рядом со «Ссылками», а не в самом низу вкладки «Структура». -->
-  <section id="screenPreset" class="card" style="display:none">
-    <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span></div>
+  <section id="screenPreset" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
     <div id="presetGrid" class="presetGrid"></div>
     <div class="btnrow" id="bpAdminRow" style="margin-top:12px;display:none">
       <button id="btnBpNew" type="button">+ Новый макет</button>
       <span class="sub">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
     </div>
+    </div>
   </section>
 
   <!-- ── Турнир ────────────────────────────────────────────────────────── -->
-  <section id="screenQuick" class="card" style="display:none">
-    <div class="cardHead"><h2>Турнир</h2></div>
-    <div class="grid2">
-      <div>
-        <div class="field"><label>Название</label><input id="tourName" type="text" maxlength="80"/></div>
-        <div class="field"><label>Стартовый стек</label>
-          <div class="stepper">
-            <input id="startStack" type="number" min="0" step="1000" value="30000" inputmode="numeric"/>
-            <button id="btnStartMinus" class="ghost" type="button">−</button>
-            <button id="btnStartPlus" class="ghost" type="button">+</button>
-          </div></div>
-        <div class="field"><label>Поздняя рег. до уровня (0 = нет)</label>
-          <div class="stepper">
-            <input id="lateReg" type="number" min="0" step="1" value="0" inputmode="numeric"/>
-            <button id="btnLateMinus" class="ghost" type="button">−</button>
-            <button id="btnLatePlus" class="ghost" type="button">+</button>
-          </div></div>
-        <div class="field"><label>Взнос, ₽</label><input id="defaultBuyIn" type="number" min="0" step="100" value="800" inputmode="numeric"/></div>
-        <div class="field"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
-      </div>
-      <div>
-        <button id="btnSaveQuick" type="button">Сохранить</button>
-      </div>
+  <section id="screenQuick" class="card compact" style="display:none">
+    <div class="cardHead"><h2>Турнир</h2><button id="btnSaveQuick" class="tiny" type="button">Сохранить</button></div>
+    <div class="field"><label>Название</label><input id="tourName" type="text" maxlength="80"/></div>
+    <div class="quickGrid">
+      <div class="field" style="margin:0"><label>Стартовый стек</label>
+        <div class="stepper">
+          <input id="startStack" type="number" min="0" step="1000" value="30000" inputmode="numeric"/>
+          <button id="btnStartMinus" class="ghost" type="button">−</button>
+          <button id="btnStartPlus" class="ghost" type="button">+</button>
+        </div></div>
+      <div class="field" style="margin:0"><label>Поздняя рег. до уровня (0 = нет)</label>
+        <div class="stepper">
+          <input id="lateReg" type="number" min="0" step="1" value="0" inputmode="numeric"/>
+          <button id="btnLateMinus" class="ghost" type="button">−</button>
+          <button id="btnLatePlus" class="ghost" type="button">+</button>
+        </div></div>
+      <div class="field" style="margin:0"><label>Взнос, ₽</label><input id="defaultBuyIn" type="number" min="0" step="100" value="800" inputmode="numeric"/></div>
+      <div class="field" style="margin:0"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
     </div>
 
     <!-- Счётчики без имён: турнир, который ведут «по головам». Как только
          появляется список игроков, статистика считается из него, и блок
          схлопывается — два источника правды развалили бы места и оплату. -->
-    <div id="countersWrap" style="margin-top:14px">
+    <div id="countersWrap" style="margin-top:10px">
       <div id="countersToggleRow" style="display:none;align-items:center;gap:8px;margin-bottom:6px">
         <span class="sub" style="flex:1">Счётчики без имён — считаются из списка игроков</span>
         <button id="btnCountersToggle" class="tiny ghost" type="button">▶ Раскрыть</button>
@@ -184,8 +183,9 @@
   </section>
 
   <!-- ── Призовая зона ─────────────────────────────────────────────────── -->
-  <section id="screenRating" class="card" style="display:none">
-    <div class="cardHead"><h2>Призовая зона</h2><span class="tag" id="ratingState">выключена</span></div>
+  <section id="screenRating" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Призовая зона</h2><span class="tag" id="ratingState">выключена</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="sub" style="margin-bottom:10px">Очки рейтинга: вход = 100 очков, весь банк идёт по местам — ноки в рейтинге не учитываются. Показывается на дисплее.</div>
     <div class="row2" style="margin-bottom:10px">
       <div class="field" style="margin:0"><label>Гарантия очков (0 — без гарантии)</label>
@@ -196,11 +196,13 @@
       </div>
     </div>
     <div id="ratingPreview" class="list"></div>
+    </div>
   </section>
 
   <!-- ── Инфо на дисплее ───────────────────────────────────────────────── -->
-  <section id="screenInfo" class="card" style="display:none">
-    <div class="cardHead"><h2>Инфо на дисплее</h2><span class="tag" id="infoState">—</span></div>
+  <section id="screenInfo" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Инфо на дисплее</h2><span class="tag" id="infoState">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <!-- Левая колонка на ТВ одна на двоих: до конца поздней регистрации там инфо,
          потом её занимает призовая зона. Раньше об этом нигде не было сказано —
          ведущий сохранял руку дня и не понимал, почему на экране пусто. -->
@@ -214,11 +216,13 @@
       <button id="btnSaveInfo" type="button">Сохранить</button>
       <button id="btnClearInfo" class="ghost" type="button">Очистить</button>
     </div>
+    </div>
   </section>
 
   <!-- ── Игроки ────────────────────────────────────────────────────────── -->
-  <section id="screenPlayers" class="card" style="display:none">
-    <div class="cardHead"><h2>Игроки</h2><span class="tag" id="playersInfo">—</span></div>
+  <section id="screenPlayers" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Игроки</h2><span class="tag" id="playersInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="btnrow" style="margin-bottom:10px">
       <button id="btnPlayerAdd" type="button">+ Игрок</button>
       <button id="btnImportToggle" class="ghost" type="button">Импорт списка</button>
@@ -233,11 +237,13 @@
     </div>
     <input id="playerSearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
     <div id="playersList" class="list"></div>
+    </div>
   </section>
 
   <!-- ── Оплата ────────────────────────────────────────────────────────── -->
-  <section id="screenPayments" class="card" style="display:none">
-    <div class="cardHead"><h2>Оплата</h2><span class="tag" id="payInfo">—</span></div>
+  <section id="screenPayments" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Оплата</h2><span class="tag" id="payInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="sub" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос.</div>
     <input id="paySearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
     <div id="payList" class="list"></div>
@@ -253,22 +259,26 @@
     </div>
     <div class="sub">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
       Сохранять можно сколько угодно раз: отчёт перезаписывается, а не дублируется.</div>
+    </div>
   </section>
 
   <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
-  <section id="screenTgImport" class="card" style="display:none">
-    <div class="cardHead"><h2>Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span></div>
+  <section id="screenTgImport" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="sub" style="margin-bottom:10px">Подтягивает тех, кто записался на привязанный турнир через Telegram Mini App.</div>
     <div class="btnrow">
       <button id="btnImportFromTG" type="button">📲 Загрузить список</button>
       <button id="btnImportFromTGAdd" class="ghost" type="button">Добавить к текущему</button>
     </div>
     <div class="sub" id="tgImportResult" style="margin-top:8px"></div>
+    </div>
   </section>
 
   <!-- ── Пост для Telegram ─────────────────────────────────────────────── -->
-  <section id="screenPost" class="card" style="display:none">
-    <div class="cardHead"><h2>Пост для Telegram</h2><span class="tag" id="postInfo">—</span></div>
+  <section id="screenPost" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Пост для Telegram</h2><span class="tag" id="postInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="sub" style="margin-bottom:10px">Итоги турнира: в игре — сверху, вылетевшие — по хронологии вылетов. Призовая зона отбита пустой строкой.</div>
     <div class="btnrow">
       <button id="btnBuildPost" type="button">Сформировать</button>
@@ -291,10 +301,12 @@
         <span class="tag" id="resultsInfo">—</span>
       </div>
     </details>
+    </div>
   </section>
 
-  <section id="screenStructure" class="card" style="display:none">
-    <div class="cardHead"><h2>Структура блайндов</h2><span class="tag" id="structInfo">—</span></div>
+  <section id="screenStructure" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Структура блайндов</h2><span class="tag" id="structInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
     <div class="btnrow" style="margin-bottom:10px">
       <button id="addLevel" type="button">+ Уровень</button>
       <button id="addBreak" class="ghost" type="button">+ Перерыв</button>
@@ -306,6 +318,7 @@
       <span class="eyebrow">BB</span><span class="eyebrow">анте</span><span class="eyebrow"></span>
     </div>
     <div id="levelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
+    </div>
   </section>
 
   </div><!-- /#screens -->
@@ -627,6 +640,12 @@
     // никуда не уезжает, и прыжок вверх после перерисовки был бы потерей места.
     if (scroll && !onepage) window.scrollTo({ top: 0, behavior: "smooth" });
   }
+
+  // Второстепенные карточки свёрнуты по умолчанию — открывают только ту,
+  // что сейчас нужна, а не листают глазами весь турнир заново.
+  document.querySelectorAll(".card.collapsible .cardHead").forEach((head) => {
+    head.onclick = () => head.closest(".card").classList.toggle("expanded");
+  });
   document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
   // Окно растянули или сузили через порог — перекладываем, не теряя вкладку.
   ONEPAGE.addEventListener("change", () => { if (roomId && state) switchTab(null, false); });
