@@ -25,11 +25,9 @@
 .tourGroup+.tourGroup{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
 .tourGroupHead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
 .tourGroupHead h3{flex:1;font-size:17px}
-@media(min-width:768px){
-  body.tournamentsPage .wrap{padding-bottom:32px}
-  body.tournamentsPage .tabbar{display:none!important}
-  body.tournamentsPage #screenForm{margin-top:16px}
-}
+body.tournamentsPage .wrap{padding-bottom:32px}
+body.tournamentsPage .tabbar{display:none!important}
+body.tournamentsPage #screenForm{margin-top:16px}
 </style>
 </head>
 <body class="tournamentsPage">
@@ -174,7 +172,9 @@
   let editId = null;
   let openPanels = {};             // id турнира → развёрнут список записавшихся
   let rosters = {};                // id → массив записей
-  const ONEPAGE = window.matchMedia("(min-width: 768px)");
+  // Всегда одна страница, как на ПК: таббар для телефона убрали — путал,
+  // а форма и так спрятана за кнопкой в шапке.
+  const ONEPAGE = { matches: true, addEventListener() {} };
 
   const isOperator = () => profile?.role === "operator";
   const isAdmin = () => !!profile && !isOperator();
