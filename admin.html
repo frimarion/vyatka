@@ -41,6 +41,14 @@
     </div>
   </header>
 
+  <nav class="pagenav">
+    <span class="here">Таймер</span>
+    <a href="tournaments.html">Расписание</a>
+    <a href="crm.html">CRM</a>
+    <a id="navDisplay" href="display.html" target="_blank" rel="noopener" style="display:none">Дисплей ↗</a>
+    <a href="./" target="_blank" rel="noopener">Приложение ↗</a>
+  </nav>
+
   <div id="err" class="errToast" role="alert"></div>
 
   <!-- Все карточки лежат в одном контейнере: на узком экране их показывает по
@@ -256,7 +264,6 @@
     </div>
     <div class="btnrow" style="margin-top:12px">
       <button id="btnPaymentsReport" type="button">💾 Сохранить отчёт</button>
-      <a class="badge light" href="crm.html" style="text-decoration:none;align-self:center">CRM клуба →</a>
       <span class="muted" id="paymentsReportInfo" style="align-self:center"></span>
     </div>
     <div class="sub">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
@@ -1071,6 +1078,10 @@
     const base = location.origin + location.pathname.replace(/\/[^/]*$/, "/");
     $("adminLink").value = `${base}admin.html?room=${id}`;
     $("displayLink").value = `${base}display.html?room=${id}`;
+    // «Дисплей ↗» в полоске ведёт на ТВ этой комнаты, а не на демо: без комнаты
+    // он не нужен, поэтому и появляется только внутри неё.
+    $("navDisplay").href = `display.html?room=${encodeURIComponent(id)}`;
+    $("navDisplay").style.display = id ? "" : "none";
   }
   $("copyAdmin").onclick = () => navigator.clipboard?.writeText($("adminLink").value);
   $("copyDisplay").onclick = () => navigator.clipboard?.writeText($("displayLink").value);

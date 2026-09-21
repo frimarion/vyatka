@@ -349,3 +349,25 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
   #screens.onepage>#screenTimer,
   #screens.onepage>#screenStructure{column-span:all}
 }
+
+/* ── Переход между страницами клуба ──────────────────────────── */
+/* Раньше ссылки жили как придётся: в расписании «Таймер» и «CRM», в CRM
+   «← Админка», а в самой админке — ничего, хотя в ней и сидят весь вечер.
+   Полоска одинаковая на всех служебных страницах: одно место, один порядок. */
+.pagenav{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:-6px 0 16px}
+.pagenav a,.pagenav .here{
+  font-size:12px;font-weight:800;padding:7px 12px;border-radius:999px;
+  text-decoration:none;line-height:1;
+}
+.pagenav a{background:var(--surface);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line)}
+.pagenav a:hover{background:var(--surface-2);color:var(--ink)}
+.pagenav .here{background:var(--accent-soft);color:var(--accent-dark)}
+
+/* Полоска переходов на телефоне — одной строкой со сдвигом вбок, а не в два
+   ряда: над ней и так высокая шапка, а внизу таббар. Блок идёт после базовых
+   правил .pagenav — при равной специфичности побеждает последний. */
+@media(max-width:640px){
+  .pagenav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;margin:-4px -12px 12px;padding:0 12px}
+  .pagenav::-webkit-scrollbar{display:none}
+  .pagenav a,.pagenav .here{flex:none}
+}
