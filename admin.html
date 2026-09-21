@@ -1685,10 +1685,8 @@
             <button class="ghost${tariff === "half" ? " on" : ""}" onclick="_vp.payTariff(${j},'half')">50%</button>
             <button class="ghost${tariff === "free" ? " on" : ""}" onclick="_vp.payTariff(${j},'free')">Free</button>
             <button class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" onclick="_vp.payFreeEntry(${j})">Free entry</button>
-          </div>
-          <div class="payBtns">
             <button onclick="_vp.payAdd(${j})">${paid ? "Доплата" : "Оплатить"}</button>
-            ${paid ? `<button class="ghost" onclick="_vp.payUndo(${j})">↩ Снять платёж</button>` : ""}
+            ${paid ? `<button class="ghost" onclick="_vp.payUndo(${j})">↩ Снять</button>` : ""}
             <button class="ghost" onclick="_vp.payClear(${j})">Сброс</button>
           </div>
         </div>
