@@ -1,0 +1,84 @@
+<!doctype html>
+<!--
+  Письмо с кодом для входа в приложение игрока.
+
+  Это не страница сайта, а шаблон GoTrue: адрес файла прописан в
+  GOTRUE_MAILER_TEMPLATES_MAGIC_LINK, и GoTrue забирает его отсюда при каждой
+  отправке. Редактора шаблонов в self-hosted Studio нет — это облачная
+  возможность, поэтому шаблон живёт в репозитории и уезжает на домен обычной
+  выкладкой. Правка видна сразу после неё, перезапускать контейнер не нужно.
+
+  Главное в файле — {{ .Token }}. Без него GoTrue шлёт magic-link, то есть
+  ссылку, а приложение спрашивает шесть цифр: человек получил бы письмо, в
+  котором нечего вводить. Ссылку намеренно не показываем вовсе — вход из письма
+  открылся бы в почтовом браузере, без сессии приложения.
+
+  Вёрстка нарочно древняя (таблица, инлайновые стили, ширина 480): почтовые
+  клиенты вырезают <style> из <head>, а Outlook не знает flex и grid.
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Код для входа</title>
+</head>
+<body style="margin:0;padding:0;background:#EADFC8;">
+  <!-- Прехедер: то, что почтовый клиент показывает в списке рядом с темой.
+       Без него туда попадает первая строка вёрстки. -->
+  <div style="display:none;max-height:0;overflow:hidden;opacity:0">
+    Код действует десять минут.
+  </div>
+
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+         style="background:#EADFC8;padding:24px 12px">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="480" cellpadding="0" cellspacing="0" border="0"
+               style="width:480px;max-width:100%;background:#FBF5E9;border-radius:20px;
+                      border:1px solid #DDCDB0;overflow:hidden">
+          <tr>
+            <td style="background:#E9531F;padding:20px 24px">
+              <div style="font:800 11px/1.4 Arial,Helvetica,sans-serif;letter-spacing:.18em;
+                          text-transform:uppercase;color:#FFE9DF">Покерный клуб</div>
+              <div style="font:800 24px/1.3 Arial,Helvetica,sans-serif;color:#FFFCF4;
+                          margin-top:4px">Вятка</div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:24px">
+              <div style="font:700 18px/1.4 Arial,Helvetica,sans-serif;color:#241B14">
+                Код для входа
+              </div>
+              <div style="font:400 14px/1.6 Arial,Helvetica,sans-serif;color:#5C4A3A;
+                          margin-top:6px">
+                Введи его в приложении клуба — там, где просят шесть цифр.
+              </div>
+
+              <div style="margin:20px 0;padding:18px;background:#FBE3D6;border-radius:14px;
+                          text-align:center">
+                <div style="font:800 34px/1.2 'Courier New',Courier,monospace;
+                            letter-spacing:.22em;color:#953513">{{ .Token }}</div>
+              </div>
+
+              <div style="font:400 13px/1.6 Arial,Helvetica,sans-serif;color:#5C4A3A">
+                Код действует десять минут и подходит только один раз.
+              </div>
+              <div style="font:400 13px/1.6 Arial,Helvetica,sans-serif;color:#5C4A3A;
+                          margin-top:10px">
+                Если вход запрашивал не ты — просто удали письмо: без кода в профиль
+                никто не попадёт.
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:16px 24px;border-top:1px solid #E7D9BF;
+                       font:400 12px/1.6 Arial,Helvetica,sans-serif;color:#8A7864">
+              Письмо отправлено автоматически, отвечать на него не нужно.
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>

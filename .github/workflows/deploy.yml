@@ -57,7 +57,9 @@ jobs:
           PAGES=$(ls *.html)
           cp $PAGES dist/
           cp deploy/htaccess dist/.htaccess
-          cp -r css js lib assets dist/
+          # email/ — не страница сайта, а шаблон письма GoTrue: он забирает его
+          # с домена по адресу из GOTRUE_MAILER_TEMPLATES_MAGIC_LINK.
+          cp -r css js lib assets email dist/
           # Растровый оригинал логотипа нужен для правок макета, а не браузеру.
           rm -f dist/assets/logo-source.png
 
