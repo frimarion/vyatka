@@ -128,12 +128,6 @@
         <div class="field"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
       </div>
       <div>
-        <div class="switchRow"><span class="switchLabel">Аддон</span><input id="addonEnabled" type="checkbox"/></div>
-        <div id="addonFields" style="display:none">
-          <div class="field"><label>Фишки аддона</label><input id="addonChips" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
-          <div class="field"><label>Стоимость аддона, ₽</label><input id="addonCost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
-        </div>
-        <div class="switchRow"><span class="switchLabel">ПКО <span class="muted">(очки за головы)</span></span><input id="pkoEnabled" type="checkbox"/></div>
         <button id="btnSaveQuick" type="button">Сохранить</button>
       </div>
     </div>
@@ -253,7 +247,7 @@
   <!-- ── Оплата ────────────────────────────────────────────────────────── -->
   <section id="screenPayments" class="card" style="display:none">
     <div class="cardHead"><h2>Оплата</h2><span class="tag" id="payInfo">—</span></div>
-    <div class="sub" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос + аддон.</div>
+    <div class="sub" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос.</div>
     <input id="paySearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
     <div id="payList" class="list"></div>
     <div class="kpis" id="paySummary" style="margin-top:12px">
@@ -363,7 +357,6 @@
     <h2 id="koTitle">Вылет</h2>
     <div class="sub" id="koHint" style="margin-bottom:12px"></div>
     <div class="field"><label>Нокаутов за этот вылет</label><input id="koCount" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
-    <div class="field" id="koPtsField" style="display:none"><label>Очки за головы</label><input id="koPts" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
     <div class="btnrow"><button id="koOk" type="button">Подтвердить</button><button id="koCancel" class="ghost" type="button">Отмена</button></div>
   </div>
 </div>
@@ -395,10 +388,6 @@
     <div class="field" style="margin:0 0 10px">
       <label>Нокауты за этот вылет</label>
       <input id="bustFixKo" type="number" min="0" step="1" inputmode="numeric"/>
-    </div>
-    <div class="field" id="bustFixPtsField" style="display:none;margin:0 0 10px">
-      <label>Очки за головы</label>
-      <input id="bustFixPts" type="number" min="0" step="1" inputmode="numeric"/>
     </div>
     <div class="field" style="margin:0">
       <label>Перенести вылет на другого (необязательно)</label>
@@ -466,12 +455,12 @@
     withPlural,
     normalizeState, initialState, computeStatsFromPlayers, recomputePlaces,
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
-    calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
+    curLevel, playLevelNum, calcPayouts, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
     genRoomId, PRESETS, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
     searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, payMethodLabel, getPayments, totalPaid, entriesOf,
-    effectiveBuyIn, effectiveReentryCost, effectiveFreeEntries, addonCostFor, calcExpected, remainingAmount,
+    effectiveBuyIn, effectiveReentryCost, effectiveFreeEntries, calcExpected, remainingAmount,
     payStatus, tariffOf, buyInForTariff, calcPayTotals,
   } = window.VP;
 
@@ -680,17 +669,16 @@
       $("nameInput").onkeydown = (e) => { if (e.key === "Enter") done(normName($("nameInput").value)); };
     });
   }
-  // Модалка вылета работает на прибавку: после реентри в ko/koPts лежит счёт
+  // Модалка вылета работает на прибавку: после реентри в ko лежит счёт
   // за весь турнир, и ввод итога стирал бы набранное раньше.
-  function askKo(playerName, pko) {
+  function askKo(playerName) {
     return new Promise((resolve) => {
       $("koTitle").textContent = playerName;
-      $("koHint").textContent = pko ? "Сколько нокаутов и очков за головы игрок набрал за этот вылет." : "Сколько нокаутов игрок сделал за этот вылет.";
-      $("koCount").value = 0; $("koPts").value = 0;
-      $("koPtsField").style.display = pko ? "" : "none";
+      $("koHint").textContent = "Сколько нокаутов игрок сделал за этот вылет.";
+      $("koCount").value = 0;
       $("koModal").classList.add("show");
       const done = (r) => { $("koModal").classList.remove("show"); resolve(r); };
-      $("koOk").onclick = () => done({ ko: clampInt($("koCount").value, 0), koPts: clampInt($("koPts").value, 0) });
+      $("koOk").onclick = () => done({ ko: clampInt($("koCount").value, 0) });
       $("koCancel").onclick = () => done(null);
       $("koModal").onclick = (e) => { if (e.target === $("koModal")) done(null); };
     });
@@ -1119,7 +1107,7 @@
     if (!el || document.activeElement === el || DIRTY.has(id)) return;
     el.value = v;
   };
-  ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry", "addonChips", "addonCost", "ratingGuarantee", "infoBonusHand", "infoComment"]
+  ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry", "ratingGuarantee", "infoBonusHand", "infoComment"]
     .forEach((id) => { $(id).addEventListener("input", () => DIRTY.add(id)); });
 
   const stepper = (btnId, inputId, delta) => {
@@ -1134,8 +1122,6 @@
   stepper("btnLateMinus", "lateReg", -1);
   stepper("btnLatePlus", "lateReg", 1);
 
-  $("addonEnabled").onchange = () => { $("addonFields").style.display = $("addonEnabled").checked ? "" : "none"; };
-
   $("btnSaveQuick").onclick = async () => {
     setErr(null);
     const v = {
@@ -1144,10 +1130,6 @@
       lateReg: clampInt($("lateReg").value, 0),
       buyIn: clampInt($("defaultBuyIn").value, 0),
       reentryCost: clampInt($("defaultReentry").value, 0),
-      addonEnabled: $("addonEnabled").checked,
-      addonChips: clampInt($("addonChips").value, 0),
-      addonCost: clampInt($("addonCost").value, 0),
-      pko: $("pkoEnabled").checked,
     };
     try {
       await saveWithReload((st) => {
@@ -1156,10 +1138,6 @@
         st.tournament.lateRegUntilLevel = v.lateReg;
         st.tournament.defaultBuyIn = v.buyIn;
         st.tournament.reentryCost = v.reentryCost;
-        st.tournament.addonEnabled = v.addonEnabled;
-        st.tournament.addonChips = v.addonChips;
-        st.tournament.addonCost = v.addonCost;
-        st.tournament.pko = v.pko;
         return recalcRating(st);
       });
       DIRTY.clear();
@@ -1241,8 +1219,8 @@
     try {
       await saveWithReload((st) => {
         const ent = calcEntries(st) || 1;
-        const res = calcPayouts(ent, 0.8, guar, calcAddonCount(st), !!st.tournament.pko);
-        st.rating = { isActive: true, entries: ent, r: 0.8, guarantee: guar, addons: calcAddonCount(st),
+        const res = calcPayouts(ent, 0.8, guar);
+        st.rating = { isActive: true, entries: ent, r: 0.8, guarantee: guar,
           P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL,
           payouts: res.payouts, calculatedAt: new Date().toISOString(), autoShown: true };
         return st;
@@ -1379,7 +1357,7 @@
         // он нужен, чтобы регистрация из приложения нашла своего игрока.
         if (exists) { if (picked.id && !exists.player_id) exists.player_id = picked.id; return st; }
         st.players.push({ name, present: true, reentries: 0, status: "registered",
-          ko: 0, koPts: 0, player_id: picked.id ?? null });
+          ko: 0, player_id: picked.id ?? null });
         return computeStatsFromPlayers(st);
       });
     } catch (e) {}
@@ -1407,17 +1385,8 @@
       });
     } catch (e) {}
   }
-  async function toggleAddon(name) {
-    try {
-      await saveWithReload((st) => {
-        const p = findPlayer(st, name); if (!p) return st;
-        p.addon = !p.addon;
-        return recalcRating(computeStatsFromPlayers(st));
-      });
-    } catch (e) {}
-  }
   async function bustPlayer(name) {
-    const res = await askKo(name, !!state?.tournament?.pko);
+    const res = await askKo(name);
     if (!res) return;
     try {
       await saveWithReload((st) => {
@@ -1425,8 +1394,7 @@
         p.status = "busted";
         p.bustOrder = nextBustOrder(st);
         p.ko = clampInt(p.ko, 0) + res.ko;
-        p.koPts = clampInt(p.koPts, 0) + res.koPts;
-        p.koDelta = { ko: res.ko, koPts: res.koPts };
+        p.koDelta = { ko: res.ko };
         return computeStatsFromPlayers(st);
       });
     } catch (e) {}
@@ -1434,15 +1402,13 @@
   // Вылет записали не на того — обычная ошибка за столом. Отмена с повторным
   // вводом сдвинула бы хронологию: отменённый вылет уходит в конец очереди, и
   // места всех, кто вылетел после, съезжают. Перенос сохраняет bustOrder.
-  function askBustFix(p, pko) {
+  function askBustFix(p) {
     return new Promise((resolve) => {
       const modal = $("bustFixModal"), search = $("bustFixSearch"), list = $("bustFixList");
       let target = null;
       $("bustFixMeta").innerHTML =
         `Вылет №${clampInt(p.bustOrder ?? 0, 0)} · место ${p.place ?? "—"} · записан на <b>${escHtml(p.name)}</b>`;
       $("bustFixKo").value = String(clampInt(p.ko ?? 0, 0));
-      $("bustFixPtsField").style.display = pko ? "" : "none";
-      $("bustFixPts").value = String(clampInt(p.koPts ?? 0, 0));
       search.value = ""; $("bustFixErr").textContent = "";
 
       // Переносить можно только на того, кто ещё в игре: у вылетевшего уже
@@ -1477,7 +1443,6 @@
       search.oninput = draw;
       $("bustFixOk").onclick = () => done({
         ko: clampInt($("bustFixKo").value, 0),
-        koPts: clampInt($("bustFixPts").value, 0),
         moveTo: target?.name || null,
       });
       $("bustFixCancel").onclick = () => done(null);
@@ -1488,14 +1453,14 @@
   async function fixBust(name) {
     const cur = findPlayer(state, name);
     if (!cur) return;
-    const res = await askBustFix(cur, !!state?.tournament?.pko);
+    const res = await askBustFix(cur);
     if (!res) return;
     setErr(null);
     try {
       await saveWithReload((st) => {
         const from = findPlayer(st, name);
         if (!from) return st;
-        const ko = res.ko, koPts = res.koPts;
+        const ko = res.ko;
         if (res.moveTo) {
           const to = findPlayer(st, res.moveTo);
           if (!to) return st;
@@ -1504,18 +1469,16 @@
           to.status = "busted";
           to.bustOrder = from.bustOrder;
           to.ko = clampInt(to.ko ?? 0, 0) + ko;
-          to.koPts = clampInt(to.koPts ?? 0, 0) + koPts;
-          to.koDelta = { ko, koPts };
+          to.koDelta = { ko };
           from.status = "registered";
           from.bustOrder = null;
           from.place = null;
           rollbackBustKo(from);
         } else {
           // Только правка ноков: пересчитываем прибавку этого вылета
-          const d = from.koDelta || { ko: 0, koPts: 0 };
+          const d = from.koDelta || { ko: 0 };
           from.ko = Math.max(0, clampInt(from.ko ?? 0, 0) - clampInt(d.ko ?? 0, 0) + ko);
-          from.koPts = Math.max(0, clampInt(from.koPts ?? 0, 0) - clampInt(d.koPts ?? 0, 0) + koPts);
-          from.koDelta = { ko, koPts };
+          from.koDelta = { ko };
         }
         return computeStatsFromPlayers(st);
       });
@@ -1533,7 +1496,7 @@
     } catch (e) {}
   }
   // Реентри вылетевшего: снимает busted, закрывает дырку в нумерации мест,
-  // но сохраняет ko/koPts — это личный счёт за турнир, а не свойство вылета.
+  // но сохраняет ko — это личный счёт за турнир, а не свойство вылета.
   async function reentryPlayer(name) {
     try {
       await saveWithReload((st) => {
@@ -1554,14 +1517,12 @@
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, toggleAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
-    payTariff, payFreeEntry, payAddonFree, payAdd, payUndo, payClear, opsRemove };
+  window._vp = { togglePresent, addReentry, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
+    payTariff, payFreeEntry, payAdd, payUndo, payClear, opsRemove };
 
   function renderPlayers() {
     const box = $("playersList");
     const players = state?.players || [];
-    const pko = !!state?.tournament?.pko;
-    const addon = !!state?.tournament?.addonEnabled;
     $("playersInfo").textContent = `${state?.stats?.alive ?? 0} в игре · ${players.length} в списке`;
     const visible = players.filter((p) => !playerSearchQuery || keyName(p.name).includes(playerSearchQuery));
     if (!visible.length) { box.innerHTML = '<div class="muted">Список пуст.</div>'; return; }
@@ -1578,9 +1539,7 @@
       const tags = [
         busted && p.place ? `<span class="tag hot">${p.place} место</span>` : "",
         p.reentries ? `<span class="tag">re ×${p.reentries}</span>` : "",
-        addon && p.addon ? '<span class="tag gold">аддон</span>' : "",
         p.ko ? `<span class="tag">KO ${p.ko}</span>` : "",
-        pko && p.koPts ? `<span class="tag gold">${p.koPts} очк</span>` : "",
         p.present ? "" : '<span class="tag">не пришёл</span>',
       ].filter(Boolean).join(" ");
       const actions = !p.present
@@ -1592,7 +1551,6 @@
           : `<button class="tiny" onclick="_vp.bustPlayer(${j})">BUSTED</button>
              <button class="tiny ghost" onclick="_vp.addReentry(${j},1)">R+</button>
              ${p.reentries ? `<button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри">R−</button>` : ""}
-             ${addon ? `<button class="tiny ghost" onclick="_vp.toggleAddon(${j})">A${p.addon ? "✓" : "+"}</button>` : ""}
              <button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>`;
       return `<div class="listRow${busted ? " busted" : ""}">
         <span class="avatar">${escHtml(initials(p.name))}</span>
@@ -1655,18 +1613,6 @@
       });
     } catch (e) {}
   }
-  // Комп аддона — про цену, а не про фишки: включение выдаёт аддон бесплатно,
-  // снятие возвращает его в платные (сам аддон убирается на экране «Игроки»).
-  async function payAddonFree(name) {
-    try {
-      await saveWithReload((st) => {
-        const p = findPlayer(st, name); if (!p) return st;
-        p.addonFree = !p.addonFree;
-        if (p.addonFree) p.addon = true;
-        return recalcRating(computeStatsFromPlayers(st));
-      });
-    } catch (e) {}
-  }
   async function payAdd(name) {
     const tour = state?.tournament;
     const p = (state?.players || []).find((x) => keyName(x.name) === keyName(name));
@@ -1709,7 +1655,7 @@
     try {
       await saveWithReload((st) => {
         const p = findPlayer(st, name); if (!p) return st;
-        p.buyIn = null; p.freeEntries = 0; p.payments = []; p.addonFree = false;
+        p.buyIn = null; p.freeEntries = 0; p.payments = [];
         return recalcRating(computeStatsFromPlayers(st));
       });
     } catch (e) {}
@@ -1723,9 +1669,6 @@
     if (entries > 1 && effectiveBuyIn(p, tour) > 0) bits.push(`реентри ${NF.format(effectiveReentryCost(tour))} ₽`);
     const free = effectiveFreeEntries(p);
     if (free) bits.push(`free entry ×${free}`);
-    const addon = addonCostFor(p, tour);
-    if (addon) bits.push(`аддон ${NF.format(addon)} ₽`);
-    else if (p.addonFree && p.addon && tour?.addonEnabled) bits.push("аддон бесплатно");
     const expected = calcExpected(p, tour), paid = totalPaid(p);
     const parts = getPayments(p).map((x) => `${NF.format(x.amount)} ${payMethodLabel(x.method)}`).join(" + ");
     let tail;
@@ -1768,8 +1711,6 @@
         : rest > 0
           ? `<span class="payRest debt">−${NF.format(rest)} ₽</span>`
           : '<span class="payRest ok">оплачено</span>';
-      const addonBtn = tour?.addonEnabled
-        ? `<button class="ghost${p.addonFree ? " on" : ""}" onclick="_vp.payAddonFree(${j})">Беспл. аддон</button>` : "";
       return `<div class="payRow${rest <= 0 ? " settled" : ""}">
         <span class="payDot ${stt}"></span>
         <div class="payMain">
@@ -1780,7 +1721,6 @@
             <button class="ghost${tariff === "half" ? " on" : ""}" onclick="_vp.payTariff(${j},'half')">50%</button>
             <button class="ghost${tariff === "free" ? " on" : ""}" onclick="_vp.payTariff(${j},'free')">Free</button>
             <button class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" onclick="_vp.payFreeEntry(${j})">Free entry</button>
-            ${addonBtn}
           </div>
           <div class="payBtns">
             <button onclick="_vp.payAdd(${j})">${paid ? "Доплата" : "Оплатить"}</button>
@@ -2245,14 +2185,9 @@
     setIfNotFocused("lateReg", t.lateRegUntilLevel);
     setIfNotFocused("defaultBuyIn", t.defaultBuyIn);
     setIfNotFocused("defaultReentry", effectiveReentryCost(t));
-    setIfNotFocused("addonChips", t.addonChips);
-    setIfNotFocused("addonCost", t.addonCost);
     setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 0);
     setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
     setIfNotFocused("infoComment", state.info?.comment ?? "");
-    if (document.activeElement !== $("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;
-    if (document.activeElement !== $("pkoEnabled")) $("pkoEnabled").checked = !!t.pko;
-    $("addonFields").style.display = t.addonEnabled ? "" : "none";
   }
 
   const safe = (fn, label) => { try { fn(); } catch (e) { console.error(`render ${label}`, e); } };

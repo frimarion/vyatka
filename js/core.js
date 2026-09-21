@@ -113,7 +113,7 @@
     st.stats = st.stats || { registered: 0, alive: 0, busted: 0, reentries: 0 };
     st.structure = st.structure || { levels: [] };
     st.timer = st.timer || { isRunning: false, isPaused: false, levelIndex: 0, levelEndAt: null, pauseRemainingSec: null };
-    st.rating = st.rating || { isActive: false, entries: null, r: 0.8, guarantee: 0, addons: 0, P: 0, TOTAL: 0, KO_POOL: 0, ITM_POOL: 0, payouts: [], calculatedAt: null };
+    st.rating = st.rating || { isActive: false, entries: null, r: 0.8, guarantee: 0, P: 0, TOTAL: 0, KO_POOL: 0, ITM_POOL: 0, payouts: [], calculatedAt: null };
 
     const t = st.tournament;
     t.name = (t.name ?? "").toString().slice(0, 80);
@@ -123,10 +123,6 @@
     // Турниры, сохранённые до отдельной цены реентри, продолжают считать реентри
     // по взносу — иначе деньги в уже идущем турнире пересчитались бы задним числом.
     t.reentryCost = clampInt(t.reentryCost ?? t.defaultBuyIn, 0);
-    t.addonEnabled = !!t.addonEnabled;
-    t.addonChips = clampInt(t.addonChips ?? 0, 0);
-    t.addonCost = clampInt(t.addonCost ?? 0, 0);
-    t.pko = !!t.pko;
 
     const ti = st.timer;
     // Битые/протухшие метки времени — сбрасываем, иначе таймер «зависает» в прошлом.
@@ -160,7 +156,6 @@
     r.r = Number(r.r ?? 0.8);
     if (!Number.isFinite(r.r) || r.r <= 0 || r.r >= 1) r.r = 0.8;
     r.guarantee = clampInt(r.guarantee ?? 0, 0);
-    r.addons = clampInt(r.addons ?? 0, 0);
     if (!Array.isArray(r.payouts)) r.payouts = [];
     r.autoShown = !!r.autoShown;
 
@@ -183,16 +178,13 @@
         bustOrder: p?.bustOrder ?? null,
         place: p?.place ?? null,
         ko: clampInt(p?.ko ?? 0, 0),
-        koPts: clampInt(p?.koPts ?? 0, 0),
         // прибавка последнего вылета — чтобы «отменить вылет» сняло только её
         koDelta: p?.koDelta && typeof p.koDelta === "object"
-          ? { ko: clampInt(p.koDelta.ko ?? 0, 0), koPts: clampInt(p.koDelta.koPts ?? 0, 0) }
+          ? { ko: clampInt(p.koDelta.ko ?? 0, 0) }
           : null,
-        addon: !!p?.addon,
         // ── оплата ──
         buyIn: p?.buyIn == null ? null : clampInt(p.buyIn, 0),   // null = взнос турнира
         freeEntries: clampInt(p?.freeEntries ?? 0, 0),
-        addonFree: !!p?.addonFree,
         payments: normalizePayments(p?.payments),
         player_id: p?.player_id ?? null,
       }))
@@ -292,17 +284,16 @@
       const place = parseInt(m[1], 10);
       if (!Number.isFinite(place) || place <= 0) continue;
       let rest = m[2].trim();
-      let ko = 0, koPts = 0;
-      const km = rest.match(/\(\s*(\d{1,3})\s*ko(?:\s*[·•*]\s*(\d{1,4})\s*очк)?\s*\)/i);
+      let ko = 0;
+      const km = rest.match(/\(\s*(\d{1,3})\s*ko\s*\)/i);
       if (km) {
         ko = parseInt(km[1], 10) || 0;
-        koPts = parseInt(km[2], 10) || 0;
         rest = rest.replace(km[0], "").trim();
       }
       rest = rest.replace(/[–—-]\s*@\S+$/, "").trim();   // хвост с телеграм-ником
       const name = normName(rest);
       if (!name) continue;
-      rows.push({ place, name, ko, koPts });
+      rows.push({ place, name, ko });
     }
     return rows;
   }
@@ -335,7 +326,6 @@
       p.present = true;
       p.status = "busted";
       p.ko = clampInt(r.ko ?? 0, 0);
-      p.koPts = clampInt(r.koPts ?? 0, 0);
     });
     return { applied: applied.length, notFound, missing: missing.map((p) => p.name) };
   }
@@ -344,10 +334,8 @@
   // только прибавку отменяемого вылета.
   function rollbackBustKo(p) {
     const d = p.koDelta;
-    if (d) {
-      p.ko = Math.max(0, clampInt(p.ko ?? 0, 0) - clampInt(d.ko ?? 0, 0));
-      p.koPts = Math.max(0, clampInt(p.koPts ?? 0, 0) - clampInt(d.koPts ?? 0, 0));
-    } else { p.ko = 0; p.koPts = 0; }
+    if (d) p.ko = Math.max(0, clampInt(p.ko ?? 0, 0) - clampInt(d.ko ?? 0, 0));
+    else p.ko = 0;
     p.koDelta = null;
     return p;
   }
@@ -393,11 +381,6 @@
   function effectiveFreeEntries(p) {
     return Math.max(0, Math.min(entriesOf(p), clampInt(p?.freeEntries ?? 0, 0)));
   }
-  // Комп аддона: фишки игрок получает, но платит за них 0.
-  function addonCostFor(p, tour) {
-    if (p?.addonFree) return 0;
-    return (p?.addon && tour?.addonEnabled) ? clampInt(tour?.addonCost ?? 0, 0) : 0;
-  }
   // Цены входов игрока по порядку: сам вход — по тарифу, реентри — по цене реентри.
   // Тариф free (взнос 0) обнуляет всё: «играет бесплатно» значит и реентри тоже.
   function entryPrices(p, tour) {
@@ -410,7 +393,7 @@
     // Free entry гасит самые дорогие входы: комп не должен съедать дешёвое реентри,
     // оставляя игроку полный взнос.
     const billable = entryPrices(p, tour).sort((x, y) => y - x).slice(effectiveFreeEntries(p));
-    return billable.reduce((a, b) => a + b, 0) + addonCostFor(p, tour);
+    return billable.reduce((a, b) => a + b, 0);
   }
   function remainingAmount(p, tour) {
     return Math.max(0, calcExpected(p, tour) - totalPaid(p));
@@ -470,19 +453,11 @@
     }
     return clampInt(st?.stats?.registered ?? 0, 0) + clampInt(st?.stats?.reentries ?? 0, 0);
   }
-  function calcAddonCount(st) {
-    if (!st?.tournament?.addonEnabled || !Array.isArray(st?.players)) return 0;
-    return st.players.filter((p) => p.present && p.addon).length;
-  }
-  function calcAddonChips(st) {
-    const chips = clampInt(st?.tournament?.addonChips ?? 0, 0);
-    return chips ? calcAddonCount(st) * chips : 0;
-  }
   function calcTotalChips(st) {
     const reg = clampInt(st?.stats?.registered ?? 0, 0);
     const re = clampInt(st?.stats?.reentries ?? 0, 0);
     const ss = clampInt(st?.tournament?.startStack ?? 0, 0);
-    return (reg + re) * ss + calcAddonChips(st);
+    return (reg + re) * ss;
   }
   function calcAvg(st) {
     const alive = clampInt(st?.stats?.alive ?? 0, 0);
@@ -508,17 +483,15 @@
   // ── Призовая зона (очки рейтинга) ────────────────────────────────────────
   // Вятка: вход = 100 очков, гарантии по умолчанию нет — банк растёт только от
   // входов. Ноки в рейтинге не участвуют: весь банк идёт в призовую зону, а
-  // головы ПКО остаются личным счётом игрока (ko/koPts) вне очков.
-  // pko в calcPayouts сохранён ради совместимости вызовов и на расчёт не влияет.
-  const PT_ENTRY = 100, PT_ADDON = 200;
+  // головы остаются личным счётом игрока (ko) вне очков.
+  const PT_ENTRY = 100;
   const DEFAULT_GUARANTEE = 0;
-  function calcPayouts(entries, r = 0.8, guarantee = DEFAULT_GUARANTEE, addons = 0, pko = false) {
+  function calcPayouts(entries, r = 0.8, guarantee = DEFAULT_GUARANTEE) {
     const E = clampInt(entries, 1), rr = Number(r);
     if (!Number.isFinite(rr) || rr <= 0 || rr >= 1) throw new Error("r должен быть между 0 и 1");
     const guar = Math.max(0, Math.floor(Number(guarantee) || 0));
-    const A = clampInt(addons, 0);
     const P = Math.max(3, Math.floor(0.15 * E));
-    const TOTAL = Math.max(guar, PT_ENTRY * E + PT_ADDON * A);
+    const TOTAL = Math.max(guar, PT_ENTRY * E);
     const KO_POOL = 0;
     const ITM_POOL = TOTAL;
     const weights = Array.from({ length: P }, (_, i) => Math.pow(rr, i));
@@ -534,9 +507,8 @@
     const ent = calcEntries(st) || 1;
     const rr = Number.isFinite(Number(st?.rating?.r)) ? Number(st.rating.r) : 0.8;
     const guar = clampInt(st?.rating?.guarantee ?? DEFAULT_GUARANTEE, 0);
-    const addons = calcAddonCount(st);
-    const res = calcPayouts(ent, rr, guar, addons, !!st?.tournament?.pko);
-    st.rating = { ...st.rating, entries: ent, r: rr, guarantee: guar, addons, P: res.P,
+    const res = calcPayouts(ent, rr, guar);
+    st.rating = { ...st.rating, entries: ent, r: rr, guarantee: guar, P: res.P,
       TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL,
       payouts: res.payouts, calculatedAt: new Date().toISOString() };
     return st;
@@ -717,10 +689,8 @@
       .replace(/^(\d)\u20e3$/, "$1\ufe0f\u20e3");
     const lines = sorted.map((p, i) => {
       const place = i + 1;
-      const ko = clampInt(p.ko ?? 0, 0), koPts = clampInt(p.koPts ?? 0, 0);
-      const koStr = st.tournament?.pko
-        ? ((ko > 0 || koPts > 0) ? ` (${ko} ko \u00b7 ${koPts} \u043e\u0447\u043a)` : "")
-        : (ko > 0 ? ` (${ko} ko)` : "");
+      const ko = clampInt(p.ko ?? 0, 0);
+      const koStr = ko > 0 ? ` (${ko} ko)` : "";
       let line = `${fmtPlace(place)} ${p.name}${koStr}`;
       // Пустая строка отбивает призовую зону от остальных
       if (place === itmCount && itmCount > 0 && place < sorted.length) line += "\n";
@@ -735,7 +705,7 @@
     ensurePlayers(st);
     const raw = (Array.isArray(incoming) ? incoming : [])
       .map((p) => ({ name: normName(p.name || ""), player_id: p.player_id ?? null,
-        present: !!p.present, reentries: 0, status: "registered", ko: 0, koPts: 0 }))
+        present: !!p.present, reentries: 0, status: "registered", ko: 0 }))
       .filter((p) => p.name);
     // Одно имя — одна строка. Список из TG легко приносит человека дважды, а
     // дальше всё в админке ходит по имени: вылет, оплата и разбор поста берут
@@ -785,10 +755,10 @@
     translitRuToEn, translitEnToRu, searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, isPayMethod, payMethodTitle, payMethodLabel,
     normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveReentryCost, entryPrices, effectiveFreeEntries,
-    addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
-    calcEntries, calcAddonCount, calcAddonChips, calcTotalChips, calcAvg,
+    calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
+    calcEntries, calcTotalChips, calcAvg,
     curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,
-    PT_ENTRY, PT_ADDON, DEFAULT_GUARANTEE,
+    PT_ENTRY, DEFAULT_GUARANTEE,
     T, isOnBreak, breakRemainingSec, remainingSec, levelRemainingSec,
     lateRegRemainingSec, nextBreakInSec, advanceExpiredLevels, genRoomId,
   };

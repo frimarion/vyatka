@@ -331,7 +331,7 @@
       const debt = clampInt(r.debt, 0);
       return `<div class="listRow">
         <span class="nm">${escHtml(r.name || "Без названия")}
-          <div class="muted">${fmtDate(r.played_at)} · ${clampInt(r.players_count, 0)} игроков · входов ${clampInt(r.entries, 0)}${r.pko ? " · ПКО" : ""}
+          <div class="muted">${fmtDate(r.played_at)} · ${clampInt(r.players_count, 0)} игроков · входов ${clampInt(r.entries, 0)}
             <span class="mono">${escHtml(r.room_id || "")}</span></div></span>
         <span class="tag${debt > 0 ? " hot" : " ok"}">${NF.format(clampInt(r.paid, 0))} ₽${debt > 0 ? ` · долг ${NF.format(debt)}` : ""}</span>
       </div>`;

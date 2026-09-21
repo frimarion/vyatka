@@ -63,9 +63,7 @@
       place,
       entries: VP.entriesOf ? VP.entriesOf(p) : 1 + clampInt(p.reentries, 0),
       reentries: clampInt(p.reentries, 0),
-      addon: !!p.addon,
       ko: clampInt(p.ko, 0),
-      ko_pts: clampInt(p.koPts, 0),
       points: pointsForPlace(state, place),
       buy_in: VP.effectiveBuyIn ? VP.effectiveBuyIn(p, tour) : clampInt(tour?.defaultBuyIn, 0),
       expected,
@@ -97,11 +95,9 @@
         name: normName(tour.name) || "Без названия",
         played_at: new Date(playedAt).toISOString(),
         buy_in: clampInt(tour.defaultBuyIn, 0),
-        pko: !!tour.pko,
         players_count: players.length,
         entries: sum("entries"),
         reentries: sum("reentries"),
-        addons: players.filter((p) => p.addon).length,
         expected: sum("expected"),
         paid: sum("paid"),
         debt: sum("debt"),
@@ -135,7 +131,7 @@
       if (!a) {
         a = {
           key, player_id: r.player_id ?? null, name: normName(r.name),
-          games: 0, entries: 0, reentries: 0, addons: 0, ko: 0, koPts: 0, points: 0,
+          games: 0, entries: 0, reentries: 0, ko: 0, points: 0,
           wins: 0, top3: 0, itm: 0, placesSum: 0, placesCount: 0, bestPlace: null,
           expected: 0, paid: 0, debt: 0, transfer: 0, cash: 0, card: 0,
           lastPlayedAt: null, lastTournament: "",
@@ -146,9 +142,7 @@
       a.games += 1;
       a.entries += clampInt(r.entries, 0);
       a.reentries += clampInt(r.reentries, 0);
-      if (r.addon) a.addons += 1;
       a.ko += clampInt(r.ko, 0);
-      a.koPts += clampInt(r.ko_pts, 0);
       a.points += clampInt(r.points, 0);
       a.expected += clampInt(r.expected, 0);
       a.paid += clampInt(r.paid, 0);
@@ -226,7 +220,7 @@
     return { from: "", to: "" };                        // «всё время»
   }
 
-  const SUM_FIELDS = ["players_count", "entries", "reentries", "addons", "expected", "paid", "debt", "transfer", "cash", "card"];
+  const SUM_FIELDS = ["players_count", "entries", "reentries", "expected", "paid", "debt", "transfer", "cash", "card"];
   function periodTotals(results) {
     const out = { tournaments: 0 };
     SUM_FIELDS.forEach((f) => { out[f] = 0; });
@@ -253,20 +247,20 @@
         { title: "Дата", width: 12, type: "date" }, { title: "Турнир", width: 30 },
         { title: "Комната", width: 10 }, { title: "Игроков", width: 10, type: "int" },
         { title: "Входов", width: 10, type: "int" }, { title: "Реентри", width: 10, type: "int" },
-        { title: "Аддонов", width: 10, type: "int" }, { title: "Взнос", width: 10, type: "money" },
+        { title: "Взнос", width: 10, type: "money" },
         { title: "К оплате", width: 12, type: "money" }, { title: "Оплачено", width: 12, type: "money" },
         { title: "Долг", width: 10, type: "money" }, { title: "Перевод", width: 12, type: "money" },
         { title: "Наличные", width: 12, type: "money" }, { title: "Карта", width: 10, type: "money" },
       ],
       rows: heads.map((r) => [
         new Date(r.played_at), r.name || "", r.room_id || "",
-        clampInt(r.players_count, 0), clampInt(r.entries, 0), clampInt(r.reentries, 0), clampInt(r.addons, 0),
+        clampInt(r.players_count, 0), clampInt(r.entries, 0), clampInt(r.reentries, 0),
         clampInt(r.buy_in, 0), clampInt(r.expected, 0), clampInt(r.paid, 0), clampInt(r.debt, 0),
         clampInt(r.transfer, 0), clampInt(r.cash, 0), clampInt(r.card, 0),
       ]),
     };
     tournaments.rows.push([
-      null, "ИТОГО", "", totals.players_count, totals.entries, totals.reentries, totals.addons, null,
+      null, "ИТОГО", "", totals.players_count, totals.entries, totals.reentries, null,
       totals.expected, totals.paid, totals.debt, totals.transfer, totals.cash, totals.card,
     ]);
 
@@ -296,7 +290,7 @@
         { title: "Дата", width: 12, type: "date" }, { title: "Турнир", width: 26 },
         { title: "Игрок", width: 24 }, { title: "Место", width: 8, type: "int" },
         { title: "Входов", width: 9, type: "int" }, { title: "Взнос", width: 10, type: "money" },
-        { title: "Аддон", width: 8 }, { title: "К оплате", width: 12, type: "money" },
+        { title: "К оплате", width: 12, type: "money" },
         { title: "Оплачено", width: 12, type: "money" }, { title: "Долг", width: 10, type: "money" },
         { title: "Перевод", width: 11, type: "money" }, { title: "Наличные", width: 11, type: "money" },
         { title: "Карта", width: 10, type: "money" }, { title: "Ноки", width: 8, type: "int" },
@@ -310,7 +304,7 @@
         return [
           head?.played_at ? new Date(head.played_at) : null, head?.name || "",
           r.name, Number.isFinite(Number(r.place)) && r.place ? Number(r.place) : "",
-          clampInt(r.entries, 0), clampInt(r.buy_in, 0), r.addon ? "да" : "",
+          clampInt(r.entries, 0), clampInt(r.buy_in, 0),
           clampInt(r.expected, 0), clampInt(r.paid, 0), clampInt(r.debt, 0),
           clampInt(r.transfer, 0), clampInt(r.cash, 0), clampInt(r.card, 0), clampInt(r.ko, 0),
         ];

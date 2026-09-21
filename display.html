@@ -562,7 +562,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     st.tournament.name = "Вятский Фриз-аут";
     st.tournament.lateRegUntilLevel = 9;
     st.players = ["Андрей К.", "Сергей П.", "Игорь В.", "Дмитрий Л.", "Павел М.", "Роман Ш.", "Никита Б.", "Олег Д."]
-      .map((name) => ({ name, present: true, reentries: 0, status: "registered", ko: 0, koPts: 0 }));
+      .map((name) => ({ name, present: true, reentries: 0, status: "registered", ko: 0 }));
     st.timer.levelIndex = 3;
     st.timer.isRunning = true;
     st.timer.levelEndAt = nowMs() + 7 * 60000 + 12000;
@@ -572,8 +572,8 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     if (mode === "break") window.VP.T.breakStart(st);
     if (mode === "pause") window.VP.T.pause(st);
     if (mode === "final") st.timer.finalTableActive = true;
-    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 0, 0, false);
-    st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 0, addons: 0,
+    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 0);
+    st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 0,
       P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL, payouts: res.payouts };
     return st;
   }

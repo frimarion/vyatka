@@ -45,21 +45,17 @@ A.equal(p('A').place,null); A.equal(p('B').place,4); A.equal(st.stats.alive,3);
 A.equal(VP.calcEntries(st),5,'входы = пришедшие + реентри');
 
 // откат вылета снимает только прибавку последнего вылета
-const c=p('C'); c.ko=3; c.koPts=6; c.koDelta={ko:1,koPts:2};
-VP.rollbackBustKo(c); A.equal(c.ko,2); A.equal(c.koPts,4);
+const c=p('C'); c.ko=3; c.koDelta={ko:1};
+VP.rollbackBustKo(c); A.equal(c.ko,2);
 
 // призовая зона Вятки: вход = 100 очков, гарантии по умолчанию нет,
 // ноки в очках не участвуют — весь банк в призовой зоне
 const r=VP.calcPayouts(100,0.8);
 A.equal(r.TOTAL,10000); A.equal(r.KO_POOL,0); A.equal(r.ITM_POOL,10000); A.equal(r.P,15);
 A.equal(r.payouts.reduce((a,b)=>a+b,0),10000);
-// ПКО не забирает очки в головы: раскладка та же
-const rp=VP.calcPayouts(100,0.8,0,0,true);
-A.equal(rp.KO_POOL,0); A.equal(rp.payouts.reduce((a,b)=>a+b,0),10000);
-// аддон = 200 очков, гарантия поднимает банк только если она выше входов
-const ra=VP.calcPayouts(10,0.8,0,3);
-A.equal(ra.TOTAL,1600); A.equal(ra.ITM_POOL,1600); A.equal(ra.P,3);
-A.equal(VP.calcPayouts(10,0.8,5000,0).TOTAL,5000);
+// гарантия поднимает банк только если она выше входов
+A.equal(VP.calcPayouts(10,0.8,5000).TOTAL,5000);
+A.equal(VP.calcPayouts(10,0.8,0).TOTAL,1000);
 
 // поздняя регистрация: остаток = текущий уровень + следующие до ПР
 st.tournament.lateRegUntilLevel=6; st.timer.levelIndex=0; st.timer.isRunning=true; st.timer.isPaused=false;
@@ -85,9 +81,6 @@ console.log('все проверки прошли');
   A.ok(post.includes('6. Женя (1 ko)'), 'ноки в строке: ' + post);
   A.ok(post.endsWith('7. Зина'), 'первый вылетевший — последним');
   A.ok(post.includes('\n\n'), 'призовая зона отбита пустой строкой');
-  // ПКО добавляет очки за головы
-  s2.tournament.pko = true; g('Женя').koPts = 14;
-  A.ok(VP.buildTelegramPost(s2).includes('(1 ko · 14 очк)'), 'формат ПКО');
 }
 
 // ── Склонение после числа ──────────────────────────────────────────────────
@@ -139,8 +132,6 @@ console.log('все проверки прошли');
   const s4 = VP.normalizeState(VP.initialState());
   s4.tournament.defaultBuyIn = 1000;
   s4.tournament.reentryCost = 1000;
-  s4.tournament.addonEnabled = true;
-  s4.tournament.addonCost = 500;
   s4.players = [{name:'Игрок', present:true, status:'registered'}];
   VP.computeStatsFromPlayers(s4);
   const t = s4.tournament;
@@ -154,10 +145,6 @@ console.log('все проверки прошли');
   A.equal(VP.calcExpected(p(), t), 2000, 'реентри удваивает сумму');
   p().freeEntries = 1;
   A.equal(VP.calcExpected(p(), t), 1000, 'free entry снимает один вход');
-  p().addon = true;
-  A.equal(VP.calcExpected(p(), t), 1500, 'платный аддон прибавляется');
-  p().addonFree = true;
-  A.equal(VP.calcExpected(p(), t), 1000, 'бесплатный аддон не стоит ничего');
 
   // Реентри дешевле входа
   t.reentryCost = 500;

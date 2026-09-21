@@ -96,7 +96,7 @@ function tournamentState() {
 // Очки призовой зоны берутся посчитанными, а не пересчитываются заново
 {
   const st = tournamentState();
-  st.rating = { isActive: true, payouts: [120, 80, 40], entries: 3, r: 0.8, guarantee: 800, addons: 0 };
+  st.rating = { isActive: true, payouts: [120, 80, 40], entries: 3, r: 0.8, guarantee: 800 };
   st.players.find((x) => x.name === 'Андрей').status = 'busted';
   st.players.find((x) => x.name === 'Андрей').bustOrder = 1;
   VP.computeStatsFromPlayers(st);
@@ -109,15 +109,15 @@ function tournamentState() {
 
 // ── Сведение показателей ─────────────────────────────────────────────────────
 const results = [
-  { id: 1, name: 'Мартовский', played_at: '2026-03-01T16:00:00.000Z', players_count: 2, entries: 3, reentries: 1, addons: 0, expected: 3000, paid: 3000, debt: 0, transfer: 3000, cash: 0, card: 0 },
-  { id: 2, name: 'Апрельский', played_at: '2026-04-02T16:00:00.000Z', players_count: 2, entries: 2, reentries: 0, addons: 1, expected: 2000, paid: 1500, debt: 500, transfer: 0, cash: 1500, card: 0 },
+  { id: 1, name: 'Мартовский', played_at: '2026-03-01T16:00:00.000Z', players_count: 2, entries: 3, reentries: 1, expected: 3000, paid: 3000, debt: 0, transfer: 3000, cash: 0, card: 0 },
+  { id: 2, name: 'Апрельский', played_at: '2026-04-02T16:00:00.000Z', players_count: 2, entries: 2, reentries: 0, expected: 2000, paid: 1500, debt: 500, transfer: 0, cash: 1500, card: 0 },
 ];
 const rows = [
-  { result_id: 1, player_id: 11, name: 'Андрей', place: 1, entries: 2, reentries: 1, ko: 3, ko_pts: 0, points: 40, buy_in: 1000, expected: 2000, paid: 2000, debt: 0, transfer: 2000, cash: 0, card: 0 },
-  { result_id: 1, player_id: 12, name: 'Борис', place: 2, entries: 1, reentries: 0, ko: 0, ko_pts: 0, points: 25, buy_in: 1000, expected: 1000, paid: 1000, debt: 0, transfer: 1000, cash: 0, card: 0 },
-  { result_id: 2, player_id: 11, name: 'Андрей Кузнецов', place: 2, entries: 1, reentries: 0, ko: 1, ko_pts: 0, points: 25, buy_in: 1000, expected: 1000, paid: 1000, debt: 0, transfer: 0, cash: 1000, card: 0 },
+  { result_id: 1, player_id: 11, name: 'Андрей', place: 1, entries: 2, reentries: 1, ko: 3, points: 40, buy_in: 1000, expected: 2000, paid: 2000, debt: 0, transfer: 2000, cash: 0, card: 0 },
+  { result_id: 1, player_id: 12, name: 'Борис', place: 2, entries: 1, reentries: 0, ko: 0, points: 25, buy_in: 1000, expected: 1000, paid: 1000, debt: 0, transfer: 1000, cash: 0, card: 0 },
+  { result_id: 2, player_id: 11, name: 'Андрей Кузнецов', place: 2, entries: 1, reentries: 0, ko: 1, points: 25, buy_in: 1000, expected: 1000, paid: 1000, debt: 0, transfer: 0, cash: 1000, card: 0 },
   // Незаведённый игрок: player_id нет, сшивается по имени
-  { result_id: 2, player_id: null, name: 'Гость', place: 1, entries: 1, reentries: 0, ko: 2, ko_pts: 0, points: 40, buy_in: 1000, expected: 1000, paid: 500, debt: 500, transfer: 0, cash: 500, card: 0 },
+  { result_id: 2, player_id: null, name: 'Гость', place: 1, entries: 1, reentries: 0, ko: 2, points: 40, buy_in: 1000, expected: 1000, paid: 500, debt: 500, transfer: 0, cash: 500, card: 0 },
 ];
 
 {
@@ -174,7 +174,7 @@ const rows = [
   const tours = wb.sheets[0];
   A.equal(tours.rows.length, results.length + 1);
   A.equal(tours.rows.at(-1)[1], 'ИТОГО');
-  A.equal(tours.rows.at(-1)[9], 4500, 'итог оплачено сходится с периодом');
+  A.equal(tours.rows.at(-1)[8], 4500, 'итог оплачено сходится с периодом');
   A.equal(tours.rows[0][1], 'Мартовский', 'вечера идут по возрастанию даты');
 
   A.equal(wb.sheets[1].rows.length, 3);
