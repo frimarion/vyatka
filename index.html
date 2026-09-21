@@ -462,16 +462,9 @@ body{
   .tcName{font-size:18px}
   .tcard.hero::after{width:168px;right:-56px}
 }
-@media(min-width:768px){
-  body.playerPage .wrap{max-width:760px;padding-bottom:32px}
-  body.playerPage .tabbar{display:none!important}
-  body.playerPage #tabTours,
-  body.playerPage #tabMe{margin-top:28px;padding-top:24px;border-top:1px solid rgba(36,27,20,.1)}
-  body.playerPage #toast{bottom:20px}
-}
 </style>
 </head>
-<body class="playerPage">
+<body>
 
 <div class="wrap">
 
@@ -741,7 +734,6 @@ body{
 
   const TBL = window.VP_TABLES;
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
-  const ONEPAGE = window.matchMedia("(min-width: 768px)");
 
   // ── Telegram ───────────────────────────────────────────────────────────────
   const tg = window.Telegram?.WebApp;
@@ -794,23 +786,15 @@ body{
 
   function screen(id) {
     document.querySelectorAll(".screen").forEach((s) => s.classList.toggle("on", s.id === id));
-    $("tabbar").style.display = (id === "scrApp" && !ONEPAGE.matches) ? "" : "none";
+    $("tabbar").style.display = (id === "scrApp") ? "" : "none";
     window.scrollTo(0, 0);
   }
 
   function tab(name) {
-    ["home", "tours", "me"].forEach((t) => { $("tab" + t[0].toUpperCase() + t.slice(1)).style.display = ONEPAGE.matches || t === name ? "" : "none"; });
+    ["home", "tours", "me"].forEach((t) => { $("tab" + t[0].toUpperCase() + t.slice(1)).style.display = t === name ? "" : "none"; });
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
-    if (ONEPAGE.matches && name !== "home") {
-      $("tab" + name[0].toUpperCase() + name.slice(1)).scrollIntoView({ behavior: "smooth", block: "start" });
-    } else window.scrollTo(0, 0);
+    window.scrollTo(0, 0);
   }
-  ONEPAGE.addEventListener("change", () => {
-    if ($("scrApp").classList.contains("on")) {
-      $("tabbar").style.display = ONEPAGE.matches ? "none" : "";
-      tab("home");
-    }
-  });
 
   // Ошибки из RPC приезжают кодом (`registration_closed`), а не текстом: код
   // один для всех клиентов, а формулировка — дело приложения.
