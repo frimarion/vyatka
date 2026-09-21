@@ -430,6 +430,8 @@
       <div class="field"><label>Поздняя рег. до уровня (0 — нет)</label><input id="bpLateReg" type="number" min="0" inputmode="numeric"/></div>
       <div class="field"><label>Взнос, ₽ (пусто — не задавать)</label><input id="bpBuyIn" type="number" min="0" inputmode="numeric"/></div>
       <div class="field"><label>Реентри, ₽ (пусто — не задавать)</label><input id="bpReentry" type="number" min="0" inputmode="numeric"/></div>
+      <div class="field"><label>Аддон — стек (пусто — без аддона)</label><input id="bpAddonStack" type="number" min="0" step="1000" inputmode="numeric"/></div>
+      <div class="field"><label>Аддон — цена, ₽ (пусто — без аддона)</label><input id="bpAddonCost" type="number" min="0" step="100" inputmode="numeric"/></div>
     </div>
     <div class="cardHead" style="margin-top:14px"><h2 style="font-size:17px">Уровни</h2><span class="tag" id="bpLevelsInfo">—</span></div>
     <div class="btnrow" style="margin:8px 0">
@@ -1974,6 +1976,8 @@
     lateRegUntilLevel: clampInt(row.late_reg_until_level ?? 0, 0),
     defaultBuyIn: row.default_buy_in ?? null,
     reentryCost: row.default_reentry ?? null,
+    addonStack: row.default_addon_stack ?? null,
+    addonCost: row.default_addon_cost ?? null,
     levels: window.VP.normalizeLevels(Array.isArray(row.levels) ? row.levels : []),
     sortOrder: clampInt(row.sort_order ?? 0, 0),
   });
@@ -1987,6 +1991,8 @@
     lateRegUntilLevel: clampInt(p.lateRegUntilLevel ?? 0, 0),
     defaultBuyIn: p.defaultBuyIn == null ? null : clampInt(p.defaultBuyIn, 0),
     reentryCost: p.reentryCost == null ? null : clampInt(p.reentryCost, 0),
+    addonStack: p.addonStack == null ? null : clampInt(p.addonStack, 0),
+    addonCost: p.addonCost == null ? null : clampInt(p.addonCost, 0),
     levels: window.VP.normalizeLevels(Array.isArray(p.levels) ? p.levels : []),
     sortOrder: clampInt(p.sortOrder ?? i + 1, 0),
   });
@@ -2021,7 +2027,7 @@
       let list;
       if (BP_TABLE) {
         const { data, error } = await sb.from(BP_TABLE)
-          .select("id,name,start_stack,late_reg_until_level,default_buy_in,default_reentry,levels,sort_order")
+          .select("id,name,start_stack,late_reg_until_level,default_buy_in,default_reentry,default_addon_stack,default_addon_cost,levels,sort_order")
           .order("sort_order");
         if (error) throw error;
         list = (data || []).map(rowToPreset);
@@ -2087,6 +2093,11 @@
             st.tournament.lateRegUntilLevel = p.lateRegUntilLevel;
             if (p.defaultBuyIn != null) st.tournament.defaultBuyIn = p.defaultBuyIn;
             if (p.reentryCost != null) st.tournament.reentryCost = p.reentryCost;
+            if (p.addonStack != null && p.addonCost != null) {
+              st.tournament.addonEnabled = true;
+              st.tournament.addon1Stack = p.addonStack;
+              st.tournament.addon1Cost = p.addonCost;
+            }
             st.presetKey = p.id;
             st.timer.levelIndex = Math.min(st.timer.levelIndex, st.structure.levels.length - 1);
             return st;
@@ -2106,6 +2117,8 @@
     $("bpLateReg").value = preset?.lateRegUntilLevel ?? 0;
     $("bpBuyIn").value = preset?.defaultBuyIn ?? "";
     $("bpReentry").value = preset?.reentryCost ?? "";
+    $("bpAddonStack").value = preset?.addonStack ?? "";
+    $("bpAddonCost").value = preset?.addonCost ?? "";
     $("bpDelete").style.display = preset ? "" : "none";
     $("bpErr").textContent = "";
     renderLevels(preset ? preset.levels.map((l) => ({ ...l })) : window.VP.defaultLevels(), BP_CTX);
@@ -2129,12 +2142,16 @@
     if (!levels.length) { err.textContent = "В макете нет ни одного уровня"; return; }
     const buyInRaw = $("bpBuyIn").value.trim();
     const reentryRaw = $("bpReentry").value.trim();
+    const addonStackRaw = $("bpAddonStack").value.trim();
+    const addonCostRaw = $("bpAddonCost").value.trim();
     const payload = {
       name,
       start_stack: startStack,
       late_reg_until_level: clampInt($("bpLateReg").value, 0),
       default_buy_in: buyInRaw === "" ? null : clampInt(buyInRaw, 0),
       default_reentry: reentryRaw === "" ? null : clampInt(reentryRaw, 0),
+      default_addon_stack: addonStackRaw === "" ? null : clampInt(addonStackRaw, 0),
+      default_addon_cost: addonCostRaw === "" ? null : clampInt(addonCostRaw, 0),
       levels,
       updated_at: new Date().toISOString(),
     };
@@ -2157,6 +2174,8 @@
           lateRegUntilLevel: payload.late_reg_until_level,
           defaultBuyIn: payload.default_buy_in,
           reentryCost: payload.default_reentry,
+          addonStack: payload.default_addon_stack,
+          addonCost: payload.default_addon_cost,
           levels,
           ...(bpEditingId == null ? { sortOrder: Date.now() } : {}),
         }, false);

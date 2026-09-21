@@ -54,35 +54,35 @@
   }
 
   // ── Структура блайндов ────────────────────────────────────────────────────
+  // Формат клуба «Классика»: те же уровни, что в макете tournament_blueprints
+  // (миграция 014_blueprint_classic.sql). Здесь — только запасной вариант на
+  // случай, если таблица макетов недоступна (см. loadBlueprints в admin.html).
   const FALLBACK_LEVELS = [
-    { min: 16, sb: 100, bb: 100, anteMode: "BB" }, { min: 16, sb: 100, bb: 200, anteMode: "BB" },
-    { min: 16, sb: 100, bb: 300, anteMode: "BB" }, { min: 16, sb: 200, bb: 400, anteMode: "BB" },
-    { min: 16, sb: 300, bb: 600, anteMode: "BB" }, { min: 16, sb: 400, bb: 800, anteMode: "BB" },
+    { min: 20, sb: 100, bb: 200, anteMode: "BB" }, { min: 20, sb: 200, bb: 400, anteMode: "BB" },
+    { min: 20, sb: 300, bb: 600, anteMode: "BB" }, { min: 20, sb: 400, bb: 800, anteMode: "BB" },
+    { isBreak: true, min: 12, label: "Перерыв" },
+    { min: 18, sb: 500, bb: 1000, anteMode: "BB" }, { min: 18, sb: 600, bb: 1200, anteMode: "BB" },
+    { min: 18, sb: 800, bb: 1600, anteMode: "BB" }, { min: 16, sb: 1000, bb: 2000, anteMode: "BB" },
     { isBreak: true, min: 15, label: "Перерыв" },
-    { min: 16, sb: 500, bb: 1000, anteMode: "BB" }, { min: 16, sb: 600, bb: 1200, anteMode: "BB" },
-    { min: 16, sb: 800, bb: 1600, anteMode: "BB" }, { min: 12, sb: 1000, bb: 2000, anteMode: "BB" },
-    { min: 12, sb: 1000, bb: 3000, anteMode: "BB" }, { min: 12, sb: 2000, bb: 4000, anteMode: "BB" },
-    { min: 12, sb: 3000, bb: 6000, anteMode: "BB" }, { min: 12, sb: 4000, bb: 8000, anteMode: "BB" },
-    { min: 12, sb: 5000, bb: 10000, anteMode: "BB" }, { min: 12, sb: 6000, bb: 12000, anteMode: "BB" },
-    { min: 12, sb: 8000, bb: 16000, anteMode: "BB" }, { min: 10, sb: 10000, bb: 20000, anteMode: "BB" },
-    { min: 10, sb: 15000, bb: 30000, anteMode: "BB" }, { min: 10, sb: 20000, bb: 40000, anteMode: "BB" },
-    { min: 10, sb: 30000, bb: 60000, anteMode: "BB" }, { min: 10, sb: 40000, bb: 80000, anteMode: "BB" },
-    { min: 10, sb: 50000, bb: 100000, anteMode: "BB" }, { min: 10, sb: 75000, bb: 150000, anteMode: "BB" },
-    { min: 10, sb: 100000, bb: 200000, anteMode: "BB" }, { min: 10, sb: 150000, bb: 300000, anteMode: "BB" },
-    { min: 10, sb: 200000, bb: 400000, anteMode: "BB" }, { min: 10, sb: 300000, bb: 600000, anteMode: "BB" },
-    { min: 10, sb: 400000, bb: 800000, anteMode: "BB" }, { min: 10, sb: 500000, bb: 1000000, anteMode: "BB" },
+    { min: 16, sb: 1500, bb: 3000, anteMode: "BB" }, { min: 16, sb: 2000, bb: 4000, anteMode: "BB" },
+    { min: 16, sb: 3000, bb: 6000, anteMode: "BB" }, { min: 14, sb: 4000, bb: 8000, anteMode: "BB" },
+    { min: 14, sb: 5000, bb: 10000, anteMode: "BB" },
+    { isBreak: true, min: 10, label: "Перерыв" },
+    { min: 12, sb: 6000, bb: 12000, anteMode: "BB" }, { min: 12, sb: 7000, bb: 14000, anteMode: "BB" },
+    { min: 12, sb: 8000, bb: 16000, anteMode: "BB" }, { min: 12, sb: 10000, bb: 20000, anteMode: "BB" },
+    { min: 10, sb: 15000, bb: 30000, anteMode: "BB" },
+    { isBreak: true, min: 10, label: "Перерыв" },
+    { min: 10, sb: 20000, bb: 40000, anteMode: "BB" }, { min: 10, sb: 30000, bb: 60000, anteMode: "BB" },
+    { min: 8, sb: 40000, bb: 80000, anteMode: "BB" }, { min: 8, sb: 50000, bb: 100000, anteMode: "BB" },
+    { min: 8, sb: 75000, bb: 150000, anteMode: "BB" },
+    { min: 6, sb: 100000, bb: 200000, anteMode: "BB" }, { min: 6, sb: 150000, bb: 300000, anteMode: "BB" },
+    { min: 6, sb: 200000, bb: 400000, anteMode: "BB" },
   ];
 
-  // Ускоренная сетка: тот же рост блайндов, но короче уровни.
-  const turboLevels = () =>
-    FALLBACK_LEVELS.map((l) => (l.isBreak ? { ...l, min: 10 } : { ...l, min: Math.max(8, Math.round(l.min * 0.6)) }));
-
-  // Макеты турниров. В Дойле они лежат в таблице tournament_blueprints; здесь
-  // зашиты в код — своей таблицы у клуба пока нет, структура правится в админке.
+  // Макеты турниров. Настоящие лежат в таблице tournament_blueprints и
+  // правятся из админки; это только запасной макет на случай сбоя таблицы.
   const PRESETS = {
-    daily: { id: "daily", name: "Вятский Дейли", startStack: 30000, lateRegUntilLevel: 9, defaultBuyIn: 800, reentryCost: 500, levels: FALLBACK_LEVELS.map((l) => ({ ...l })) },
-    turbo: { id: "turbo", name: "Турбо", startStack: 20000, lateRegUntilLevel: 6, defaultBuyIn: 800, reentryCost: 500, levels: turboLevels() },
-    deep:  { id: "deep",  name: "Глубокий стек", startStack: 50000, lateRegUntilLevel: 12, defaultBuyIn: 800, reentryCost: 500, levels: FALLBACK_LEVELS.map((l) => ({ ...l, min: l.isBreak ? l.min : Math.round(l.min * 1.25) })) },
+    classic: { id: "classic", name: "Классика", startStack: 40000, lateRegUntilLevel: 8, defaultBuyIn: 700, reentryCost: 500, addonStack: 80000, addonCost: 700, levels: FALLBACK_LEVELS.map((l) => ({ ...l })) },
   };
 
   function normalizeLevels(levels) {
