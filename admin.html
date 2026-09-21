@@ -106,6 +106,19 @@
       <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
   </section>
 
+  <!-- ── Структура ─────────────────────────────────────────────────────── -->
+  <!-- Формат выбирается сразу при создании турнира, поэтому карточка стоит
+       рядом со «Ссылками», а не в самом низу вкладки «Структура». -->
+  <section id="screenPreset" class="card" style="display:none">
+    <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
+    <div id="presetGrid" class="presetGrid"></div>
+    <div class="btnrow" id="bpAdminRow" style="margin-top:12px;display:none">
+      <button id="btnBpNew" type="button">+ Новый макет</button>
+      <span class="sub">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
+    </div>
+  </section>
+
   <!-- ── Турнир ────────────────────────────────────────────────────────── -->
   <section id="screenQuick" class="card" style="display:none">
     <div class="cardHead"><h2>Турнир</h2></div>
@@ -203,28 +216,6 @@
     </div>
   </section>
 
-  <!-- ── Турнир из расписания ──────────────────────────────────────────── -->
-  <!-- Раньше привязка жила только в форме создания комнаты: рум, заведённый
-       руками, уже нельзя было связать с турниром, а без связи нет ни записей
-       из приложения, ни операторов. -->
-  <section id="screenLinkTour" class="card" style="display:none">
-    <div class="cardHead"><h2>Турнир из расписания</h2><span class="tag" id="linkTourInfo">—</span></div>
-    <div class="sub" style="margin-bottom:10px">Связь с карточкой турнира: из неё приезжают записавшиеся через приложение и по ней назначают операторов.</div>
-    <div id="linkTourBox"></div>
-    <div class="sub" id="linkTourNote" style="margin-top:8px"></div>
-  </section>
-
-  <!-- ── Операторы ─────────────────────────────────────────────────────── -->
-  <section id="screenOperators" class="card" style="display:none">
-    <div class="cardHead"><h2>Операторы</h2><span class="tag" id="opsInfo">—</span></div>
-    <div class="sub" style="margin-bottom:10px">Кто может открыть этот турнир в админке — строки в <span class="mono">tournament_operators</span>. Назначение живёт на турнире, а не на комнате: комнату пересоздают, турнир остаётся.</div>
-    <div id="opsList" class="list"></div>
-    <div class="row2" style="margin-top:10px">
-      <select id="opsPick"><option value="">— выбери оператора —</option></select>
-      <button id="btnOpsAdd" type="button">Назначить</button>
-    </div>
-  </section>
-
   <!-- ── Игроки ────────────────────────────────────────────────────────── -->
   <section id="screenPlayers" class="card" style="display:none">
     <div class="cardHead"><h2>Игроки</h2><span class="tag" id="playersInfo">—</span></div>
@@ -302,17 +293,6 @@
     </details>
   </section>
 
-  <!-- ── Структура ─────────────────────────────────────────────────────── -->
-  <section id="screenPreset" class="card" style="display:none">
-    <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span></div>
-    <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
-    <div id="presetGrid" class="presetGrid"></div>
-    <div class="btnrow" id="bpAdminRow" style="margin-top:12px;display:none">
-      <button id="btnBpNew" type="button">+ Новый макет</button>
-      <span class="sub">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
-    </div>
-  </section>
-
   <section id="screenStructure" class="card" style="display:none">
     <div class="cardHead"><h2>Структура блайндов</h2><span class="tag" id="structInfo">—</span></div>
     <div class="btnrow" style="margin-bottom:10px">
@@ -378,6 +358,17 @@
     <h2 id="nameTitle">Игрок</h2>
     <div class="field"><label>Имя</label><input id="nameInput" type="text" maxlength="60"/></div>
     <div class="btnrow"><button id="nameOk" type="button">Сохранить</button><button id="nameCancel" class="ghost" type="button">Отмена</button></div>
+  </div>
+</div>
+
+<!-- ── Привязка комнаты к турниру ───────────────────────────────────────── -->
+<div class="modal" id="linkRoomModal">
+  <div class="modalCard">
+    <h2 id="linkRoomTitle">Турнир</h2>
+    <div class="sub" style="margin-bottom:10px">Связь с карточкой турнира: из неё приезжают записавшиеся через приложение и по ней назначают операторов (вкладка «Расписание»).</div>
+    <div id="linkRoomBox"></div>
+    <div class="sub" id="linkRoomNote" style="margin-top:8px"></div>
+    <div class="btnrow" style="margin-top:12px"><button id="linkRoomClose" class="ghost" type="button">Закрыть</button></div>
   </div>
 </div>
 
@@ -593,15 +584,14 @@
 
   // ── Экраны и вкладки ─────────────────────────────────────────────────────
   const TABS = {
-    timer: ["screenTimer", "screenLinks"],
-    tour: ["screenQuick", "screenRating", "screenInfo", "screenLinkTour", "screenOperators"],
+    timer: ["screenTimer", "screenLinks", "screenPreset"],
+    tour: ["screenQuick", "screenRating", "screenInfo"],
     players: ["screenPlayers", "screenTgImport", "screenPost"],
     pay: ["screenPayments"],
-    struct: ["screenPreset", "screenStructure"],
+    struct: ["screenStructure"],
   };
-  const ALL_SCREENS = ["screenCreate", "screenLinks", "screenTimer", "screenQuick", "screenRating", "screenInfo",
-    "screenLinkTour", "screenOperators", "screenPlayers", "screenPayments", "screenTgImport", "screenPost",
-    "screenPreset", "screenStructure"];
+  const ALL_SCREENS = ["screenCreate", "screenLinks", "screenPreset", "screenTimer", "screenQuick", "screenRating", "screenInfo",
+    "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenStructure"];
 
   // Комнату целиком показываем там, где она помещается: на ПК таббар из пяти
   // кнопок — лишний клик между карточками, которые все нужны одновременно.
@@ -630,10 +620,6 @@
     const onepage = ONEPAGE.matches;
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     (onepage ? ROOM_SCREENS : (TABS[currentTab] || TABS.timer)).forEach((id) => { $(id).style.display = ""; });
-    // Привязку турнира и операторов трогает только админ.
-    if (isOperator()) ["screenLinkTour", "screenOperators"].forEach((id) => { $(id).style.display = "none"; });
-    // Операторы читают уже найденный турнир, поэтому строго после привязки.
-    if (!isOperator() && (onepage || currentTab === "tour")) renderLinkTour().then(renderOperators).catch(() => {});
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === currentTab));
     $("tabbar").style.display = onepage ? "none" : "";
     $("screens").classList.toggle("onepage", onepage);
@@ -714,8 +700,10 @@
           : (r.created_at ? new Date(r.created_at) : null);
         const when = created ? created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "";
         const alive = clampInt(st.stats?.alive ?? 0, 0), reg = clampInt(st.stats?.registered ?? 0, 0);
-        // Ссылкой сделана не вся строка, а имя: иначе кнопка удаления жила бы
+        // Ссылкой сделана не вся строка, а имя: иначе кнопки жили бы
         // внутри <a> и нажатие уводило бы в комнату.
+        const link = isAdmin()
+          ? `<button class="tiny ghost" type="button" data-link="${escHtml(r.room_id)}" title="Привязать к турниру">🔗</button>` : "";
         const del = isOperator() ? ""
           : `<button class="tiny ghost" type="button" data-del="${escHtml(r.room_id)}" title="Удалить комнату">✕</button>`;
         return `<div class="listRow">
@@ -723,7 +711,7 @@
             <span class="avatar">${escHtml(r.room_id.slice(0, 2))}</span>
             <span class="nm">${name}<div class="muted mono">${escHtml(r.room_id)} · ${when}</div></span>
           </a>
-          <span class="rowActs"><span class="tag">${alive}/${reg}</span>${del}</span>
+          <span class="rowActs"><span class="tag">${alive}/${reg}</span>${link}${del}</span>
         </div>`;
       });
       box.innerHTML = rows.join("");
@@ -750,6 +738,100 @@
       await loadLinkableTournaments();   // турнир освободился — вернулся в список
     } catch (e) { setErr(e); btn.disabled = false; }
   });
+
+  // Привязка готовой комнаты к турниру — та же операция, что при создании
+  // рума, но для уже заведённого вручную. Живёт на странице «Комнаты», а не
+  // внутри самой комнаты: тут сразу виден весь список и что к чему привязано.
+  $("roomsList").addEventListener("click", (ev) => {
+    const btn = ev.target.closest("[data-link]");
+    if (!btn) return;
+    ev.preventDefault();
+    openLinkRoomModal(btn.dataset.link);
+  });
+
+  async function openLinkRoomModal(rid) {
+    $("linkRoomTitle").textContent = `Турнир — ${rid}`;
+    $("linkRoomNote").textContent = "";
+    $("linkRoomModal").classList.add("show");
+    await renderLinkRoom(rid);
+  }
+
+  async function renderLinkRoom(rid) {
+    const box = $("linkRoomBox");
+    box.innerHTML = '<div class="muted">Загрузка…</div>';
+    try {
+      const { data: t } = await sb.from(TBL.tournaments)
+        .select("id, name, date, registered_count").eq("room_id", rid).maybeSingle();
+      if (t) {
+        const dt = t.date ? new Date(t.date) : null;
+        const when = dt ? dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "без даты";
+        box.innerHTML = `<div class="listRow">
+          <span class="avatar">${escHtml(initials(t.name))}</span>
+          <span class="nm">${escHtml(t.name)}<div class="muted mono">${escHtml(when)} · записалось: ${clampInt(t.registered_count ?? 0, 0)}</div></span>
+          <button class="tiny ghost" id="btnUnlinkRoom" type="button">Отвязать</button>
+        </div>`;
+        $("btnUnlinkRoom").onclick = () => unlinkRoomTournament(rid, t.id);
+        return;
+      }
+      box.innerHTML = `<div class="row2">
+          <select id="linkRoomSelect"><option value="">— выбери турнир —</option></select>
+          <button id="btnLinkRoomGo" type="button">Привязать</button>
+        </div>`;
+      $("btnLinkRoomGo").onclick = () => linkRoomTournament(rid);
+      await loadLinkableTournaments("linkRoomSelect", "— выбери турнир —");
+    } catch (e) { box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`; }
+  }
+
+  async function linkRoomTournament(rid) {
+    const sel = $("linkRoomSelect"), out = $("linkRoomNote"), btn = $("btnLinkRoomGo");
+    const tid = parseInt(sel?.value || "", 10);
+    if (!tid) { out.textContent = "Выбери турнир из списка."; return; }
+    btn.disabled = true;
+    out.textContent = "Привязываю…";
+    try {
+      // `.is("room_id", null)` держит турнир за одной комнатой: без него второй
+      // ведущий перевесил бы турнир на свой рум, и записи уехали бы к нему.
+      const { data, error } = await sb.from(TBL.tournaments)
+        .update({ room_id: rid }).eq("id", tid).is("room_id", null).select("id").maybeSingle();
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      if (!row) { await renderLinkRoom(rid); out.textContent = "Турнир уже привязан к другой комнате — список обновлён."; return; }
+      // Записавшихся тянем сразу: триггер в базе довозит только новые записи,
+      // а ради уже набранного списка привязку обычно и делают.
+      const list = await fetchRegPlayers(tid);
+      if (list.length) {
+        const { data: roomRow } = await sb.from(TBL.rooms).select("state").eq("room_id", rid).maybeSingle();
+        if (roomRow) {
+          const st = mergePlayers(normalizeState(roomRow.state) || initialState(), list, "add");
+          await sb.from(TBL.rooms).update({ state: st }).eq("room_id", rid);
+        }
+      }
+      await renderLinkRoom(rid);
+      await loadRooms();
+      out.textContent = list.length
+        ? `✓ Привязан · игроков из приложения: ${list.length}`
+        : "✓ Привязан · на турнир пока никто не записался";
+    } catch (e) {
+      out.textContent = e.message || "Не удалось привязать";
+    } finally { const b = $("btnLinkRoomGo"); if (b) b.disabled = false; }
+  }
+
+  async function unlinkRoomTournament(rid, tid) {
+    const ok = await confirm2("Отвязать турнир?",
+      "Записи из приложения перестанут доезжать в эту комнату, назначенные операторы её не увидят. Игроки из списка останутся.");
+    if (!ok) return;
+    $("linkRoomNote").textContent = "";
+    try {
+      const { error } = await sb.from(TBL.tournaments).update({ room_id: null }).eq("id", tid);
+      if (error) throw error;
+      await renderLinkRoom(rid);
+      await loadRooms();
+      await loadLinkableTournaments();
+    } catch (e) { $("linkRoomNote").textContent = e.message || String(e); }
+  }
+
+  $("linkRoomClose").onclick = () => $("linkRoomModal").classList.remove("show");
+  $("linkRoomModal").onclick = (e) => { if (e.target === $("linkRoomModal")) $("linkRoomModal").classList.remove("show"); };
 
   const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -848,160 +930,13 @@
     return (data || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
   }
 
-  // ── Привязка комнаты к турниру ───────────────────────────────────────────
-  async function renderLinkTour() {
-    const box = $("linkTourBox"), info = $("linkTourInfo");
-    if (!isAdmin() || !roomId) return;
-    box.innerHTML = '<div class="muted">Загрузка…</div>';
-    $("linkTourNote").textContent = "";
-    try {
-      const t = await refreshLinkedTournament();
-      if (t) {
-        const dt = t.date ? new Date(t.date) : null;
-        const when = dt ? dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "без даты";
-        info.textContent = `«${t.name}»`;
-        box.innerHTML = `<div class="listRow">
-          <span class="avatar">${escHtml(initials(t.name))}</span>
-          <span class="nm">${escHtml(t.name)}<div class="muted mono">${escHtml(when)} · записалось: ${clampInt(t.registered_count ?? 0, 0)}</div></span>
-          <button class="tiny ghost" id="btnUnlinkTour" type="button">Отвязать</button>
-        </div>`;
-        $("btnUnlinkTour").onclick = unlinkTour;
-        return;
-      }
-      info.textContent = "не привязана";
-      box.innerHTML = `<div class="row2">
-          <select id="linkTourSelect"><option value="">— выбери турнир —</option></select>
-          <button id="btnLinkTour" type="button">Привязать</button>
-        </div>`;
-      $("btnLinkTour").onclick = linkTour;
-      await loadLinkableTournaments("linkTourSelect", "— выбери турнир —");
-    } catch (e) { box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`; }
-  }
-
-  async function linkTour() {
-    const sel = $("linkTourSelect"), out = $("linkTourNote");
-    const tid = parseInt(sel?.value || "", 10);
-    if (!tid) { out.textContent = "Выбери турнир из списка."; return; }
-    $("btnLinkTour").disabled = true;
-    out.textContent = "Привязываю…";
-    try {
-      // `.is("room_id", null)` держит турнир за одной комнатой: без него второй
-      // ведущий перевесил бы турнир на свой рум, и записи уехали бы к нему.
-      const { data, error } = await sb.from(TBL.tournaments)
-        .update({ room_id: roomId }).eq("id", tid).is("room_id", null).select("id").maybeSingle();
-      if (error) throw error;
-      const row = Array.isArray(data) ? data[0] : data;
-      // Список перерисовываем первым: он чистит заметку под карточкой.
-      if (!row) { await renderLinkTour(); out.textContent = "Турнир уже привязан к другой комнате — список обновлён."; return; }
-      // Записавшихся тянем сразу: триггер в базе довозит только новые записи,
-      // а ради уже набранного списка привязку обычно и делают.
-      const list = await fetchRegPlayers(tid);
-      if (list.length) await saveWithReload((st) => mergePlayers(st, list, "add"));
-      await renderLinkTour();
-      await renderOperators();
-      out.textContent = list.length
-        ? `✓ Привязан · игроков из приложения: ${list.length}`
-        : "✓ Привязан · на турнир пока никто не записался";
-    } catch (e) {
-      out.textContent = e.message || "Не удалось привязать";
-    } finally { const b = $("btnLinkTour"); if (b) b.disabled = false; }
-  }
-
-  async function unlinkTour() {
-    if (!linkedTournament) return;
-    const ok = await confirm2("Отвязать турнир?",
-      "Записи из приложения перестанут доезжать в эту комнату, назначенные операторы её не увидят. Игроки из списка останутся.");
-    if (!ok) return;
-    setErr(null);
-    try {
-      const { error } = await sb.from(TBL.tournaments).update({ room_id: null }).eq("id", linkedTournament.id);
-      if (error) throw error;
-      await renderLinkTour();
-      await renderOperators();
-    } catch (e) { setErr(e); }
-  }
-
-  // ── Операторы турнира ────────────────────────────────────────────────────
-  // Назначения хранятся на турнире, а не на комнате: комнату пересоздают,
-  // турнир остаётся. Поэтому без привязки к турниру назначать некого.
-  let opsTournament = null;
-
-  async function renderOperators() {
-    const box = $("opsList"), pick = $("opsPick"), info = $("opsInfo");
-    if (!isAdmin()) return;
-    box.innerHTML = '<div class="muted">Загрузка…</div>';
-    try {
-      opsTournament = linkedTournament;
-      if (!opsTournament) {
-        info.textContent = "турнир не привязан";
-        box.innerHTML = '<div class="muted">Назначать некого: комната не привязана к турниру — привяжи её в карточке «Турнир из расписания» выше.</div>';
-        pick.innerHTML = '<option value="">— нет турнира —</option>';
-        $("btnOpsAdd").disabled = true;
-        return;
-      }
-      info.textContent = `«${opsTournament.name}»`;
-      $("btnOpsAdd").disabled = false;
-      const [assignedRes, allRes] = await Promise.all([
-        sb.from(TBL.operators).select(`profile_id, ${TBL.profiles}(email)`).eq("tournament_id", opsTournament.id),
-        sb.from(TBL.profiles).select("id,email").eq("role", "operator"),
-      ]);
-      const assigned = assignedRes.data || [];
-      const all = allRes.data || [];
-      const assignedIds = new Set(assigned.map((r) => r.profile_id));
-      box.innerHTML = assigned.length
-        ? assigned.map((r) => {
-            const email = r[TBL.profiles]?.email || r.profile_id;
-            const j = jsArg(r.profile_id);
-            return `<div class="listRow">
-              <span class="avatar">${escHtml(initials(email))}</span>
-              <span class="nm">${escHtml(email)}</span>
-              <button class="tiny ghost" onclick="_vp.opsRemove(${j})">Снять</button>
-            </div>`;
-          }).join("")
-        : '<div class="muted">Пока никто не назначен — турнир видят только админы.</div>';
-      const free = all.filter((p) => !assignedIds.has(p.id));
-      pick.innerHTML = free.length
-        ? '<option value="">— выбери оператора —</option>' + free.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.email || p.id)}</option>`).join("")
-        : '<option value="">— все назначены —</option>';
-      if (!all.length) {
-        box.insertAdjacentHTML("beforeend", '<div class="muted" style="margin-top:8px">Нет аккаунтов с ролью «operator».</div>');
-      }
-    } catch (e) {
-      box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`;
-    }
-  }
-
-  async function opsAdd() {
-    const id = $("opsPick").value;
-    if (!id || !opsTournament) return;
-    setErr(null);
-    try {
-      const { error } = await sb.from(TBL.operators).insert({ tournament_id: opsTournament.id, profile_id: id });
-      if (error) throw error;
-      await renderOperators();
-    } catch (e) { setErr(e); }
-  }
-  async function opsRemove(profileId) {
-    if (!opsTournament) return;
-    const ok = await confirm2("Снять оператора?", "Он перестанет видеть этот турнир в админке.");
-    if (!ok) return;
-    setErr(null);
-    try {
-      const { error } = await sb.from(TBL.operators).delete()
-        .eq("tournament_id", opsTournament.id).eq("profile_id", profileId);
-      if (error) throw error;
-      await renderOperators();
-    } catch (e) { setErr(e); }
-  }
-  $("btnOpsAdd").onclick = opsAdd;
-
   async function loadTgRegistrations(mode) {
     const out = $("tgImportResult");
     out.textContent = "Загружаю…";
     try {
       const tour = await refreshLinkedTournament();
       if (!tour) {
-        out.textContent = "Турнир не привязан к этому руму — привяжи его во вкладке «Турнир», карточка «Турнир из расписания».";
+        out.textContent = "Турнир не привязан к этому руму — привяжи его на странице «Комнаты» (кнопка 🔗 у комнаты).";
         return;
       }
       const list = await fetchRegPlayers(tour.id);
@@ -1518,7 +1453,7 @@
     } catch (e) {}
   }
   window._vp = { togglePresent, addReentry, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
-    payTariff, payFreeEntry, payAdd, payUndo, payClear, opsRemove };
+    payTariff, payFreeEntry, payAdd, payUndo, payClear };
 
   function renderPlayers() {
     const box = $("playersList");
