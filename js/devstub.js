@@ -149,13 +149,18 @@
       })),
       tournament_operators: [],
       rooms: [],
-      // Макет: тот же «Классика», что в migrations/014_blueprint_classic.sql, но
-      // короткой лестницей — песочнице важно, что грузится из «базы», а не сама сетка.
+      // Макеты: те же «Классика» и «Турбо», что в migrations/014_blueprint_classic.sql
+      // и 015_blueprint_turbo.sql, но короткой лестницей — песочнице важно, что
+      // грузится из «базы», а не сама сетка.
       tournament_blueprints: [
         { id: 1, name: "Классика", start_stack: 40000, late_reg_until_level: 8, default_buy_in: 700, default_reentry: 500,
           default_addon_stack: 80000, default_addon_cost: 700, sort_order: 1,
           levels: [{min:20,sb:100,bb:200,anteMode:"BB"},{min:20,sb:200,bb:400,anteMode:"BB"},
                    {isBreak:true,min:12,label:"Перерыв"},{min:18,sb:500,bb:1000,anteMode:"BB"}] },
+        { id: 2, name: "Турбо", start_stack: 30000, late_reg_until_level: 9, default_buy_in: 700, default_reentry: 500,
+          default_addon_stack: 90000, default_addon_cost: 1000, sort_order: 2,
+          levels: [{min:14,sb:100,bb:100,anteMode:"BB"},{min:14,sb:100,bb:200,anteMode:"BB"},
+                   {isBreak:true,min:13,label:"Перерыв"},{min:12,sb:500,bb:1000,anteMode:"BB"}] },
       ],
     };
   }
