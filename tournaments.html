@@ -72,7 +72,8 @@
 
   <!-- ── Расписание ────────────────────────────────────────────────────── -->
   <section id="screenList" class="card" style="display:none">
-    <div class="cardHead"><h2 id="listTitle">Расписание</h2><span class="tag" id="listInfo">—</span></div>
+    <div class="cardHead"><h2 id="listTitle">Расписание</h2><span class="tag" id="listInfo">—</span>
+      <button id="btnNewTournament" class="tiny" type="button" style="display:none">+ Создать турнир</button></div>
     <div id="list"></div>
   </section>
 
@@ -81,6 +82,9 @@
     <div class="cardHead"><h2 id="formTitle">Новый турнир</h2>
       <button id="btnFormReset" class="ghost tiny" type="button">Очистить</button></div>
 
+    <div class="field"><label>Макет</label>
+      <select id="fBlueprint"><option value="">— без макета —</option></select>
+      <div class="muted" id="blueprintHint">Макет заполнит только пустые поля — введённые значения не изменятся.</div></div>
     <div class="field"><label>Название</label>
       <input id="fName" type="text" maxlength="80" placeholder="Вятский Дейли"/></div>
     <div class="grid2">
@@ -108,7 +112,7 @@
       <textarea id="fFeatures" rows="3" placeholder="BB ante&#10;Один реентри&#10;Аддон 2000 фишек"></textarea></div>
 
     <div class="btnrow"><button id="btnSave" type="button">Создать турнир</button>
-      <button id="btnCancelEdit" class="ghost" type="button" style="display:none">Отменить правку</button></div>
+      <button id="btnCancelEdit" class="ghost" type="button">Закрыть</button></div>
     <div id="formErr" class="err"></div>
   </section>
 </div>
@@ -163,6 +167,7 @@
   let profile = null;
   let tours = [];
   let myTournamentIds = null;       // оператор — только назначенные; null = без ограничений
+  let blueprints = [];
   let view = "open";
   let editId = null;
   let openPanels = {};             // id турнира → развёрнут список записавшихся
@@ -222,6 +227,33 @@
     } catch (e) { console.warn("loadMyTournaments", e); }
   }
 
+  // Те же макеты, которые админ правит в таймере. Если таблица временно
+  // недоступна, форма всё равно работает на встроенных форматах из core.js.
+  async function loadBlueprints() {
+    const fallback = () => Object.values(window.VP.PRESETS || {}).map((p) => ({
+      id: String(p.id), name: p.name, startStack: p.startStack,
+      lateRegUntilLevel: p.lateRegUntilLevel, defaultBuyIn: p.defaultBuyIn,
+      levels: Array.isArray(p.levels) ? p.levels : [],
+    }));
+    blueprints = fallback();
+    if (window.VP_BLUEPRINTS) {
+      try {
+        const { data, error } = await sb.from(window.VP_BLUEPRINTS)
+          .select("id,name,start_stack,late_reg_until_level,default_buy_in,levels,sort_order")
+          .order("sort_order").order("id");
+        if (error) throw error;
+        if (data?.length) blueprints = data.map((p) => ({
+          id: String(p.id), name: p.name, startStack: p.start_stack,
+          lateRegUntilLevel: p.late_reg_until_level,
+          defaultBuyIn: p.default_buy_in,
+          levels: Array.isArray(p.levels) ? p.levels : [],
+        }));
+      } catch (e) { console.warn("loadBlueprints", e); }
+    }
+    $("fBlueprint").innerHTML = '<option value="">— без макета —</option>'
+      + blueprints.map((p) => `<option value="${escHtml(p.id)}">${escHtml(p.name)}</option>`).join("");
+  }
+
   // ── Список ────────────────────────────────────────────────────────────────
   const isPastRow = (t) => t.status === "past" || t.status === "cancelled";
 
@@ -234,7 +266,7 @@
         ${items.length ? items.map(row).join("") : `<div class="muted">${empty}</div>`}
       </div>`;
       $("screenList").style.display = "";
-      $("screenForm").style.display = isAdmin() ? "" : "none";
+      $("screenForm").style.display = isAdmin() && view === "form" ? "" : "none";
       $("listTitle").textContent = "Все турниры";
       $("listInfo").textContent = String(tours.length);
       $("list").innerHTML = group("Расписание", open, "Турниров нет.")
@@ -486,23 +518,41 @@
   // ── Форма ─────────────────────────────────────────────────────────────────
   const FORM = ["fName", "fDate", "fFee", "fSlots", "fStatus", "fStack", "fLevel", "fLateReg", "fRoom", "fDesc", "fFeatures"];
 
+  function applyBlueprint(id) {
+    const p = blueprints.find((x) => String(x.id) === String(id));
+    if (!p) return;
+    const firstLevel = p.levels.find((l) => !l?.isBreak && clampInt(l?.min, 0) > 0);
+    const defaults = {
+      fName: p.name,
+      fFee: p.defaultBuyIn,
+      fStack: p.startStack,
+      fLevel: firstLevel?.min,
+      fLateReg: p.lateRegUntilLevel,
+    };
+    Object.entries(defaults).forEach(([field, value]) => {
+      if ($(field).value === "" && value != null) $(field).value = String(value);
+    });
+  }
+
   function resetForm() {
     editId = null;
     FORM.forEach((id) => { $(id).value = ""; });
-    $("fFee").value = "1000";
     $("fSlots").value = "45";
     $("fStatus").value = "open";
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 0, 0, 0);
     $("fDate").value = toLocalInput(d.toISOString());
+    $("fBlueprint").value = blueprints[0]?.id || "";
+    applyBlueprint($("fBlueprint").value);
     $("formTitle").textContent = "Новый турнир";
     $("btnSave").textContent = "Создать турнир";
-    $("btnCancelEdit").style.display = "none";
+    $("btnCancelEdit").textContent = "Закрыть";
     $("formErr").textContent = "";
     $("roomHint").textContent = "";
   }
 
   function fillForm(t) {
     editId = t.id;
+    $("fBlueprint").value = "";
     $("fName").value = t.name || "";
     $("fDate").value = t.date ? toLocalInput(t.date) : "";
     $("fFee").value = t.entry_fee ?? 1000;
@@ -516,13 +566,14 @@
     $("fFeatures").value = (Array.isArray(t.features) ? t.features : []).join("\n");
     $("formTitle").textContent = "Правка турнира";
     $("btnSave").textContent = "Сохранить";
-    $("btnCancelEdit").style.display = "";
+    $("btnCancelEdit").textContent = "Отменить правку";
     $("formErr").textContent = "";
     setView("form");
   }
 
   async function save() {
     $("formErr").textContent = "";
+    applyBlueprint($("fBlueprint").value);
     const name = normName($("fName").value);
     if (!name) { $("formErr").textContent = "Введи название."; return; }
     const dateVal = $("fDate").value;
@@ -654,6 +705,8 @@
   document.querySelectorAll("#tabbar button").forEach((b) => {
     b.onclick = () => { if (b.dataset.tab === "form" && !editId) resetForm(); setView(b.dataset.tab); };
   });
+  $("btnNewTournament").onclick = () => { resetForm(); setView("form"); };
+  $("fBlueprint").onchange = () => applyBlueprint($("fBlueprint").value);
   $("btnSave").onclick = save;
   $("btnFormReset").onclick = resetForm;
   $("btnCancelEdit").onclick = () => { resetForm(); setView("open"); };
@@ -669,6 +722,8 @@
     $("tabbar").style.display = ONEPAGE.matches ? "none" : "";
     // Оператор турниры не создаёт: расписание клуба — дело админа.
     document.querySelector('#tabbar button[data-tab="form"]').style.display = isAdmin() ? "" : "none";
+    // На телефоне эту же роль выполняет нижняя вкладка «Создать».
+    $("btnNewTournament").style.display = isAdmin() && ONEPAGE.matches ? "" : "none";
   }
   ONEPAGE.addEventListener("change", () => { setUi(); render(); });
 
@@ -683,6 +738,7 @@
       profile = data || null;
     } catch (e) { console.warn("profile", e); profile = null; }
     await loadMyTournaments();
+    await loadBlueprints();
     setUi();
     resetForm();
     setView("open");
