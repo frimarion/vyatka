@@ -36,6 +36,17 @@ function formatDate(isoDate: string): string {
   return new Date(isoDate).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: TZ });
 }
 
+// "Воскресенье" — с большой буквы, как в шапке гостевого списка.
+function weekdayName(dateIso: string): string {
+  const s = new Date(dateIso).toLocaleDateString("ru-RU", { weekday: "long", timeZone: TZ });
+  return s.charAt(0).toUpperCase() + s.slice(1);
+}
+
+// "20 сентября" — родительный падеж месяца достаёт сам Intl.
+function formatDayMonth(dateIso: string): string {
+  return new Date(dateIso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: TZ });
+}
+
 async function dbFetch(path: string) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: { "apikey": SUPABASE_SERVICE_KEY, "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`, "Accept": "application/json" },
@@ -67,19 +78,35 @@ async function getPlayers(tournamentId: number) {
   return (regs ?? []).map((r: any) => ({ name: r.players?.name ?? "—" }));
 }
 
-function buildDraft(t: { name: string; date: string; entry_fee: number; slots: number | null }, players: { name: string }[]): string {
+// Стиль — гостевой список клуба, а не сухая карточка турнира: заголовок дня,
+// особенности турнира буллетами (из tournaments.features — то же поле, что
+// правит tournaments.html), дальше нумерованный список записавшихся.
+function buildDraft(
+  t: { name: string; date: string; entry_fee: number; slots: number | null; features?: unknown },
+  players: { name: string }[],
+): string {
+  const features = Array.isArray(t.features) ? (t.features as string[]) : [];
   const lines = [
-    `ТУРНИР СЕГОДНЯ, ${formatTime(t.date)}`,
-    t.name,
-    `Взнос: ${t.entry_fee} ₽`,
+    "📋 Список записавшихся — клуб «Вятка»! ♠️",
     "",
-    "Предварительный состав участников:",
+    `${weekdayName(t.date)}, ${formatDayMonth(t.date)}, начало в ${formatTime(t.date)}`,
+    "Сбор — за полчаса до старта",
+    "",
+    `🏆 ${t.name} 🏆`,
     "",
   ];
+  features.forEach((f) => lines.push(`♦️ ${f}`));
+  if (features.length) lines.push("");
+  lines.push(`💰 Взнос — ${t.entry_fee} ₽`, "", "Участники:", "");
   players.forEach((p, i) => lines.push(`${i + 1}. ${p.name}`));
   if (players.length === 0) lines.push("(пока никто не записался)");
-  if (t.slots) lines.push("", `Мест: ${t.slots}, свободно: ${Math.max(0, t.slots - players.length)}`);
-  lines.push("", "Запись — в приложении «Вятка»: https://vyatkapoker.ru/");
+  lines.push("");
+  if (t.slots && players.length >= t.slots) {
+    lines.push("Мест больше нет — все заняты ✔️");
+  } else if (t.slots) {
+    lines.push(`Свободно мест: ${Math.max(0, t.slots - players.length)}`);
+  }
+  lines.push("", "Записаться — в приложении «Вятка»: https://vyatkapoker.ru/", "", "Ждём вас,", "Команда клуба «Вятка» ♠️");
   return lines.join("\n");
 }
 
