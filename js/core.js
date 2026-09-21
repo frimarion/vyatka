@@ -62,9 +62,9 @@
   // Макеты турниров. В Дойле они лежат в таблице tournament_blueprints; здесь
   // зашиты в код — своей таблицы у клуба пока нет, структура правится в админке.
   const PRESETS = {
-    daily: { id: "daily", name: "Вятский Дейли", startStack: 30000, lateRegUntilLevel: 9, defaultBuyIn: 1000, levels: FALLBACK_LEVELS.map((l) => ({ ...l })) },
-    turbo: { id: "turbo", name: "Турбо", startStack: 20000, lateRegUntilLevel: 6, defaultBuyIn: 1000, levels: turboLevels() },
-    deep:  { id: "deep",  name: "Глубокий стек", startStack: 50000, lateRegUntilLevel: 12, defaultBuyIn: 2000, levels: FALLBACK_LEVELS.map((l) => ({ ...l, min: l.isBreak ? l.min : Math.round(l.min * 1.25) })) },
+    daily: { id: "daily", name: "Вятский Дейли", startStack: 30000, lateRegUntilLevel: 9, defaultBuyIn: 800, reentryCost: 500, levels: FALLBACK_LEVELS.map((l) => ({ ...l })) },
+    turbo: { id: "turbo", name: "Турбо", startStack: 20000, lateRegUntilLevel: 6, defaultBuyIn: 800, reentryCost: 500, levels: turboLevels() },
+    deep:  { id: "deep",  name: "Глубокий стек", startStack: 50000, lateRegUntilLevel: 12, defaultBuyIn: 800, reentryCost: 500, levels: FALLBACK_LEVELS.map((l) => ({ ...l, min: l.isBreak ? l.min : Math.round(l.min * 1.25) })) },
   };
 
   function normalizeLevels(levels) {
@@ -87,7 +87,7 @@
 
   function initialState() {
     return {
-      tournament: { createdAt: new Date().toISOString(), name: "", startStack: 30000, defaultBuyIn: 1000, lateRegUntilLevel: 0 },
+      tournament: { createdAt: new Date().toISOString(), name: "", startStack: 30000, defaultBuyIn: 800, reentryCost: 500, lateRegUntilLevel: 0 },
       stats: { registered: 0, busted: 0, alive: 0, reentries: 0 },
       structure: { levels: defaultLevels() },
       timer: { isRunning: false, isPaused: false, levelIndex: 0, levelEndAt: null, pauseRemainingSec: null },
@@ -108,7 +108,10 @@
     t.name = (t.name ?? "").toString().slice(0, 80);
     t.startStack = clampInt(t.startStack, 0);
     t.lateRegUntilLevel = clampInt(t.lateRegUntilLevel ?? 0, 0);
-    t.defaultBuyIn = clampInt(t.defaultBuyIn ?? 1000, 0);
+    t.defaultBuyIn = clampInt(t.defaultBuyIn ?? 800, 0);
+    // Турниры, сохранённые до отдельной цены реентри, продолжают считать реентри
+    // по взносу — иначе деньги в уже идущем турнире пересчитались бы задним числом.
+    t.reentryCost = clampInt(t.reentryCost ?? t.defaultBuyIn, 0);
     t.addonEnabled = !!t.addonEnabled;
     t.addonChips = clampInt(t.addonChips ?? 0, 0);
     t.addonCost = clampInt(t.addonCost ?? 0, 0);
@@ -367,8 +370,13 @@
   // tour передаётся явно: внутри мутатора saveWithReload считать надо по свежему
   // клону состояния, а не по глобальному state.
   function effectiveBuyIn(p, tour) {
-    const def = clampInt(tour?.defaultBuyIn ?? 1000, 0);
+    const def = clampInt(tour?.defaultBuyIn ?? 800, 0);
     return p?.buyIn == null ? def : clampInt(p.buyIn, 0);
+  }
+  // Реентри дешевле входа, поэтому цена своя. У старых турниров поля нет — там взнос.
+  function effectiveReentryCost(tour) {
+    const def = clampInt(tour?.defaultBuyIn ?? 800, 0);
+    return clampInt(tour?.reentryCost ?? def, 0);
   }
   // Бесплатных входов не может быть больше, чем самих входов.
   function effectiveFreeEntries(p) {
@@ -379,9 +387,19 @@
     if (p?.addonFree) return 0;
     return (p?.addon && tour?.addonEnabled) ? clampInt(tour?.addonCost ?? 0, 0) : 0;
   }
+  // Цены входов игрока по порядку: сам вход — по тарифу, реентри — по цене реентри.
+  // Тариф free (взнос 0) обнуляет всё: «играет бесплатно» значит и реентри тоже.
+  function entryPrices(p, tour) {
+    const buyIn = effectiveBuyIn(p, tour);
+    const reentries = clampInt(p?.reentries ?? 0, 0);
+    const re = buyIn === 0 ? 0 : effectiveReentryCost(tour);
+    return [buyIn, ...Array.from({ length: reentries }, () => re)];
+  }
   function calcExpected(p, tour) {
-    const billable = Math.max(0, entriesOf(p) - effectiveFreeEntries(p));
-    return billable * effectiveBuyIn(p, tour) + addonCostFor(p, tour);
+    // Free entry гасит самые дорогие входы: комп не должен съедать дешёвое реентри,
+    // оставляя игроку полный взнос.
+    const billable = entryPrices(p, tour).sort((x, y) => y - x).slice(effectiveFreeEntries(p));
+    return billable.reduce((a, b) => a + b, 0) + addonCostFor(p, tour);
   }
   function remainingAmount(p, tour) {
     return Math.max(0, calcExpected(p, tour) - totalPaid(p));
@@ -396,7 +414,7 @@
   }
 
   // Тариф — производное от buyIn игрока, отдельно не хранится.
-  const halfBuyIn = (tour) => Math.round(clampInt(tour?.defaultBuyIn ?? 1000, 0) / 2);
+  const halfBuyIn = (tour) => Math.round(clampInt(tour?.defaultBuyIn ?? 800, 0) / 2);
   function tariffOf(p, tour) {
     if (p?.buyIn == null) return "full";
     const b = clampInt(p.buyIn, 0);
@@ -742,7 +760,7 @@
     buildTelegramPost, parseResultsPost, applyResults, mergePlayers,
     translitRuToEn, translitEnToRu, searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, isPayMethod, payMethodTitle, payMethodLabel,
-    normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveFreeEntries,
+    normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveReentryCost, entryPrices, effectiveFreeEntries,
     addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
     calcEntries, calcAddonCount, calcAddonChips, calcTotalChips, calcAvg,
     curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,

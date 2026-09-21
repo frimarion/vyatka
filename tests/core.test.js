@@ -114,6 +114,7 @@ console.log('все проверки прошли');
 {
   const s4 = VP.normalizeState(VP.initialState());
   s4.tournament.defaultBuyIn = 1000;
+  s4.tournament.reentryCost = 1000;
   s4.tournament.addonEnabled = true;
   s4.tournament.addonCost = 500;
   s4.players = [{name:'Игрок', present:true, status:'registered'}];
@@ -134,11 +135,22 @@ console.log('все проверки прошли');
   p().addonFree = true;
   A.equal(VP.calcExpected(p(), t), 1000, 'бесплатный аддон не стоит ничего');
 
+  // Реентри дешевле входа
+  t.reentryCost = 500;
+  p().freeEntries = 0;
+  A.equal(VP.calcExpected(p(), t), 1500, 'вход 1000 + реентри 500');
+  p().freeEntries = 1;
+  A.equal(VP.calcExpected(p(), t), 500, 'free entry гасит вход, остаётся реентри');
+  t.reentryCost = 1000;
+
   p().buyIn = VP.buyInForTariff('half', t);
   A.equal(VP.tariffOf(p(), t), 'half', 'половинный тариф распознаётся');
   A.equal(VP.calcExpected(p(), t), 500, 'половинный взнос');
   p().buyIn = VP.buyInForTariff('free', t);
   A.equal(VP.calcExpected(p(), t), 0, 'free-тариф обнуляет сумму');
+  t.reentryCost = 500;
+  A.equal(VP.calcExpected(p(), t), 0, 'free-тариф обнуляет и реентри');
+  t.reentryCost = 1000;
   p().buyIn = VP.buyInForTariff('full', t);
   A.equal(p().buyIn, null, 'полный тариф = взнос турнира');
 
@@ -247,3 +259,14 @@ console.log('пропущенные в посте — проверки прош�
 }
 
 console.log('транслит-поиск — проверки прошли');
+
+// ── Умолчания нового турнира ───────────────────────────────────────────────
+{
+  const s5 = VP.normalizeState(VP.initialState());
+  A.equal(s5.tournament.startStack, 30000, 'стартовый стек по умолчанию');
+  A.equal(s5.tournament.defaultBuyIn, 800, 'взнос по умолчанию');
+  A.equal(s5.tournament.reentryCost, 500, 'реентри по умолчанию');
+  // Старый турнир без цены реентри: реентри считается по взносу
+  const old = VP.normalizeState({ tournament: { startStack: 30000, defaultBuyIn: 1000 } });
+  A.equal(old.tournament.reentryCost, 1000, 'у старых турниров реентри = взнос');
+}

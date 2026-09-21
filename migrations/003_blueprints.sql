@@ -51,7 +51,7 @@ create policy blueprints_write on public.tournament_blueprints
 -- и не затирал правки, сделанные из админки.
 insert into public.tournament_blueprints (name, start_stack, late_reg_until_level, default_buy_in, levels, sort_order)
 select * from (values
-  ('Вятский Дейли', 30000, 9, 1000, $json$[
+  ('Вятский Дейли', 30000, 9, 800, $json$[
     {"min":16,"sb":100,"bb":100,"anteMode":"BB"},{"min":16,"sb":100,"bb":200,"anteMode":"BB"},
     {"min":16,"sb":100,"bb":300,"anteMode":"BB"},{"min":16,"sb":200,"bb":400,"anteMode":"BB"},
     {"min":16,"sb":300,"bb":600,"anteMode":"BB"},{"min":16,"sb":400,"bb":800,"anteMode":"BB"},
@@ -66,7 +66,7 @@ select * from (values
     {"min":10,"sb":20000,"bb":40000,"anteMode":"BB"},{"min":10,"sb":30000,"bb":60000,"anteMode":"BB"},
     {"min":10,"sb":40000,"bb":80000,"anteMode":"BB"},{"min":10,"sb":50000,"bb":100000,"anteMode":"BB"}
   ]$json$::jsonb, 1),
-  ('Турбо', 20000, 6, 1000, $json$[
+  ('Турбо', 20000, 6, 800, $json$[
     {"min":10,"sb":100,"bb":100,"anteMode":"BB"},{"min":10,"sb":100,"bb":200,"anteMode":"BB"},
     {"min":10,"sb":200,"bb":400,"anteMode":"BB"},{"min":10,"sb":300,"bb":600,"anteMode":"BB"},
     {"min":10,"sb":400,"bb":800,"anteMode":"BB"},{"min":10,"sb":500,"bb":1000,"anteMode":"BB"},
@@ -78,7 +78,7 @@ select * from (values
     {"min":10,"sb":8000,"bb":16000,"anteMode":"BB"},{"min":10,"sb":10000,"bb":20000,"anteMode":"BB"},
     {"min":10,"sb":15000,"bb":30000,"anteMode":"BB"},{"min":10,"sb":20000,"bb":40000,"anteMode":"BB"}
   ]$json$::jsonb, 2),
-  ('Глубокий стек', 50000, 12, 2000, $json$[
+  ('Глубокий стек', 50000, 12, 800, $json$[
     {"min":20,"sb":100,"bb":100,"anteMode":"BB"},{"min":20,"sb":100,"bb":200,"anteMode":"BB"},
     {"min":20,"sb":100,"bb":300,"anteMode":"BB"},{"min":20,"sb":200,"bb":400,"anteMode":"BB"},
     {"min":20,"sb":300,"bb":600,"anteMode":"BB"},{"min":20,"sb":400,"bb":800,"anteMode":"BB"},
