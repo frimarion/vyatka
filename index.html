@@ -462,7 +462,7 @@ body{
   background:rgba(255,252,244,.13);color:rgba(255,252,244,.85);
   font-size:11.5px;font-weight:800;box-shadow:inset 0 0 0 1px rgba(255,252,244,.14);
 }
-.profileHero .kpis{margin-top:0}
+.profileHero .kpis{margin-top:16px}
 .profileHero .kpi{
   background:rgba(255,252,244,.07);border:1px solid rgba(255,252,244,.1);
   box-shadow:inset 0 1px 0 rgba(255,252,244,.08);
@@ -470,6 +470,43 @@ body{
 .profileHero .kpi .kpiLabel{color:rgba(255,252,244,.52)}
 .profileHero .kpi .kpiValue{color:var(--surface)}
 .profileHero .kpi.hot .kpiValue{color:var(--gold)}
+
+/* Полное имя и телефон — прямо под ником, без отдельной карточки настроек.
+   Пустая строка схлопывается (display:none из JS), а не показывает тире:
+   у нового игрока «Полное имя: —» выглядит как незаполненная форма, а не
+   как часть личной карточки. */
+.phTop{align-items:flex-start}
+.phView{margin-top:6px}
+.phLine{font-size:12.5px;font-weight:700;color:rgba(255,252,244,.58);line-height:1.5}
+/* Карандаш — тот же приём, что у правки макета в админке: круглая кнопка
+   поверх карточки, а не подпись внутри текста. */
+.phEditBtn{
+  margin-left:auto;flex:none;width:34px;height:34px;padding:0;
+  display:grid;place-items:center;border-radius:999px;
+  background:rgba(255,252,244,.1);color:rgba(255,252,244,.85);
+  box-shadow:inset 0 0 0 1px rgba(255,252,244,.14);
+  font-size:15px;line-height:1;
+}
+.phEditBtn:hover{background:rgba(255,252,244,.18);filter:none}
+.phEditForm{margin-top:14px}
+.phEditForm .field{margin-bottom:10px}
+/* Поля ввода наследуют светлую тему — на тёмном сукне это провал: своя
+   тёмная заливка и золотой фокус вместо оранжевого. */
+.profileHero .field>label{color:rgba(255,252,244,.48)}
+.profileHero input{
+  background:rgba(255,252,244,.08);color:var(--surface);
+  border:1px solid rgba(255,252,244,.16);
+}
+.profileHero input::placeholder{color:rgba(255,252,244,.32)}
+.profileHero input:focus{outline-color:rgba(232,185,74,.35);border-color:var(--gold)}
+.profileHero button.ghost{background:rgba(255,252,244,.1);color:var(--surface);box-shadow:inset 0 0 0 1px rgba(255,252,244,.16)}
+.profileHero button.ghost:hover{background:rgba(255,252,244,.16)}
+.phFoot{margin-top:14px;text-align:right}
+.phLogout{
+  background:none;box-shadow:none;padding:4px 2px;
+  color:rgba(255,252,244,.46);font-size:12px;font-weight:800;
+}
+.phLogout:hover{color:#FF9A86;filter:none}
 
 /* ── Пустые состояния, тосты ─────────────────────────────────── */
 .empty{
@@ -805,24 +842,31 @@ body{
           <div class="phInfo">
             <div class="phName" id="profName">Игрок</div>
             <span class="phTag" id="meTg">—</span>
+            <div class="phView" id="phView">
+              <div class="phLine" id="phFullView"></div>
+              <div class="phLine" id="phPhoneView"></div>
+            </div>
           </div>
+          <button class="phEditBtn" id="pfEditToggle" type="button" title="Редактировать профиль" aria-label="Редактировать профиль">✎</button>
         </div>
+
+        <div class="phEditForm" id="phEditForm" style="display:none">
+          <div class="field"><label>Имя за столом</label><input id="pfName" type="text" maxlength="60"/></div>
+          <div class="field"><label>Полное имя (для клуба)</label><input id="pfFull" type="text" maxlength="120" placeholder="необязательно"/></div>
+          <div class="field"><label>Телефон</label><input id="pfPhone" type="tel" maxlength="32" placeholder="необязательно"/></div>
+          <div class="btnrow"><button id="pfSave" type="button">Сохранить</button>
+            <button id="pfCancel" class="ghost" type="button">Отмена</button></div>
+          <div id="pfErr" class="err"></div>
+        </div>
+
         <div class="kpis">
           <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="stGames">0</div></div>
           <div class="kpi"><div class="kpiLabel">Победы</div><div class="kpiValue num" id="stWins">0</div></div>
           <div class="kpi"><div class="kpiLabel">Топ-3</div><div class="kpiValue num" id="stTop3">0</div></div>
           <div class="kpi hot"><div class="kpiLabel">Ноки</div><div class="kpiValue num" id="stKo">0</div></div>
         </div>
-      </div>
 
-      <div class="card">
-        <div class="cardHead"><h2>Мои данные</h2></div>
-        <div class="field"><label>Имя за столом</label><input id="pfName" type="text" maxlength="60"/></div>
-        <div class="field"><label>Полное имя (для клуба)</label><input id="pfFull" type="text" maxlength="120" placeholder="необязательно"/></div>
-        <div class="field"><label>Телефон</label><input id="pfPhone" type="tel" maxlength="32" placeholder="необязательно"/></div>
-        <div class="btnrow"><button id="pfSave" type="button">Сохранить</button>
-          <button id="pfLogout" class="danger" type="button">Выйти</button></div>
-        <div id="pfErr" class="err"></div>
+        <div class="phFoot"><button id="pfLogout" class="phLogout" type="button">Выйти из профиля</button></div>
       </div>
 
       <div class="card">
@@ -1663,6 +1707,11 @@ body{
       : p.tg_username ? "@" + p.tg_username
       : p.email ? p.email
       : "Профиль";
+    const fullView = $("phFullView"), phoneView = $("phPhoneView");
+    fullView.textContent = p.full_name || "";
+    fullView.style.display = p.full_name ? "" : "none";
+    phoneView.textContent = p.phone || "";
+    phoneView.style.display = p.phone ? "" : "none";
     renderAuthList(p);
     const hist = me.history || [];
     $("stGames").textContent = fmtInt(hist.length);
@@ -2072,6 +2121,25 @@ body{
     if (v.length === 6) $("emVerify").click();
   };
 
+  // Карандаш переключает карточку профиля между «читаю» и «правлю»: одна и
+  // та же форма, но поля видны только когда их правда собираются менять.
+  function setProfileEdit(on) {
+    $("phView").style.display = on ? "none" : "";
+    $("pfEditToggle").style.display = on ? "none" : "";
+    $("phEditForm").style.display = on ? "" : "none";
+    if (!on) $("pfErr").textContent = "";
+  }
+  $("pfEditToggle").onclick = () => setProfileEdit(true);
+  $("pfCancel").onclick = () => {
+    const p = me?.player;
+    if (p) {
+      $("pfName").value = p.name || "";
+      $("pfFull").value = p.full_name || "";
+      $("pfPhone").value = p.phone || "";
+    }
+    setProfileEdit(false);
+  };
+
   $("pfSave").onclick = async () => {
     $("pfErr").textContent = "";
     const btn = $("pfSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
@@ -2084,6 +2152,7 @@ body{
       });
       me.player = player;
       toast("Сохранено", "good");
+      setProfileEdit(false);
       renderAll();
     } catch (e) { $("pfErr").textContent = errText(e); }
     finally { btn.disabled = false; btn.textContent = "Сохранить"; }
