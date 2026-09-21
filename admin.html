@@ -43,6 +43,10 @@
 
   <div id="err" class="errToast" role="alert"></div>
 
+  <!-- Все карточки лежат в одном контейнере: на узком экране их показывает по
+       одной таббар, на широком они раскладываются в две колонки целой страницей. -->
+  <div id="screens">
+
   <!-- ── Комнаты ───────────────────────────────────────────────────────── -->
   <section id="screenCreate" class="card" style="display:none">
     <div class="cardHead"><h2 id="createTitle">Комнаты</h2>
@@ -54,15 +58,6 @@
       <div class="muted">Записавшиеся через приложение попадут в рум сразу, новые — по кнопке «Загрузить из TG».</div></div>
     <button id="btnCreate" type="button">+ Создать комнату</button>
     <div id="roomsList" class="list" style="margin-top:14px"></div>
-  </section>
-
-  <!-- ── Ссылки ────────────────────────────────────────────────────────── -->
-  <section id="screenLinks" class="card" style="display:none">
-    <div class="cardHead"><h2>Ссылки</h2></div>
-    <div class="field"><label>Админка</label>
-      <div class="row2"><input id="adminLink" class="mono" readonly/><button id="copyAdmin" class="ghost" type="button">Копировать</button></div></div>
-    <div class="field" style="margin-bottom:0"><label>Дисплей для ТВ</label>
-      <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
   </section>
 
   <!-- ── Таймер ────────────────────────────────────────────────────────── -->
@@ -92,6 +87,15 @@
       <button id="reset" class="danger" type="button" style="background:rgba(255,252,244,.06)">Сброс</button>
     </div>
     <div class="mono" id="tinfo" style="margin-top:10px;color:rgba(255,252,244,.55)"></div>
+  </section>
+
+  <!-- ── Ссылки ────────────────────────────────────────────────────────── -->
+  <section id="screenLinks" class="card" style="display:none">
+    <div class="cardHead"><h2>Ссылки</h2></div>
+    <div class="field"><label>Админка</label>
+      <div class="row2"><input id="adminLink" class="mono" readonly/><button id="copyAdmin" class="ghost" type="button">Копировать</button></div></div>
+    <div class="field" style="margin-bottom:0"><label>Дисплей для ТВ</label>
+      <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
   </section>
 
   <!-- ── Турнир ────────────────────────────────────────────────────────── -->
@@ -322,6 +326,8 @@
     </div>
     <div id="levelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
   </section>
+
+  </div><!-- /#screens -->
 </div>
 
 <!-- ── Нижняя навигация ──────────────────────────────────────────────── -->
@@ -601,9 +607,17 @@
     "screenLinkTour", "screenOperators", "screenPlayers", "screenPayments", "screenTgImport", "screenPost",
     "screenPreset", "screenStructure"];
 
+  // Комнату целиком показываем там, где она помещается: на ПК таббар из пяти
+  // кнопок — лишний клик между карточками, которые все нужны одновременно.
+  // Порог по ширине, а не по «устройству»: узкое окно на ПК ведёт себя как телефон.
+  const ONEPAGE = window.matchMedia("(min-width: 1100px)");
+  const ROOM_SCREENS = ALL_SCREENS.filter((id) => id !== "screenCreate");
+  let currentTab = "timer";
+
   function showCreateOnly() {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     $("screenCreate").style.display = "";
+    $("screens").classList.remove("onepage");
     $("tabbar").style.display = "none";
     const listTitle = isOperator() ? "Ваши турниры" : "Комнаты";
     $("headTitle").textContent = listTitle;
@@ -615,17 +629,25 @@
     loadRooms();
     if (!isOperator()) loadLinkableTournaments();
   }
-  function switchTab(tab) {
+  function switchTab(tab, scroll = true) {
+    if (tab) currentTab = tab;
+    const onepage = ONEPAGE.matches;
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
-    (TABS[tab] || TABS.timer).forEach((id) => { $(id).style.display = ""; });
+    (onepage ? ROOM_SCREENS : (TABS[currentTab] || TABS.timer)).forEach((id) => { $(id).style.display = ""; });
     // Привязку турнира и операторов трогает только админ.
     if (isOperator()) ["screenLinkTour", "screenOperators"].forEach((id) => { $(id).style.display = "none"; });
     // Операторы читают уже найденный турнир, поэтому строго после привязки.
-    if (tab === "tour" && !isOperator()) renderLinkTour().then(renderOperators).catch(() => {});
-    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    if (!isOperator() && (onepage || currentTab === "tour")) renderLinkTour().then(renderOperators).catch(() => {});
+    document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === currentTab));
+    $("tabbar").style.display = onepage ? "none" : "";
+    $("screens").classList.toggle("onepage", onepage);
+    // Наверх скроллим только при смене вкладки: на одной странице карточка
+    // никуда не уезжает, и прыжок вверх после перерисовки был бы потерей места.
+    if (scroll && !onepage) window.scrollTo({ top: 0, behavior: "smooth" });
   }
   document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
+  // Окно растянули или сузили через порог — перекладываем, не теряя вкладку.
+  ONEPAGE.addEventListener("change", () => { if (roomId && state) switchTab(null, false); });
 
   // ── Модалки ──────────────────────────────────────────────────────────────
   function confirm2(title, body) {
@@ -2270,8 +2292,7 @@
     $("btnRefresh").style.display = "";
     $("btnBackRooms").style.display = "";
     $("btnBackRooms").textContent = isOperator() ? "← Турниры" : "← Комнаты";
-    $("tabbar").style.display = "";
-    switchTab("timer");
+    switchTab("timer", false);
     state = firstState; renderAll(); setSync("ok");
     loadBlueprints().catch(() => {});
     subscribeRealtime();

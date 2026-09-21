@@ -330,3 +330,22 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
      хвосты (счётчик и крестик в списке комнат) остаются справа от имени. */
   .listRow .rowActs.stack{flex:1 1 100%;justify-content:flex-start;margin-left:42px}
 }
+
+/* ── Админка одной страницей ─────────────────────────────────── */
+/* Таббар — решение для телефона: пять кнопок внизу большого пальца. На ПК он
+   превращался в лишний клик между карточками, которые за столом нужны
+   одновременно (таймер, игроки, оплата). Порог по ширине окна, а не по
+   устройству: узкое окно на ПК ведёт себя как телефон и получает таббар. */
+@media(min-width:1100px){
+  .wrap{padding-bottom:32px}
+  /* Без таббара плашке ошибки и кнопке «наверх» не от чего отступать. */
+  .errToast{bottom:20px}
+  #btnScrollTop{bottom:20px}
+  /* Колонки, а не сетка: карточки разной высоты, и в сетке строка равнялась бы
+     по самой длинной, оставляя дыры под короткими. */
+  #screens.onepage{columns:2;column-gap:16px}
+  #screens.onepage>.card{break-inside:avoid;margin:0 0 16px}
+  /* Таймер читают через зал, таблица уровней широкая — им вся ширина. */
+  #screens.onepage>#screenTimer,
+  #screens.onepage>#screenStructure{column-span:all}
+}
