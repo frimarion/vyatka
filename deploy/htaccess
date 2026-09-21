@@ -33,25 +33,12 @@ Options -Indexes
   RewriteRule ^(.+)$ $1.html [L]
 </IfModule>
 
-# Хостинг держит свой mod_expires и раздаёт js и css с `max-age=3888000` —
-# сорок пять дней. Правило ниже его не перебивало: mod_expires отрабатывает
-# позже mod_headers и просто переписывает готовый заголовок. Видно это было
-# только на живом домене (`curl -I https://vyatkapoker.ru/js/config.js`), и
-# поймалось ровно так, как и должно было однажды пойматься: выложили вход
-# через VK, а у вернувшегося игрока кнопки нет — index.html новый, config.js
-# из кэша. Свои сроки ставим сами, поэтому чужие тут выключаются целиком.
-<IfModule mod_expires.c>
-  ExpiresActive Off
-</IfModule>
-
 <IfModule mod_headers.c>
   # Версионирования у статики нет, поэтому длинный кэш опасен: ведущий откроет
   # админку перед турниром и получит вчерашний js. Свои файлы — с ревалидацией,
   # библиотека supabase (меняется раз в год) — надолго.
   <FilesMatch "\.(html|js|css)$">
-    Header always set Cache-Control "no-cache"
-    # mod_expires мог успеть проставить дату — без unset браузер поверит ей.
-    Header always unset Expires
+    Header set Cache-Control "no-cache"
   </FilesMatch>
   <FilesMatch "^supabase-js\.min\.js$">
     Header set Cache-Control "public, max-age=2592000, immutable"
