@@ -43,6 +43,23 @@ body{
 }
 html.locked,body.locked{overflow:hidden}
 
+/* Водяной знак клуба на фоне страниц — тот же вордмарк, что и в шапке,
+   мелко и почти невидимо повторён по фону. Фиксирован, чтобы не скроллился
+   вместе со страницей, и лежит ниже всего контента (карточки его перекрывают
+   своей непрозрачной подложкой). */
+body::before{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:url("../assets/logo.svg");
+  background-repeat:repeat;
+  background-position:center;
+  background-size:260px auto;
+  opacity:.05;
+  pointer-events:none;
+  z-index:-1;
+}
+
 /* ── Типографика ─────────────────────────────────────────────── */
 h1,h2,h3{margin:0;font-weight:900;letter-spacing:-.02em}
 h1{font-size:30px}
@@ -57,7 +74,10 @@ h2{font-size:19px}
    читается, поэтому в варианте on-accent логотип выбеливается фильтром. */
 .logoMark{display:block;height:17px;width:auto;margin-bottom:7px}
 .logoMark.lg{height:30px;margin-bottom:12px}
-.logoMark.on-accent{filter:brightness(0) invert(1);opacity:.92}
+.logoMark.on-accent{filter:brightness(0) invert(1);opacity:.92;height:26px}
+.logoLink{display:inline-block;line-height:0;text-decoration:none;transition:opacity .15s}
+.logoLink:hover{opacity:.85}
+.logoLink:active{opacity:.7}
 .muted{color:var(--muted);font-size:13px}
 .sub{color:var(--muted);font-size:13px;margin-top:2px}
 .mono{font-family:var(--mono);font-size:12px}
