@@ -518,6 +518,19 @@ body{
   .tcName{font-size:18px}
   .tcard.hero::after{width:168px;right:-56px}
 }
+.ratingTable{padding:0;overflow:hidden}
+.ratingRow{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;padding:15px 16px;border-bottom:1px solid var(--line)}
+.ratingRow:last-child{border-bottom:0}
+.ratingLabels{font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;background:var(--surface-2)}
+.ratingPlace{font-weight:900;text-align:center;font-variant-numeric:tabular-nums}
+.ratingPlace.medal{background:var(--gold);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;margin:auto}
+.ratingPlayer{min-width:0;overflow-wrap:anywhere}
+.ratingPlayer .sub{color:var(--ink-2);font-size:11px}
+.ratingRow.isMe{background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent)}
+.ratingOwn{border:1px solid var(--accent)}
+.ratingPersonal{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
+.ratingPersonal strong{font-size:30px;color:var(--accent)}
+#tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
 </style>
 </head>
 <body>
@@ -689,6 +702,24 @@ body{
     <div id="toursList"></div>
   </section>
 
+  <section id="tabRating" class="tab" style="display:none">
+    <div class="cardHead" style="margin-bottom:12px"><h2>Рейтинг</h2><button id="ratingRefresh" class="ghost" type="button" aria-label="Обновить рейтинг">↻ Обновить</button></div>
+    <div class="chips" id="ratingPeriods" aria-label="Период рейтинга">
+      <button class="on" data-period="month" type="button" aria-pressed="true">Этот месяц</button>
+      <button data-period="year" type="button" aria-pressed="false">Этот год</button>
+      <button data-period="all" type="button" aria-pressed="false">Всё время</button>
+    </div>
+    <div class="banner" style="cursor:default">
+      <div class="bEyebrow">За игровым столом</div>
+      <div class="bTitle">Каждое место имеет значение</div>
+      <div class="bSub">Сумма очков за места в завершённых турнирах. Ноки не учитываются. При равных очках — одинаковое место.</div>
+    </div>
+    <div id="ratingMine"></div>
+    <div class="field"><label for="ratingSearch">Найти игрока</label><input id="ratingSearch" type="search" placeholder="Имя за столом" maxlength="60"/></div>
+    <div id="ratingStatus" role="status" class="muted" style="margin:12px 0"></div>
+    <div id="ratingList"></div>
+  </section>
+
   <!-- ── Профиль ─────────────────────────────────────────────── -->
   <section id="tabMe" class="tab" style="display:none">
     <div id="meGuest" class="empty" style="display:none">
@@ -753,6 +784,7 @@ body{
 <nav class="tabbar" id="tabbar" style="display:none">
   <button data-tab="home" class="active" type="button"><span class="ic">♦</span>Главная</button>
   <button data-tab="tours" type="button"><span class="ic">♣</span>Турниры</button>
+  <button data-tab="rating" type="button"><span class="ic">🏆</span>Рейтинг</button>
   <button data-tab="me" type="button"><span class="ic">♠</span>Профиль</button>
 </nav>
 
@@ -840,6 +872,8 @@ body{
   let tours = [];             // расписание: только публичные статусы
   let roomStates = {};        // room_id → state комнаты, для живого турнира
   let filter = "open";
+  let ratingPeriod = "month", ratingRows = [], ratingRequest = 0;
+  let ratingLoading = false, ratingError = false, ratingLoaded = false;
   let openId = null;          // турнир на экране деталей
   let rosterCache = {};
   let resultCache = {};           // итоги завершённого турнира из снимка CRM
@@ -867,7 +901,8 @@ body{
   }
 
   function tab(name) {
-    ["home", "tours", "me"].forEach((t) => { $("tab" + t[0].toUpperCase() + t.slice(1)).style.display = t === name ? "" : "none"; });
+    if (name === "rating") loadRating();
+    ["home", "tours", "rating", "me"].forEach((t) => { $("tab" + t[0].toUpperCase() + t.slice(1)).style.display = t === name ? "" : "none"; });
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === name));
     window.scrollTo(0, 0);
   }
@@ -1459,7 +1494,7 @@ body{
   }
 
   // Широкая плашка между геро и плитками. У Дойла на этом месте таблица
-  // лидеров; рейтинга в Вятке нет, и придумывать его ради красоты не нужно —
+  // лидеров; здесь плашка с личной историей игрока —
   // плашка показывает то, что уже есть: сыгранное игрока, а гостю — расписание.
   function renderBanner() {
     const hist = me?.history || [];
@@ -1793,7 +1828,46 @@ body{
     liveTimer = pollTimer = null;
   }
 
-  function renderAll() { renderHome(); renderTours(); renderMe(); }
+  function renderRating() {
+    $("ratingMine").innerHTML = "";
+    $("ratingList").innerHTML = "";
+    $("ratingStatus").textContent = ratingLoading ? "Загружаем рейтинг…" : ratingError
+      ? "Не удалось загрузить рейтинг. Нажми «Обновить», чтобы попробовать ещё раз."
+      : !ratingLoaded ? "" : !ratingRows.length ? "За этот период пока нет завершённых турниров с результатами." : `${ratingRows.length} ${plural(ratingRows.length, "игрок", "игрока", "игроков")} в рейтинге`;
+    if (ratingLoading || ratingError || !ratingLoaded) return;
+    const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
+    if (me?.player) $("ratingMine").innerHTML = `<div class="card ratingOwn">${mine
+      ? `<div class="eyebrow">Твоё место</div><div class="ratingPersonal"><strong>№ ${fmtInt(mine.rank)}</strong><span>${fmtInt(mine.points)} очков</span></div>`
+      : '<strong>Твой результат ещё впереди</strong><div class="sub">Сыграй турнир — после сохранения итогов здесь появится твоё место.</div>'}</div>`;
+    const query = $("ratingSearch").value.trim().toLocaleLowerCase("ru");
+    const rows = ratingRows.filter(r => r.name.toLocaleLowerCase("ru").includes(query));
+    if (!rows.length && ratingRows.length) {
+      $("ratingList").innerHTML = '<div class="empty"><div class="eT">Игрок не найден</div><div class="eS">Попробуй другое имя.</div></div>'; return;
+    }
+    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span><div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
+  }
+  async function loadRating() {
+    const request = ++ratingRequest;
+    ratingLoading = true; ratingError = false; renderRating();
+    try {
+      const rows = await rpc("vp_app_rating", { p_period: ratingPeriod });
+      if (request !== ratingRequest) return;
+      ratingRows = rows || []; ratingLoaded = true;
+    } catch (_) { if (request === ratingRequest) ratingError = true; }
+    finally { if (request === ratingRequest) { ratingLoading = false; renderRating(); } }
+  }
+  $("ratingPeriods").onclick = ev => {
+    const button = ev.target.closest("button[data-period]");
+    if (!button) return;
+    ratingPeriod = button.dataset.period;
+    $("ratingPeriods").querySelectorAll("button").forEach(b => {
+      b.classList.toggle("on", b === button); b.setAttribute("aria-pressed", String(b === button));
+    });
+    haptic(); loadRating();
+  };
+  $("ratingSearch").oninput = renderRating;
+  $("ratingRefresh").onclick = loadRating;
+  function renderAll() { renderHome(); renderTours(); renderMe(); renderRating(); }
 
   // ── События ────────────────────────────────────────────────────────────────
   document.addEventListener("click", (ev) => {
