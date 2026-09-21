@@ -337,9 +337,10 @@ openssl s_client -connect smtp.yandex.ru:465 -quiet
 
 ### Шаблон письма
 
-Письмо шлётся шаблоном «Magic Link», и нужен в нём именно код: без `{{ .Token }}`
-GoTrue отправит ссылку, а приложение спрашивает шесть цифр — человек получит
-письмо, в котором нечего вводить.
+Для нового адреса GoTrue шлёт шаблон `Confirmation`, для уже подтверждённого —
+`Magic Link`. Оба должны указывать на один OTP-шаблон, и нужен в нём именно код:
+без `{{ .Token }}` GoTrue отправит ссылку, а приложение спрашивает шесть цифр —
+человек получит письмо, в котором нечего вводить.
 
 Редактора шаблонов в self-hosted Studio нет, это облачная возможность. Шаблон
 задаётся адресом, по которому GoTrue его забирает, — и лежит он у нас же, в
@@ -347,9 +348,14 @@ GoTrue отправит ссылку, а приложение спрашивае
 видна сразу после неё, перезапускать контейнер не нужно.
 
 ```
+GOTRUE_MAILER_SUBJECTS_CONFIRMATION=Код для входа в «Вятку»
+GOTRUE_MAILER_TEMPLATES_CONFIRMATION=https://vyatkapoker.ru/email/otp.html
 GOTRUE_MAILER_SUBJECTS_MAGIC_LINK=Код для входа в «Вятку»
 GOTRUE_MAILER_TEMPLATES_MAGIC_LINK=https://vyatkapoker.ru/email/otp.html
 ```
+
+Все четыре переменные должны быть переданы контейнеру `auth` в секции
+`environment` файла `docker-compose.yml`.
 
 Применить весь блок: `cd /opt/vyatka && docker compose up -d auth`.
 
@@ -391,7 +397,109 @@ on conflict (key) do update set value = excluded.value;
 Если на шаге 3 приложение ругается на `vp_app_*` — не доехал
 `005_player_app.sql`. Если на шаге 1 висит 401 — не вставлен `ANON_KEY`.
 
-## 8. Бэкапы
+## 9. Уведомления в Telegram-группу и утренний черновик поста
+
+По аналогии с Дойлом: служебная группа получает сообщение на каждую запись и
+отмену игрока, а с утра в турнирный день — черновик поста с текущим списком
+записавшихся (просто текст, публикует его в канал/группу руками админ —
+автопубликации нет). Код — [../migrations/012_tg_admin_notify.sql](../migrations/012_tg_admin_notify.sql)
+и [../supabase/functions/tournament-notify/index.ts](../supabase/functions/tournament-notify/index.ts).
+**Уже настроено и работает** (группа «Вятка Уведомления», бот `VyatkaPokerBot`) —
+раздел ниже описывает, что именно сделано, на случай переезда или повторной
+настройки с нуля.
+
+Стек на сервере — не старая ручная сборка `supabase/docker`, как у Дойла, а
+готовый `docker compose` (envoy вместо Kong, `/opt/vyatka/docker-compose.yml`,
+`/opt/vyatka/.env`). Это меняет и путь функций, и способ деплоя.
+
+**Группа и токен.** Бот добавлен в группу тем же токеном, что у Mini App
+(`app_secrets.tg_bot_token` — второго бота заводить незачем). `chat_id`
+группы узнаётся через `getUpdates`, но только пока не настроен вебхук
+(`getWebhookInfo` → `url` пусто) и есть непрочитанные апдейты — практически
+надёжнее один раз пройти шаги ниже, чем полагаться на пустой `getUpdates`:
+
+```bash
+# на сервере, токен не должен светиться в истории шелла — через переменную:
+TOKEN=$(docker exec -i supabase-db psql -U postgres -d postgres -tAc \
+  "select value from public.app_secrets where key='tg_bot_token'")
+curl -s "https://api.telegram.org/bot${TOKEN}/getUpdates?limit=100"
+```
+
+Ищем в ответе `my_chat_member` или любое сообщение с `"type":"group"` —
+`chat.id` там отрицательный, это и есть `TG_ADMIN_CHAT_ID`. Если ответ
+пустой при непустом `pending_update_count` из `getWebhookInfo` — значит бот
+только что добавлен и апдейт ещё не долетел, повторить через несколько секунд.
+
+**Деплой Edge Function.** Функции лежат в `/opt/vyatka/volumes/functions/`
+(не `docker/volumes/functions`, как у Дойла) — контейнер `functions`
+(`supabase-edge-functions`) монтирует эту папку целиком, роутер `main` уже
+есть и сам находит функцию по имени в пути. Деплой — это просто положить файл
+и перезапустить штатным `docker compose`, без ручного `docker run`:
+
+```bash
+scp supabase/functions/tournament-notify/index.ts \
+  root@176.57.214.63:/opt/vyatka/volumes/functions/tournament-notify/index.ts
+```
+
+Переменные для функции добавляются в `.env` и пробрасываются в
+`docker-compose.yml` — секция `functions:` → `environment:`, после
+`VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"`:
+
+```yaml
+      BOT_TOKEN: ${BOT_TOKEN}
+      TG_ADMIN_CHAT_ID: ${TG_ADMIN_CHAT_ID}
+      CRON_SECRET: ${CRON_SECRET}
+```
+
+В `/opt/vyatka/.env` (тот же файл, где `ANON_KEY`/`SERVICE_ROLE_KEY`):
+
+```
+BOT_TOKEN=<токен vyatkapoker_bot>
+TG_ADMIN_CHAT_ID=<chat_id группы>
+CRON_SECRET=<свой случайный секрет — openssl rand -hex 32>
+```
+
+Применить: `cd /opt/vyatka && docker compose up -d functions` — router `main`
+раздаёт все переменные контейнера каждой функции сам (`Deno.env.toObject()`
+в `main/index.ts`), отдельно прописывать их под каждую функцию не нужно.
+
+**Секреты в БД** — тем же `CRON_SECRET`, что ушёл в `.env`:
+
+```sql
+insert into public._app_config (key, value) values
+  ('edge_url',    'https://api.vyatkapoker.ru/functions/v1'),
+  ('cron_secret', '<CRON_SECRET из .env>'),
+  ('anon_key',    '<ANON_KEY>')
+on conflict (key) do update set value = excluded.value;
+```
+
+**Cron на утренний черновик** (07:00 UTC = 10:00 MSK) — скрипт с секретами
+внутри, а не голый curl в кронтабе:
+
+```bash
+# /usr/local/bin/vyatka-announce.sh, chmod 700, root:root
+#!/usr/bin/env bash
+set -euo pipefail
+curl -s -X POST https://api.vyatkapoker.ru/functions/v1/tournament-notify \
+  -H "apikey: <ANON_KEY>" \
+  -H "Authorization: Bearer <CRON_SECRET>" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"prepare"}'
+```
+
+```
+# /etc/cron.d/vyatka-announce
+0 7 * * * root /usr/local/bin/vyatka-announce.sh >> /var/log/vyatka-announce.log 2>&1
+```
+
+Проверить вручную, не дожидаясь утра: `/usr/local/bin/vyatka-announce.sh`.
+
+Если группа молчит на регистрации из приложения — смотреть `docker logs
+supabase-edge-functions --tail 50` и проверять, что все три ключа легли в
+`_app_config` (без них триггер молча выходит, чтобы недонастроенные
+уведомления не роняли саму регистрацию игрока).
+
+## 10. Бэкапы
 
 Стоит на сервере: `/usr/local/bin/vyatka-backup.sh` по крону из
 `/etc/cron.d/vyatka-backup`, каждый день в 05:20 — заведомо после последнего

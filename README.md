@@ -26,6 +26,7 @@ reg.ru). Бэкенд — свой self-hosted Supabase на **api.vyatkapoker.r
 | `tests/core.test.js` | Проверки ядра: `node tests/core.test.js` |
 | `tests/crm.test.js` | Проверки CRM и `.xlsx`: `node tests/crm.test.js` |
 | `deploy/site.md` | Выкладка сайта на vyatkapoker.ru через GitHub Actions |
+| `supabase/functions/tournament-notify` | Edge Function: уведомления в служебную TG-группу о записях/отменах и утренний черновик поста ([deploy/README.md, §9](deploy/README.md)) |
 
 ## Запуск
 
