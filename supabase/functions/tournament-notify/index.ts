@@ -87,12 +87,13 @@ function fmtInt(n: number): string {
 // (<blockquote>, Telegram отрисовывает её полосой сбоку — как у гостевых
 // списков в других клубах) и ссылка на приложение вместо голого URL.
 //
-// Буллеты — из двух источников, оба правятся в tournaments.html:
-// start_stack/late_reg_level/level_minutes — отдельные колонки (карточка
-// турнира), дальше свободный текст из features (то самое поле "Особенности").
-// Реентри отдельной колонки не заводили — это описывается текстом в features
-// или description, готовых данных для авто-строки про реентри нет.
-// Пустое поле — это просто нет строки, а не "0" или прочерк.
+// Буллеты — из двух источников, оба правятся в tournaments.html: взнос
+// (entry_fee — not null, всегда есть) и start_stack/late_reg_level/
+// level_minutes — отдельные колонки карточки турнира, дальше свободный текст
+// из features (поле "Особенности"). Реентри отдельной колонки не заводили —
+// это описывается текстом в features или description, готовых данных для
+// авто-строки про реентри нет. Пустое поле — это просто нет строки, а не
+// "0" или прочерк.
 //
 // Возвращает готовый HTML: имена и название турнира экранированы по месту,
 // поэтому весь результат уходит в sendMessage как есть, без escHtml() сверху —
@@ -106,10 +107,13 @@ function buildDraftHtml(
   players: { name: string }[],
 ): string {
   const details: string[] = [];
-  if (t.start_stack) details.push(`Стартовый стек — ${fmtInt(t.start_stack)} фишек`);
-  if (t.late_reg_level) details.push(`Поздняя регистрация до ${t.late_reg_level} уровня`);
-  if (t.level_minutes) details.push(`Уровни по ${t.level_minutes} мин`);
-  if (Array.isArray(t.features)) details.push(...(t.features as string[]));
+  details.push(`💰 Взнос — ${t.entry_fee ? `${fmtInt(t.entry_fee)} ₽` : "бесплатно"}`);
+  if (t.start_stack) details.push(`♦️ Стартовый стек — ${escHtml(fmtInt(t.start_stack))} фишек`);
+  if (t.late_reg_level) details.push(`♦️ Поздняя регистрация до ${t.late_reg_level} уровня`);
+  if (t.level_minutes) details.push(`♦️ Уровни по ${t.level_minutes} мин`);
+  if (Array.isArray(t.features)) {
+    (t.features as string[]).forEach((f) => details.push(`♦️ ${escHtml(f)}`));
+  }
 
   const lines = [
     "📋 Список записавшихся — клуб «Вятка»! ♠️",
@@ -119,10 +123,10 @@ function buildDraftHtml(
     "",
     `🏆 ${escHtml(t.name)} 🏆`,
     "",
+    ...details,
+    "",
+    "Участники:",
   ];
-  details.forEach((d) => lines.push(`♦️ ${escHtml(d)}`));
-  if (details.length) lines.push("");
-  lines.push(`💰 Взнос — ${t.entry_fee} ₽`, "", "Участники:");
 
   const playerLines = players.length
     ? players.map((p, i) => `${i + 1}. ${escHtml(p.name)}`).join("\n")
