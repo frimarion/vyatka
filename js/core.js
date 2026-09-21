@@ -389,11 +389,14 @@
     return Math.max(0, Math.min(entriesOf(p), clampInt(p?.freeEntries ?? 0, 0)));
   }
   // Цены входов игрока по порядку: сам вход — по тарифу, реентри — по цене реентри.
-  // Тариф free (взнос 0) обнуляет всё: «играет бесплатно» значит и реентри тоже.
+  // Тариф free (взнос игрока явно 0) обнуляет всё: «играет бесплатно» значит и
+  // реентри тоже. Если же это дефолтный тариф, а турнир сам по себе бесплатный
+  // (defaultBuyIn = 0), реентри всё равно платное — это разные вещи.
   function entryPrices(p, tour) {
     const buyIn = effectiveBuyIn(p, tour);
     const reentries = clampInt(p?.reentries ?? 0, 0);
-    const re = buyIn === 0 ? 0 : effectiveReentryCost(tour);
+    const isFreeTariff = p?.buyIn != null && clampInt(p.buyIn, 0) === 0;
+    const re = isFreeTariff ? 0 : effectiveReentryCost(tour);
     return [buyIn, ...Array.from({ length: reentries }, () => re)];
   }
   function calcExpected(p, tour) {

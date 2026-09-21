@@ -165,6 +165,13 @@ console.log('все проверки прошли');
   p().buyIn = VP.buyInForTariff('full', t);
   A.equal(p().buyIn, null, 'полный тариф = взнос турнира');
 
+  // Взнос турнира сам по себе 0 — это не тариф free, реентри остаётся платным
+  p().freeEntries = 0; p().reentries = 1;
+  t.defaultBuyIn = 0; t.reentryCost = 500;
+  A.equal(VP.calcExpected(p(), t), 500, 'бесплатный вход в турнир не гасит реентри');
+  t.defaultBuyIn = 1000; t.reentryCost = 1000;
+  p().reentries = 0;
+
   p().payments = [{method:'transfer', amount:600}];
   A.equal(VP.totalPaid(p()), 600);
   A.equal(VP.remainingAmount(p(), t), 400, 'остаток после частичной оплаты');
