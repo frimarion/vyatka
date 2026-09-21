@@ -146,6 +146,18 @@
       <div class="field" style="margin:0"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
     </div>
 
+    <div class="switchRow"><span class="switchLabel">Аддон</span><input id="addonEnabled" type="checkbox"/></div>
+    <div id="addonFields" style="display:none">
+      <div class="quickGrid">
+        <div class="field" style="margin:0"><label>Аддон — стек</label><input id="addon1Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
+        <div class="field" style="margin:0"><label>Аддон — цена, ₽</label><input id="addon1Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
+        <div class="field" style="margin:0"><label>Двойной аддон — стек</label><input id="addon2Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
+        <div class="field" style="margin:0"><label>Двойной аддон — цена, ₽</label><input id="addon2Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
+        <div class="field" style="margin:0"><label>Тройной аддон — стек</label><input id="addon3Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
+        <div class="field" style="margin:0"><label>Тройной аддон — цена, ₽</label><input id="addon3Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
+      </div>
+    </div>
+
     <!-- Счётчики без имён: турнир, который ведут «по головам». Как только
          появляется список игроков, статистика считается из него, и блок
          схлопывается — два источника правды развалили бы места и оплату. -->
@@ -466,7 +478,7 @@
     genRoomId, PRESETS, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
     searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, payMethodLabel, getPayments, totalPaid, entriesOf,
-    effectiveBuyIn, effectiveReentryCost, effectiveFreeEntries, calcExpected, remainingAmount,
+    effectiveBuyIn, effectiveReentryCost, effectiveFreeEntries, addonStackFor, addonCostFor, calcExpected, remainingAmount,
     payStatus, tariffOf, buyInForTariff, calcPayTotals,
   } = window.VP;
 
@@ -1063,7 +1075,9 @@
     if (!el || document.activeElement === el || DIRTY.has(id)) return;
     el.value = v;
   };
-  ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry", "ratingGuarantee", "infoBonusHand", "infoComment"]
+  ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry",
+   "addon1Stack", "addon1Cost", "addon2Stack", "addon2Cost", "addon3Stack", "addon3Cost",
+   "ratingGuarantee", "infoBonusHand", "infoComment"]
     .forEach((id) => { $(id).addEventListener("input", () => DIRTY.add(id)); });
 
   const stepper = (btnId, inputId, delta) => {
@@ -1078,6 +1092,8 @@
   stepper("btnLateMinus", "lateReg", -1);
   stepper("btnLatePlus", "lateReg", 1);
 
+  $("addonEnabled").onchange = () => { $("addonFields").style.display = $("addonEnabled").checked ? "" : "none"; };
+
   $("btnSaveQuick").onclick = async () => {
     setErr(null);
     const v = {
@@ -1086,6 +1102,13 @@
       lateReg: clampInt($("lateReg").value, 0),
       buyIn: clampInt($("defaultBuyIn").value, 0),
       reentryCost: clampInt($("defaultReentry").value, 0),
+      addonEnabled: $("addonEnabled").checked,
+      addon1Stack: clampInt($("addon1Stack").value, 0),
+      addon1Cost: clampInt($("addon1Cost").value, 0),
+      addon2Stack: clampInt($("addon2Stack").value, 0),
+      addon2Cost: clampInt($("addon2Cost").value, 0),
+      addon3Stack: clampInt($("addon3Stack").value, 0),
+      addon3Cost: clampInt($("addon3Cost").value, 0),
     };
     try {
       await saveWithReload((st) => {
@@ -1094,6 +1117,13 @@
         st.tournament.lateRegUntilLevel = v.lateReg;
         st.tournament.defaultBuyIn = v.buyIn;
         st.tournament.reentryCost = v.reentryCost;
+        st.tournament.addonEnabled = v.addonEnabled;
+        st.tournament.addon1Stack = v.addon1Stack;
+        st.tournament.addon1Cost = v.addon1Cost;
+        st.tournament.addon2Stack = v.addon2Stack;
+        st.tournament.addon2Cost = v.addon2Cost;
+        st.tournament.addon3Stack = v.addon3Stack;
+        st.tournament.addon3Cost = v.addon3Cost;
         return recalcRating(st);
       });
       DIRTY.clear();
@@ -1481,12 +1511,23 @@
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
+  // Повторный клик по тому же размеру снимает аддон — выбор одного из трёх, не флаг.
+  async function setAddon(name, tier) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name); if (!p) return st;
+        p.addon = p.addon === tier ? 0 : tier;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  window._vp = { togglePresent, addReentry, setAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
     payTariff, payFreeEntry, payAdd, payUndo, payClear };
 
   function renderPlayers() {
     const box = $("playersList");
     const players = state?.players || [];
+    const addonEnabled = !!state?.tournament?.addonEnabled;
     $("playersInfo").textContent = `${state?.stats?.alive ?? 0} в игре · ${players.length} в списке`;
     const visible = players.filter((p) => !playerSearchQuery || keyName(p.name).includes(playerSearchQuery));
     if (!visible.length) { box.innerHTML = '<div class="muted">Список пуст.</div>'; return; }
@@ -1496,6 +1537,7 @@
       if (ab !== bb) return ab ? 1 : -1;
       return a.name.localeCompare(b.name, "ru");
     });
+    const ADDON_TAG = { 1: "аддон", 2: "2× аддон", 3: "3× аддон" };
     box.innerHTML = sorted.map((p) => {
       const n = escHtml(p.name);
       const j = jsArg(p.name);
@@ -1503,9 +1545,15 @@
       const tags = [
         busted && p.place ? `<span class="tag hot">${p.place} место</span>` : "",
         p.reentries ? `<span class="tag">re ×${p.reentries}</span>` : "",
+        addonEnabled && p.addon ? `<span class="tag gold">${ADDON_TAG[p.addon]}</span>` : "",
         p.ko ? `<span class="tag">KO ${p.ko}</span>` : "",
         p.present ? "" : '<span class="tag">не пришёл</span>',
       ].filter(Boolean).join(" ");
+      const addonBtns = addonEnabled
+        ? `<button class="tiny ghost${p.addon === 1 ? " on" : ""}" onclick="_vp.setAddon(${j},1)">А</button>
+           <button class="tiny ghost${p.addon === 2 ? " on" : ""}" onclick="_vp.setAddon(${j},2)">2А</button>
+           <button class="tiny ghost${p.addon === 3 ? " on" : ""}" onclick="_vp.setAddon(${j},3)">3А</button>`
+        : "";
       const actions = !p.present
         ? `<button class="tiny" onclick="_vp.togglePresent(${j})">Пришёл</button>`
         : busted
@@ -1515,6 +1563,7 @@
           : `<button class="tiny" onclick="_vp.bustPlayer(${j})">BUSTED</button>
              <button class="tiny ghost" onclick="_vp.addReentry(${j},1)">R+</button>
              ${p.reentries ? `<button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри">R−</button>` : ""}
+             ${addonBtns}
              <button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>`;
       return `<div class="listRow${busted ? " busted" : ""}">
         <span class="avatar">${escHtml(initials(p.name))}</span>
@@ -1633,6 +1682,8 @@
     if (entries > 1 && effectiveBuyIn(p, tour) > 0) bits.push(`реентри ${NF.format(effectiveReentryCost(tour))} ₽`);
     const free = effectiveFreeEntries(p);
     if (free) bits.push(`free entry ×${free}`);
+    const addonCost = addonCostFor(p, tour);
+    if (addonCost) bits.push(`аддон ${NF.format(addonCost)} ₽`);
     const expected = calcExpected(p, tour), paid = totalPaid(p);
     const parts = getPayments(p).map((x) => `${NF.format(x.amount)} ${payMethodLabel(x.method)}`).join(" + ");
     let tail;
@@ -2209,6 +2260,14 @@
     setIfNotFocused("lateReg", t.lateRegUntilLevel);
     setIfNotFocused("defaultBuyIn", t.defaultBuyIn);
     setIfNotFocused("defaultReentry", effectiveReentryCost(t));
+    setIfNotFocused("addon1Stack", t.addon1Stack);
+    setIfNotFocused("addon1Cost", t.addon1Cost);
+    setIfNotFocused("addon2Stack", t.addon2Stack);
+    setIfNotFocused("addon2Cost", t.addon2Cost);
+    setIfNotFocused("addon3Stack", t.addon3Stack);
+    setIfNotFocused("addon3Cost", t.addon3Cost);
+    if (document.activeElement !== $("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;
+    $("addonFields").style.display = t.addonEnabled ? "" : "none";
     setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 0);
     setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
     setIfNotFocused("infoComment", state.info?.comment ?? "");

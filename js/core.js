@@ -130,6 +130,13 @@
     // Турниры, сохранённые до отдельной цены реентри, продолжают считать реентри
     // по взносу — иначе деньги в уже идущем турнире пересчитались бы задним числом.
     t.reentryCost = clampInt(t.reentryCost ?? t.defaultBuyIn, 0);
+    t.addonEnabled = !!t.addonEnabled;
+    t.addon1Stack = clampInt(t.addon1Stack ?? 0, 0);
+    t.addon1Cost = clampInt(t.addon1Cost ?? 0, 0);
+    t.addon2Stack = clampInt(t.addon2Stack ?? 0, 0);
+    t.addon2Cost = clampInt(t.addon2Cost ?? 0, 0);
+    t.addon3Stack = clampInt(t.addon3Stack ?? 0, 0);
+    t.addon3Cost = clampInt(t.addon3Cost ?? 0, 0);
 
     const ti = st.timer;
     // Битые/протухшие метки времени — сбрасываем, иначе таймер «зависает» в прошлом.
@@ -189,6 +196,8 @@
         koDelta: p?.koDelta && typeof p.koDelta === "object"
           ? { ko: clampInt(p.koDelta.ko ?? 0, 0) }
           : null,
+        // 0 = без аддона, 1/2/3 = выбранный размер (аддон/двойной/тройной)
+        addon: [0, 1, 2, 3].includes(clampInt(p?.addon ?? 0, 0)) ? clampInt(p?.addon ?? 0, 0) : 0,
         // ── оплата ──
         buyIn: p?.buyIn == null ? null : clampInt(p.buyIn, 0),   // null = взнос турнира
         freeEntries: clampInt(p?.freeEntries ?? 0, 0),
@@ -388,6 +397,23 @@
   function effectiveFreeEntries(p) {
     return Math.max(0, Math.min(entriesOf(p), clampInt(p?.freeEntries ?? 0, 0)));
   }
+  // Аддон — отдельная докупка фишек, не вход: тариф/free entry на неё не действуют.
+  function addonStackFor(p, tour) {
+    if (!tour?.addonEnabled) return 0;
+    const tier = clampInt(p?.addon ?? 0, 0);
+    if (tier === 1) return clampInt(tour?.addon1Stack ?? 0, 0);
+    if (tier === 2) return clampInt(tour?.addon2Stack ?? 0, 0);
+    if (tier === 3) return clampInt(tour?.addon3Stack ?? 0, 0);
+    return 0;
+  }
+  function addonCostFor(p, tour) {
+    if (!tour?.addonEnabled) return 0;
+    const tier = clampInt(p?.addon ?? 0, 0);
+    if (tier === 1) return clampInt(tour?.addon1Cost ?? 0, 0);
+    if (tier === 2) return clampInt(tour?.addon2Cost ?? 0, 0);
+    if (tier === 3) return clampInt(tour?.addon3Cost ?? 0, 0);
+    return 0;
+  }
   // Цены входов игрока по порядку: сам вход — по тарифу, реентри — по цене реентри.
   // Тариф free (взнос игрока явно 0) обнуляет всё: «играет бесплатно» значит и
   // реентри тоже. Если же это дефолтный тариф, а турнир сам по себе бесплатный
@@ -403,7 +429,7 @@
     // Free entry гасит самые дорогие входы: комп не должен съедать дешёвое реентри,
     // оставляя игроку полный взнос.
     const billable = entryPrices(p, tour).sort((x, y) => y - x).slice(effectiveFreeEntries(p));
-    return billable.reduce((a, b) => a + b, 0);
+    return billable.reduce((a, b) => a + b, 0) + addonCostFor(p, tour);
   }
   function remainingAmount(p, tour) {
     return Math.max(0, calcExpected(p, tour) - totalPaid(p));
@@ -463,11 +489,16 @@
     }
     return clampInt(st?.stats?.registered ?? 0, 0) + clampInt(st?.stats?.reentries ?? 0, 0);
   }
+  function calcAddonChips(st) {
+    const tour = st?.tournament;
+    if (!tour?.addonEnabled || !Array.isArray(st?.players)) return 0;
+    return st.players.reduce((a, p) => a + addonStackFor(p, tour), 0);
+  }
   function calcTotalChips(st) {
     const reg = clampInt(st?.stats?.registered ?? 0, 0);
     const re = clampInt(st?.stats?.reentries ?? 0, 0);
     const ss = clampInt(st?.tournament?.startStack ?? 0, 0);
-    return (reg + re) * ss;
+    return (reg + re) * ss + calcAddonChips(st);
   }
   function calcAvg(st) {
     const alive = clampInt(st?.stats?.alive ?? 0, 0);
@@ -773,8 +804,8 @@
     translitRuToEn, translitEnToRu, searchVariants,
     PAY_METHODS, DEFAULT_PAY_METHOD, isPayMethod, payMethodTitle, payMethodLabel,
     normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveReentryCost, entryPrices, effectiveFreeEntries,
-    calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
-    calcEntries, calcTotalChips, calcAvg,
+    addonStackFor, addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
+    calcEntries, calcAddonChips, calcTotalChips, calcAvg,
     curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,
     PT_ENTRY, DEFAULT_GUARANTEE,
     T, isOnBreak, breakRemainingSec, remainingSec, levelRemainingSec,

@@ -172,6 +172,25 @@ console.log('все проверки прошли');
   t.defaultBuyIn = 1000; t.reentryCost = 1000;
   p().reentries = 0;
 
+  // Аддон: не вход, отдельная цена/стек по выбранному размеру
+  t.addonEnabled = true;
+  t.addon1Stack = 10000; t.addon1Cost = 500;
+  t.addon2Stack = 20000; t.addon2Cost = 900;
+  t.addon3Stack = 30000; t.addon3Cost = 1200;
+  A.equal(VP.addonCostFor(p(), t), 0, 'без выбора аддона цена 0');
+  p().addon = 1;
+  A.equal(VP.addonStackFor(p(), t), 10000, 'стек аддона 1×');
+  A.equal(VP.calcExpected(p(), t), 1500, 'вход 1000 + аддон 500');
+  p().addon = 2;
+  A.equal(VP.calcExpected(p(), t), 1900, 'вход 1000 + двойной аддон 900');
+  p().buyIn = VP.buyInForTariff('free', t);
+  A.equal(VP.calcExpected(p(), t), 900, 'free-тариф гасит вход, аддон остаётся платным');
+  p().buyIn = VP.buyInForTariff('full', t);
+  t.addonEnabled = false;
+  A.equal(VP.calcExpected(p(), t), 1000, 'выключенный аддон не считается, даже если у игрока выбран размер');
+  t.addonEnabled = true;
+  p().addon = 0;
+
   p().payments = [{method:'transfer', amount:600}];
   A.equal(VP.totalPaid(p()), 600);
   A.equal(VP.remainingAmount(p(), t), 400, 'остаток после частичной оплаты');
