@@ -110,13 +110,15 @@ h2{font-size:19px}
 .cardHead h2{flex:1;min-width:0}
 .grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
 
-/* Карточки, которые не нужны каждую минуту: свёрнуты по умолчанию, шапка
-   остаётся кликабельной целиком — не заставлять целиться в узкую стрелку. */
-.card.collapsible .cardHead{cursor:pointer;margin-bottom:0}
+/* Карточки, которые не нужны каждую минуту, свёрнуты по умолчанию — но
+   только на «одной странице» (десктоп). На телефоне карточки и так
+   разложены по таббару, второй слой сворачивания там только мешает. */
 .card.collapsible .cardBody{margin-top:12px}
-.card.collapsible:not(.expanded) .cardBody{display:none}
-.cardToggle{background:none;border:0;box-shadow:none;padding:2px 4px;font-size:13px;color:var(--muted);line-height:1;transition:transform .15s}
-.card.collapsible.expanded .cardToggle{transform:rotate(90deg)}
+.cardToggle{display:none;background:none;border:0;box-shadow:none;padding:2px 4px;font-size:13px;color:var(--muted);line-height:1;transition:transform .15s}
+#screens.onepage .card.collapsible .cardHead{cursor:pointer;margin-bottom:0}
+#screens.onepage .cardToggle{display:inline-flex}
+#screens.onepage .card.collapsible:not(.expanded) .cardBody{display:none}
+#screens.onepage .card.collapsible.expanded .cardToggle{transform:rotate(90deg)}
 
 /* ── Кнопки ──────────────────────────────────────────────────── */
 button{
