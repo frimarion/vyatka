@@ -1780,6 +1780,7 @@
     $(ctx.box).innerHTML = levels.map((l, i) => {
       const num = l.isBreak ? "☕" : playLevelNum(levels, i);
       return `<div class="levelRow${l.isBreak ? " isBreak" : ""}${i === cur ? " current" : ""}" data-lv="${i}" data-break="${l.isBreak ? 1 : 0}">
+        <span class="lvGrip" title="Перетащить для изменения порядка">⠿</span>
         <span class="lvIdx">${num}</span>
         <input class="lvMin" type="number" min="0" value="${clampInt(l.min, 0)}" inputmode="numeric"/>
         ${l.isBreak
@@ -1787,6 +1788,10 @@
           : `<input class="lvSb" type="number" min="0" value="${clampInt(l.sb, 0)}" inputmode="numeric"/>
              <input class="lvBb" type="number" min="0" value="${clampInt(l.bb, 0)}" inputmode="numeric"/>
              <label style="display:grid;place-items:center"><input class="lvAnte" type="checkbox" ${l.anteMode === "BB" ? "checked" : ""}/></label>`}
+        <span class="lvMoveBtns">
+          <button class="tiny ghost" data-up="${i}" type="button" title="Выше" ${i === 0 ? "disabled" : ""}>▲</button>
+          <button class="tiny ghost" data-down="${i}" type="button" title="Ниже" ${i === levels.length - 1 ? "disabled" : ""}>▼</button>
+        </span>
         <button class="tiny ghost" data-del="${i}" type="button">✕</button>
       </div>`;
     }).join("");
@@ -1798,7 +1803,64 @@
         renderLevels(lv, ctx);
       };
     });
+    $(ctx.box).querySelectorAll("[data-up]").forEach((b) => {
+      b.onclick = () => {
+        const i = Number(b.dataset.up);
+        if (i <= 0) return;
+        markEdit();
+        const lv = readLevels(ctx);
+        [lv[i - 1], lv[i]] = [lv[i], lv[i - 1]];
+        renderLevels(lv, ctx);
+      };
+    });
+    $(ctx.box).querySelectorAll("[data-down]").forEach((b) => {
+      b.onclick = () => {
+        const i = Number(b.dataset.down);
+        const lv = readLevels(ctx);
+        if (i >= lv.length - 1) return;
+        markEdit();
+        [lv[i + 1], lv[i]] = [lv[i], lv[i + 1]];
+        renderLevels(lv, ctx);
+      };
+    });
     $(ctx.box).querySelectorAll("input").forEach((el) => { el.oninput = markEdit; });
+
+    // Перетаскивание мышкой: захват только за ручку ⠿, чтобы не мешать полям ввода
+    let dragIdx = null;
+    const rows = [...$(ctx.box).querySelectorAll("[data-lv]")];
+    rows.forEach((row) => {
+      row.querySelector(".lvGrip").addEventListener("mousedown", () => { row.draggable = true; });
+      row.addEventListener("dragstart", (e) => {
+        dragIdx = Number(row.dataset.lv);
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+        e.dataTransfer.setData("text/plain", String(dragIdx));
+      });
+      row.addEventListener("dragend", () => {
+        row.draggable = false;
+        row.classList.remove("dragging");
+        rows.forEach((r) => r.classList.remove("dragOver"));
+      });
+      row.addEventListener("dragover", (e) => {
+        if (dragIdx === null) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        row.classList.add("dragOver");
+      });
+      row.addEventListener("dragleave", () => row.classList.remove("dragOver"));
+      row.addEventListener("drop", (e) => {
+        e.preventDefault();
+        row.classList.remove("dragOver");
+        const targetIdx = Number(row.dataset.lv);
+        if (dragIdx === null || dragIdx === targetIdx) return;
+        markEdit();
+        const lv = readLevels(ctx);
+        const [moved] = lv.splice(dragIdx, 1);
+        lv.splice(targetIdx, 0, moved);
+        dragIdx = null;
+        renderLevels(lv, ctx);
+      });
+    });
   }
   const addLevelTo = (ctx) => {
     const lv = readLevels(ctx);
