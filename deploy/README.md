@@ -234,9 +234,24 @@ Telegram запоминает домен, а подпись `initData` пров�
 
 ## 8. Бэкапы
 
+Стоит на сервере: `/usr/local/bin/vyatka-backup.sh` по крону из
+`/etc/cron.d/vyatka-backup`, каждый день в 05:20 — заведомо после последнего
+турнира и до любого утреннего вмешательства.
+
 ```bash
-docker exec supabase-db pg_dump -U postgres -Fc postgres > /var/backups/vyatka-$(date +%F).dump
+docker exec supabase-db pg_dump -U postgres -Fc postgres > /var/backups/vyatka/vyatka-$(date +%F).dump
+find /var/backups/vyatka -name 'vyatka-*.dump' -mtime +14 -delete
 ```
 
-В cron ежедневно, хранить вне сервера. Турнир — это одна строка `rooms.state`:
-потерять её посреди вечера значит потерять вечер.
+Хранится две недели: база весит сотни килобайт, диска не жалко, а «заметили
+через неделю» — реальный срок для клубной ошибки. Проверить, что дамп живой,
+не разворачивая его:
+
+```bash
+docker exec -i supabase-db pg_restore -l < /var/backups/vyatka/vyatka-<дата>.dump | head
+```
+
+**Дампы лежат на том же сервере, что и база.** От испорченной миграции или
+удалённой строки это спасает, от потери самой машины — нет. Нужен либо слот
+бэкапов у Timeweb (снимок всей VM), либо выгрузка дампов наружу. Турнир — это
+одна строка `rooms.state`: потерять её посреди вечера значит потерять вечер.
