@@ -1868,7 +1868,7 @@ body{
     const button = ev.target.closest("button[data-period]");
     if (!button) return;
     ratingPeriod = button.dataset.period;
-    $("ratingMonthField").hidden = ratingPeriod !== "month";
+    $("ratingMonthField").style.display = ratingPeriod === "month" ? "" : "none";
     $("ratingPeriods").querySelectorAll("button").forEach(b => {
       b.classList.toggle("on", b === button); b.setAttribute("aria-pressed", String(b === button));
     });
