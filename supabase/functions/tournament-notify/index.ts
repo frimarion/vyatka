@@ -80,8 +80,14 @@ async function getPlayers(tournamentId: number) {
 
 // Стиль — гостевой список клуба, а не сухая карточка турнира: заголовок дня,
 // особенности турнира буллетами (из tournaments.features — то же поле, что
-// правит tournaments.html), дальше нумерованный список записавшихся.
-function buildDraft(
+// правит tournaments.html), дальше список записавшихся цитатой (<blockquote>,
+// Telegram отрисовывает её полосой сбоку — как у гостевых списков в других
+// клубах) и ссылка на приложение вместо голого URL.
+//
+// Возвращает готовый HTML: имена и название турнира экранированы по месту,
+// поэтому весь результат уходит в sendMessage как есть, без escHtml() сверху —
+// иначе <blockquote> и <a> превратились бы обратно в текст.
+function buildDraftHtml(
   t: { name: string; date: string; entry_fee: number; slots: number | null; features?: unknown },
   players: { name: string }[],
 ): string {
@@ -89,24 +95,33 @@ function buildDraft(
   const lines = [
     "📋 Список записавшихся — клуб «Вятка»! ♠️",
     "",
-    `${weekdayName(t.date)}, ${formatDayMonth(t.date)}, начало в ${formatTime(t.date)}`,
+    `${escHtml(weekdayName(t.date))}, ${escHtml(formatDayMonth(t.date))}, начало в ${escHtml(formatTime(t.date))}`,
     "Сбор — за полчаса до старта",
     "",
-    `🏆 ${t.name} 🏆`,
+    `🏆 ${escHtml(t.name)} 🏆`,
     "",
   ];
-  features.forEach((f) => lines.push(`♦️ ${f}`));
+  features.forEach((f) => lines.push(`♦️ ${escHtml(f)}`));
   if (features.length) lines.push("");
-  lines.push(`💰 Взнос — ${t.entry_fee} ₽`, "", "Участники:", "");
-  players.forEach((p, i) => lines.push(`${i + 1}. ${p.name}`));
-  if (players.length === 0) lines.push("(пока никто не записался)");
-  lines.push("");
+  lines.push(`💰 Взнос — ${t.entry_fee} ₽`, "", "Участники:");
+
+  const playerLines = players.length
+    ? players.map((p, i) => `${i + 1}. ${escHtml(p.name)}`).join("\n")
+    : "(пока никто не записался)";
+  lines.push(`<blockquote>${playerLines}</blockquote>`);
+
   if (t.slots && players.length >= t.slots) {
     lines.push("Мест больше нет — все заняты ✔️");
   } else if (t.slots) {
     lines.push(`Свободно мест: ${Math.max(0, t.slots - players.length)}`);
   }
-  lines.push("", "Записаться — в приложении «Вятка»: https://vyatkapoker.ru/", "", "Ждём вас,", "Команда клуба «Вятка» ♠️");
+  lines.push(
+    "",
+    'Записаться — в <a href="https://vyatkapoker.ru/">приложении «Вятка»</a>',
+    "",
+    "Ждём вас,",
+    "Команда клуба «Вятка» ♠️",
+  );
   return lines.join("\n");
 }
 
@@ -119,11 +134,11 @@ async function prepare() {
 
   const t = tournaments[0];
   const players = await getPlayers(t.id);
-  const draft = buildDraft(t, players);
+  const draft = buildDraftHtml(t, players);
   const notice =
     `📋 <b>Черновик поста — турнир #${t.id}</b>\n\n` +
     "Скопируйте текст, добавьте фото и опубликуйте — автопубликации здесь нет.\n\n" +
-    escHtml(draft);
+    draft;
 
   const tgRes = await tgRequest("sendMessage", { chat_id: TG_ADMIN_CHAT_ID, text: notice, parse_mode: "HTML" });
   if (!tgRes.ok) throw new Error("Telegram error: " + JSON.stringify(tgRes));
