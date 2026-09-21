@@ -55,6 +55,22 @@ jobs:
           cp -r css js lib assets dist/
           # Растровый оригинал логотипа нужен для правок макета, а не браузеру.
           rm -f dist/assets/logo-source.png
+
+          # Версия в адресе css/js/lib. Кэшем этих файлов мы не управляем:
+          # `.htaccess` просит `no-cache`, но до Apache они не доходят — на
+          # shared-хостинге их отдаёт фронтовый сервер, и отдаёт со своим
+          # `max-age=3888000`, то есть на сорок пять дней. Проверяется одной
+          # строкой: `curl -sI https://vyatkapoker.ru/js/config.js`.
+          #
+          # Поймалось это выкладкой входа через VK: `index.html` (он как раз
+          # `no-cache`) приехал новый, а `config.js` вернувшийся игрок взял из
+          # кэша — кнопки VK у него просто не было. Адрес с `?v=<sha>` меняется
+          # с каждой выкладкой, поэтому браузеру нечего доставать из кэша.
+          VER=$(git rev-parse --short HEAD)
+          for f in dist/*.html; do
+            sed -i -E "s#(src|href)=\"((js|css|lib)/[^\"?]+)\"#\1=\"\2?v=$VER\"#g" "$f"
+          done
+          grep -q "js/config.js?v=$VER" dist/index.html || { echo "версия не проставилась"; exit 1; }
           # Страница, которой нет в dist, на хостинге превращается в 404 молча:
           # rsync --delete уберёт старую копию, а новую кто-то забыл положить.
           for f in index.html start.html admin.html tournaments.html crm.html display.html; do
