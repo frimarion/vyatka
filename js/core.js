@@ -200,6 +200,10 @@
         addon: [0, 1, 2, 3].includes(clampInt(p?.addon ?? 0, 0)) ? clampInt(p?.addon ?? 0, 0) : 0,
         // ── оплата ──
         buyIn: p?.buyIn == null ? null : clampInt(p.buyIn, 0),   // null = взнос турнира
+        // Тариф, которым он был выбран: без неё "50%" от взноса 0 ₽ и "Free"
+        // дают одну и ту же сумму (0) и неотличимы друг от друга по buyIn.
+        // null — старые записи без явного тарифа, тогда угадываем по buyIn.
+        tariff: ["full", "half", "free"].includes(p?.tariff) ? p.tariff : null,
         freeEntries: clampInt(p?.freeEntries ?? 0, 0),
         payments: normalizePayments(p?.payments),
         player_id: p?.player_id ?? null,
@@ -415,14 +419,13 @@
     return 0;
   }
   // Цены входов игрока по порядку: сам вход — по тарифу, реентри — по цене реентри.
-  // Тариф free (взнос игрока явно 0) обнуляет всё: «играет бесплатно» значит и
-  // реентри тоже. Если же это дефолтный тариф, а турнир сам по себе бесплатный
-  // (defaultBuyIn = 0), реентри всё равно платное — это разные вещи.
+  // Тариф free обнуляет всё: «играет бесплатно» значит и реентри тоже. Смотрим
+  // именно на выбранный тариф (tariffOf), а не на сумму buyIn — при взносе
+  // турнира 0 ₽ "50%" и "Free" дают одно и то же число и по сумме неразличимы.
   function entryPrices(p, tour) {
     const buyIn = effectiveBuyIn(p, tour);
     const reentries = clampInt(p?.reentries ?? 0, 0);
-    const isFreeTariff = p?.buyIn != null && clampInt(p.buyIn, 0) === 0;
-    const re = isFreeTariff ? 0 : effectiveReentryCost(tour);
+    const re = tariffOf(p, tour) === "free" ? 0 : effectiveReentryCost(tour);
     return [buyIn, ...Array.from({ length: reentries }, () => re)];
   }
   function calcExpected(p, tour) {
@@ -443,9 +446,12 @@
     return "part";
   }
 
-  // Тариф — производное от buyIn игрока, отдельно не хранится.
   const halfBuyIn = (tour) => Math.round(clampInt(tour?.defaultBuyIn ?? 800, 0) / 2);
+  // Тариф хранится явно (p.tariff) с тех пор, как выяснилось, что "50%" от
+  // взноса 0 ₽ и "Free" дают одну и ту же сумму — по buyIn их не различить.
+  // У записей без tariff (старее этого поля) угадываем по сумме, как раньше.
   function tariffOf(p, tour) {
+    if (p?.tariff === "full" || p?.tariff === "half" || p?.tariff === "free") return p.tariff;
     if (p?.buyIn == null) return "full";
     const b = clampInt(p.buyIn, 0);
     if (b === 0) return "free";

@@ -169,6 +169,19 @@ console.log('все проверки прошли');
   p().freeEntries = 0; p().reentries = 1;
   t.defaultBuyIn = 0; t.reentryCost = 500;
   A.equal(VP.calcExpected(p(), t), 500, 'бесплатный вход в турнир не гасит реентри');
+
+  // При взносе 0 ₽ "50%" тоже даёт сумму 0 — без явного p.tariff это было
+  // неотличимо от Free и гасило реентри. Тариф хранится явно, поэтому "50%"
+  // остаётся "half", а не превращается в "free".
+  p().buyIn = VP.buyInForTariff('half', t);
+  p().tariff = 'half';
+  A.equal(VP.tariffOf(p(), t), 'half', '50% при взносе 0 ₽ — не free');
+  A.equal(VP.calcExpected(p(), t), 500, '50% при взносе 0 ₽ не гасит реентри');
+  p().buyIn = VP.buyInForTariff('free', t);
+  p().tariff = 'free';
+  A.equal(VP.calcExpected(p(), t), 0, 'настоящий free-тариф всё же гасит реентри');
+  p().tariff = 'full'; p().buyIn = null;
+
   t.defaultBuyIn = 1000; t.reentryCost = 1000;
   p().reentries = 0;
 

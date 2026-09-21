@@ -1610,6 +1610,7 @@
       await saveWithReload((st) => {
         const p = findPlayer(st, name); if (!p) return st;
         p.buyIn = buyInForTariff(tariff, st.tournament);
+        p.tariff = tariff;
         // к оплате вышло 0 — держать за игроком внесённые деньги больше не за что
         if (calcExpected(p, st.tournament) === 0) p.payments = [];
         return st;
@@ -1668,7 +1669,7 @@
     try {
       await saveWithReload((st) => {
         const p = findPlayer(st, name); if (!p) return st;
-        p.buyIn = null; p.freeEntries = 0; p.payments = [];
+        p.buyIn = null; p.tariff = "full"; p.freeEntries = 0; p.payments = [];
         return recalcRating(computeStatsFromPlayers(st));
       });
     } catch (e) {}
