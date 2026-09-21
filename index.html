@@ -443,6 +443,18 @@ body{
 #toast.good{background:linear-gradient(160deg,#399460,#1F6B42)}
 
 .gate{min-height:70vh;display:grid;place-items:center;text-align:center}
+/* Кнопку VK рисует их SDK и красит в свой фирменный синий — трогать его нельзя
+   (это условие использования), но отступ вокруг наш. Пока SDK не загрузился,
+   коробка схлопнута: пустой прямоугольник над кнопкой почты выглядел бы
+   поломкой. */
+.vkBox{margin-bottom:10px}
+.vkBox:empty{display:none}
+/* Строка способа входа в профиле: слева название, справа — статус или кнопка. */
+.authRow{display:flex;align-items:center;gap:10px;padding:11px 0}
+.authRow+.authRow{border-top:1px solid var(--line)}
+.authRow .nm{flex:1;min-width:0;font-weight:800}
+.authRow .nm .muted{font-weight:600}
+.authRow button{padding:8px 14px;font-size:13px}
 .spin{display:inline-block;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
@@ -463,6 +475,56 @@ body{
       <img class="logoMark lg" src="assets/logo.svg" alt="Vyatka Poker Club" style="margin:0 auto 12px"/>
       <h1 style="margin:8px 0 6px">Клуб «Вятка»</h1>
       <div class="muted"><span class="spin">◆</span> Загружаем расписание…</div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Вход: VK, почта, Telegram ══════════════════════════════ -->
+<div id="scrAuth" class="screen">
+  <div class="gate">
+    <div style="width:100%">
+      <div class="eyebrow">Вход в клуб</div>
+      <h1 style="margin:8px 0 6px">Заходи — и записывайся</h1>
+      <div class="sub" style="margin-bottom:16px">Расписание видно и без входа. Войти нужно, чтобы записаться на турнир и видеть свои вечера.</div>
+      <div class="card" style="text-align:left">
+        <!-- Кнопку рисует сам VK ID SDK: у неё свой вид, свои состояния и
+             своё «продолжить как…» для тех, кто уже залогинен в VK. -->
+        <div id="vkBox" class="vkBox"></div>
+        <button id="authEmail" type="button" style="width:100%">Войти по почте</button>
+        <button id="authTg" class="ghost" type="button" style="width:100%;margin-top:8px;display:none">Войти через Telegram</button>
+        <div id="authErr" class="err"></div>
+        <div class="muted" style="margin-top:10px">Входы можно связать: войди любым, а остальные привяжешь в профиле — турниры и статистика останутся на одном аккаунте.</div>
+      </div>
+      <button id="authBack" class="ghost" type="button" style="width:100%;margin-top:12px">Назад к расписанию</button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══ Вход по почте: адрес и код из письма ═══════════════════ -->
+<div id="scrEmail" class="screen">
+  <div class="gate">
+    <div style="width:100%">
+      <div class="eyebrow">Вход по почте</div>
+      <h1 style="margin:8px 0 6px" id="emHead">Куда прислать код?</h1>
+      <div class="card" style="text-align:left">
+        <div id="emStep1">
+          <div class="field"><label>Почта</label>
+            <input id="emInput" type="email" maxlength="120" placeholder="you@example.com" autocomplete="email" inputmode="email"/></div>
+          <button id="emSend" type="button" style="width:100%">Отправить код</button>
+        </div>
+        <div id="emStep2" style="display:none">
+          <div class="sub" style="margin-bottom:12px">Код из шести цифр ушёл на <b id="emAddr"></b>. Если письма нет пару минут — загляни в «Спам».</div>
+          <div class="field"><label>Код из письма</label>
+            <input id="emCode" type="text" maxlength="6" placeholder="000000" inputmode="numeric" autocomplete="one-time-code"/></div>
+          <button id="emVerify" type="button" style="width:100%">Подтвердить</button>
+          <div class="btnrow" style="margin-top:10px">
+            <button id="emResend" class="ghost" type="button" style="flex:1">Прислать ещё раз</button>
+            <button id="emOther" class="ghost" type="button" style="flex:1">Другая почта</button>
+          </div>
+        </div>
+        <div id="emErr" class="err"></div>
+      </div>
+      <button id="emBack" class="ghost" type="button" style="width:100%;margin-top:12px">Назад</button>
     </div>
   </div>
 </div>
@@ -533,7 +595,7 @@ body{
     <div id="meGuest" class="empty" style="display:none">
       <div class="eT" id="guestHead">Профиль — в Telegram</div>
       <div class="eS" id="guestText">Расписание видно и так, а записаться можно из приложения клуба в Telegram.</div>
-      <a id="guestTgLink" class="badge gold" style="margin-top:14px;text-decoration:none" href="#" target="_blank" rel="noopener">Открыть в Telegram</a>
+      <a id="guestTgLink" class="badge gold" style="margin-top:14px;text-decoration:none" href="javascript:void(0)">Войти</a>
     </div>
 
     <div id="meBox" style="display:none">
@@ -555,6 +617,13 @@ body{
         <div class="btnrow"><button id="pfSave" type="button">Сохранить</button>
           <button id="pfLogout" class="danger" type="button">Выйти</button></div>
         <div id="pfErr" class="err"></div>
+      </div>
+
+      <div class="card">
+        <div class="cardHead"><h2>Способы входа</h2></div>
+        <div id="authList"></div>
+        <div class="muted" style="margin-top:10px">Привязанным способом можно войти с любого телефона — попадёшь в этот же профиль.</div>
+        <div id="lnkErr" class="err"></div>
       </div>
 
       <div class="card">
@@ -601,6 +670,10 @@ body{
 <script src="js/config.js"></script>
 <script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
 <script src="lib/telegram-web-app.js"></script>
+<!-- Кнопка VK ID. Лежит у нас, потому что чужой CDN — ещё один адрес, который
+     может не открыться; запасной путь на unpkg оставлен на случай, если свой
+     файл устареет вместе с протоколом VK. -->
+<script src="lib/vkid-sdk.js" onerror="this.onerror=null;this.src='https://unpkg.com/@vkid/sdk@%3C3.0.0/dist-sdk/umd/index.js'"></script>
 <script src="js/core.js"></script>
 <script src="js/devstub.js"></script>
 <script>
@@ -653,6 +726,14 @@ body{
   let token = "";
   try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
 
+  // Чем человек доказал, что он — это он: { kind, proof }. Для телеграма
+  // доказательство есть сразу (initData подписан ботовым токеном), для VK и
+  // почты появляется после кнопки входа. Дальше все три идут одной дорогой:
+  // сервер проверяет доказательство и выдаёт сессию, а приложение знает только
+  // про token. Поэтому экран «как тебя звать» один на всех — он повторяет вход
+  // с тем же доказательством, добавив имя.
+  let pendingAuth = initData ? { kind: "tg", proof: initData } : null;
+
   let me = null;              // { player, registrations:[id], history:[] }
   let tours = [];             // расписание: только публичные статусы
   let roomStates = {};        // room_id → state комнаты, для живого турнира
@@ -701,6 +782,15 @@ body{
     tournament_not_found: "Турнир не найден.",
     registration_closed: "Запись на этот турнир закрыта.",
     tournament_full: "Мест больше нет.",
+    vk_not_configured: "Вход через VK пока не настроен. Напиши организатору.",
+    email_auth_not_configured: "Вход по почте пока не настроен. Напиши организатору.",
+    vk_unreachable: "VK сейчас не отвечает. Попробуй ещё раз или войди по почте.",
+    auth_token_expired: "Вход устарел — начни заново.",
+    auth_token_invalid: "Вход не подтвердился. Начни заново.",
+    vk_id_taken: "Этот VK уже привязан к другому профилю.",
+    email_taken: "Эта почта уже привязана к другому профилю.",
+    player_not_found: "Профиль не найден.",
+    same_player: "Это один и тот же профиль.",
   };
   function errText(e) {
     const raw = String(e?.message || e || "");
@@ -814,25 +904,42 @@ body{
       if (String(e?.message || "").includes("not_authorized")) {
         token = ""; try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
         me = null;
-        if (initData) await login();          // сессия протухла — входим заново молча
+        // Сессия протухла — входим заново молча, но только телеграмом: его
+        // доказательство приходит с каждым запуском. Токены VK и почты
+        // одноразовые, повторить их без человека нечем — он увидит «Войти».
+        if (pendingAuth?.kind === "tg") await login();
         return;
       }
       throw e;
     }
   }
 
+  const LOGIN_RPC = {
+    tg:    (proof, name) => ["vp_app_login",       { p_init_data: proof,    p_name: name }],
+    vk:    (proof, name) => ["vp_app_login_vk",    { p_access_token: proof, p_name: name }],
+    email: (proof, name) => ["vp_app_login_email", { p_jwt: proof,          p_name: name }],
+  };
+
   async function login(name) {
-    if (!initData) return false;
+    if (!pendingAuth) return false;
+    const [fn, args] = LOGIN_RPC[pendingAuth.kind](pendingAuth.proof, name || null);
     try {
-      const res = await rpc("vp_app_login", { p_init_data: initData, p_name: name || null });
+      const res = await rpc(fn, args);
       token = res?.token || "";
       if (token) { try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {} }
       me = { player: res?.player || null, registrations: [], history: [] };
       await loadMe();
+      screen(authReturn);
+      if (authReturn === "scrTourney") renderTourney();
+      authReturn = "scrApp";
       return true;
     } catch (e) {
-      // Телеграм иногда не отдаёт ни имени, ни username — тогда имя спрашиваем.
-      if (String(e?.message || "").includes("invalid_name") && !name) { askName(""); return false; }
+      const raw = String(e?.message || "");
+      // Имени может не быть вовсе (в почте его взять негде, телеграм иногда не
+      // отдаёт ни имени, ни username) или оно может быть занято тёзкой —
+      // и то и другое чинится одним экраном, а не ошибкой.
+      if (!name && raw.includes("invalid_name")) { askName(""); return false; }
+      if (!name && raw.includes("name_taken")) { askName(ERRORS.name_taken); return false; }
       throw e;
     }
   }
@@ -841,6 +948,247 @@ body{
     $("nameErr").textContent = err || "";
     screen("scrName");
     setTimeout(() => $("nameInput").focus(), 60);
+  }
+
+  // Куда вернуть человека после входа. Шёл записываться с карточки турнира —
+  // вернётся к ней, а не на главную, где ещё надо заново её найти.
+  let authReturn = "scrApp";
+
+  // Вход снаружи телеграма: в Telegram доказательство уже на руках, показывать
+  // выбор способа незачем — просто входим.
+  async function startAuth(back) {
+    authReturn = back || "scrApp";
+    if (pendingAuth?.kind === "tg") {
+      authBusy = true; renderAll();
+      try { await login(); } catch (e) { toast(errText(e), "bad"); }
+      authBusy = false; renderAll();
+      return;
+    }
+    $("authErr").textContent = "";
+    // Телеграмная кнопка — только внутри Mini App. В обычном браузере входа
+    // через Telegram нет вовсе: виджет логина требует открытых данных
+    // пользователя, и для сайта клуба в РФ этот путь закрыт.
+    $("authTg").style.display = initData ? "" : "none";
+    screen("scrAuth");
+    initVk();
+  }
+
+  // ── VK ID ──────────────────────────────────────────────────────────────────
+  // SDK сам ведёт PKCE-обмен и отдаёт access_token. Наружу мы шлём именно его,
+  // а не user_id: id игрока в VK не секрет (он в адресе страницы), и сервер,
+  // который верит присланному id, пускает в чужой профиль любого. Кто владелец
+  // токена, у VK спрашивает сервер — см. vp_vk_verify в 006.
+  let vkReady = false;
+  function initVk() {
+    const box = $("vkBox");
+    if (!box || vkReady) return;
+    const app = Number(window.VP_VKID_APP || 0);
+    if (!app) return;                       // приложение VK не заведено — кнопки нет
+    const VKID = window.VKIDSDK;
+    if (!VKID) { console.warn("[vyatka] VK ID SDK не загрузился"); return; }
+    try {
+      VKID.Config.init({
+        app,
+        redirectUrl: location.origin + location.pathname,
+        responseMode: VKID.ConfigResponseMode.Callback,
+        source: VKID.ConfigSource.LOWCODE,
+        scope: "",
+      });
+      box.innerHTML = "";
+      // OneTap, а не голая кнопка: у залогиненного в VK она показывает «войти
+      // как …» и вход укладывается в одно нажатие. showAlternativeLogin
+      // добавляет вход с чужого аккаунта, oauthList — Mail.ru и Одноклассники:
+      // это те же аккаунты VK ID, лишний способ заводить не приходится.
+      new VKID.OneTap()
+        .render({
+          container: box,
+          showAlternativeLogin: true,
+          styles: { height: 42 },
+          oauthList: ["mail_ru", "ok_ru"],
+        })
+        .on(VKID.WidgetEvents.ERROR, onVkError)
+        .on(VKID.OneTapInternalEvents.LOGIN_SUCCESS, (payload) => {
+          VKID.Auth.exchangeCode(payload.code, payload.device_id).then(onVkToken).catch(onVkError);
+        });
+      vkReady = true;
+    } catch (e) { console.warn("[vyatka] VK ID init", e); }
+  }
+
+  // Часть браузеров (и встроенный браузер VK) возвращается не колбэком, а
+  // редиректом с ?code=…&device_id=… — без этой ветки вход там молча теряется.
+  function vkFromRedirect() {
+    const q = new URLSearchParams(location.search);
+    const code = q.get("code"), dev = q.get("device_id");
+    if (!code || !dev) return false;
+    const clean = new URL(location.href); clean.search = "";
+    history.replaceState({}, "", clean);
+    if (!window.VKIDSDK || !Number(window.VP_VKID_APP || 0)) return false;
+    initVk();
+    window.VKIDSDK.Auth.exchangeCode(code, dev).then(onVkToken).catch(onVkError);
+    return true;
+  }
+
+  async function onVkToken(data) {
+    const at = data?.access_token;
+    if (!at) { onVkError(new Error("auth_token_invalid")); return; }
+    if (linkMode) { await finishLink("vk", at); return; }
+    pendingAuth = { kind: "vk", proof: at };
+    authBusy = true; renderAll();
+    try {
+      await login();
+    } catch (e) {
+      $("authErr").textContent = errText(e);
+      screen("scrAuth");
+    } finally { authBusy = false; renderAll(); }
+  }
+
+  function onVkError(e) {
+    console.warn("[vyatka] VK", e);
+    const el = linkMode ? $("lnkErr") : $("authErr");
+    if (el) el.textContent = "VK не подтвердил вход. Попробуй ещё раз.";
+    linkMode = false;
+  }
+
+  // ── Почта ──────────────────────────────────────────────────────────────────
+  // Код в письме шлёт и проверяет GoTrue из нашего же стека — писать свой
+  // отправщик писем ради шести цифр незачем. Нам от него нужен только
+  // подписанный токен: его подпись сервер сверяет секретом стека и достаёт
+  // оттуда адрес (vp_app_login_email). Сессию GoTrue после этого гасим —
+  // приложение живёт на своей.
+  let emailAddr = "";
+
+  function showEmail() {
+    emailAddr = "";
+    $("emStep1").style.display = "";
+    $("emStep2").style.display = "none";
+    $("emInput").value = ""; $("emCode").value = "";
+    $("emErr").textContent = "";
+    $("emHead").textContent = "Куда прислать код?";
+    screen("scrEmail");
+    setTimeout(() => $("emInput").focus(), 60);
+  }
+
+  async function sendCode(resend) {
+    const addr = resend ? emailAddr : ($("emInput").value || "").trim().toLowerCase();
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(addr)) { $("emErr").textContent = "Проверь адрес почты."; return; }
+    const btn = resend ? $("emResend") : $("emSend");
+    const was = btn.textContent;
+    btn.disabled = true; btn.textContent = "Отправляем…";
+    $("emErr").textContent = "";
+    try {
+      const { error } = await sb.auth.signInWithOtp({ email: addr, options: { shouldCreateUser: true } });
+      if (error) throw error;
+      emailAddr = addr;
+      $("emAddr").textContent = addr;
+      $("emStep1").style.display = "none";
+      $("emStep2").style.display = "";
+      $("emHead").textContent = "Код из письма";
+      if (resend) toast("Код отправлен ещё раз", "good");
+      setTimeout(() => $("emCode").focus(), 60);
+    } catch (e) {
+      $("emErr").textContent = mailErr(e);
+    } finally { btn.disabled = false; btn.textContent = was; }
+  }
+
+  // Письмо не ушло — причина почти всегда одна из трёх, и все три чинятся
+  // по-разному: лимит ждут, опечатку правят, а SMTP лечит организатор.
+  function mailErr(e) {
+    const raw = String(e?.message || e || "");
+    if (/rate|limit|too many/i.test(raw)) return "Слишком часто. Подожди минуту и попробуй снова.";
+    if (/smtp|mail|send/i.test(raw)) return "Письмо не отправилось — напиши организатору.";
+    if (/signup|disabled|not allowed/i.test(raw)) return "Вход по почте пока закрыт. Напиши организатору.";
+    if (/expired|invalid|token/i.test(raw)) return "Неверный или просроченный код.";
+    return errText(e);
+  }
+
+  async function verifyCode() {
+    const code = ($("emCode").value || "").trim();
+    if (code.length < 6) { $("emErr").textContent = "Введи шесть цифр из письма."; return; }
+    const btn = $("emVerify");
+    btn.disabled = true; btn.textContent = "Проверяем…";
+    $("emErr").textContent = "";
+    try {
+      const { data, error } = await sb.auth.verifyOtp({ email: emailAddr, token: code, type: "email" });
+      if (error) throw error;
+      const jwt = data?.session?.access_token;
+      if (!jwt) throw new Error("auth_token_invalid");
+      sb.auth.signOut().catch(() => {});
+      if (linkMode) { await finishLink("email", jwt); return; }
+      pendingAuth = { kind: "email", proof: jwt };
+      await login();
+      renderAll();
+    } catch (e) {
+      $("emErr").textContent = mailErr(e);
+    } finally { btn.disabled = false; btn.textContent = "Подтвердить"; }
+  }
+
+  // ── Привязка второго способа ───────────────────────────────────────────────
+  // linkMode переключает те же кнопки с «войти» на «привязать»: путь до
+  // доказательства один и тот же, разное только то, куда его отдать.
+  let linkMode = false;
+
+  async function finishLink(kind, proof) {
+    linkMode = false;
+    $("lnkErr").textContent = "";
+    const fn   = kind === "vk" ? "vp_app_link_vk" : "vp_app_link_email";
+    const args = kind === "vk"
+      ? { p_token: token, p_access_token: proof }
+      : { p_token: token, p_jwt: proof };
+    try {
+      me.player = await rpc(fn, args);
+      screen("scrApp"); tab("me"); renderAll();
+      toast("Привязали", "good");
+    } catch (e) {
+      const raw = String(e?.message || "");
+      // Идентификатор занят — значит у человека уже есть второй аккаунт,
+      // заведённый другим входом. Предлагаем слить: иначе турниры так и
+      // останутся на двух строках, а починить это может только админ руками.
+      if (raw.includes("vk_id_taken") || raw.includes("email_taken")) {
+        screen("scrApp"); tab("me"); renderAll();
+        const what = kind === "vk" ? "На этот VK" : "На эту почту";
+        if (confirm(`${what} уже заведён отдельный профиль. Объединить его с текущим? Турниры и статистика сложатся вместе, отменить будет нельзя.`)) {
+          try {
+            me.player = await rpc(kind === "vk" ? "vp_app_merge_vk" : "vp_app_merge_email", args);
+            await loadMe();
+            toast("Профили объединены", "good");
+          } catch (err) { $("lnkErr").textContent = errText(err); }
+        }
+        renderAll();
+        return;
+      }
+      screen("scrApp"); tab("me"); renderAll();
+      $("lnkErr").textContent = errText(e);
+    }
+  }
+
+  async function startLink(kind) {
+    $("lnkErr").textContent = "";
+    linkMode = true;
+    if (kind === "email") { showEmail(); return; }
+    if (kind === "tg") {
+      if (!initData) { linkMode = false; $("lnkErr").textContent = "Привязать телеграм можно только из приложения в Telegram."; return; }
+      try {
+        // Телеграмной привязки отдельной функцией нет и не нужно: initData уже
+        // на руках, а vp_app_login по нему сам приклеит tg_id к найденному
+        // игроку. Сессия при этом выдаётся новая — забираем её.
+        const res = await rpc("vp_app_login", { p_init_data: initData, p_name: null });
+        token = res?.token || token;
+        try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {}
+        await loadMe(); renderAll();
+        toast("Привязали", "good");
+      } catch (e) { $("lnkErr").textContent = errText(e); }
+      finally { linkMode = false; }
+      return;
+    }
+    if (!Number(window.VP_VKID_APP || 0) || !window.VKIDSDK) {
+      linkMode = false; $("lnkErr").textContent = "Вход через VK пока не настроен."; return;
+    }
+    // Кнопку VK рисует SDK, нажать её за игрока нельзя — показываем экран
+    // входа: та же кнопка, но результат уедет в привязку.
+    $("authErr").textContent = "Нажми «Войти через VK» — аккаунт привяжется к твоему профилю.";
+    $("authTg").style.display = "none";
+    screen("scrAuth");
+    initVk();
   }
 
   // Значки для пилюль. Эмодзи рисует система: на каждом телефоне свой стиль,
@@ -985,27 +1333,48 @@ body{
            <div class="eS">${filter === "past" ? "История появится после первого вечера." : "Следи за расписанием."}</div></div>`;
   }
 
+  // Способы входа: что привязано и что можно привязать. Отвязки нет намеренно —
+  // отвязав последний способ, человек запер бы себя снаружи собственного
+  // профиля, а вернуть его мог бы только администратор.
+  function renderAuthList(p) {
+    const rows = [
+      { kind: "vk",    name: "VK",       has: !!p.vk_id, note: p.vk_username ? "@" + p.vk_username : "аккаунт VK" },
+      { kind: "email", name: "Почта",    has: !!p.email, note: p.email || "код в письме" },
+      { kind: "tg",    name: "Telegram", has: !!p.tg_id, note: p.tg_username ? "@" + p.tg_username : "приложение клуба" },
+    ];
+    $("authList").innerHTML = rows.map((r) => `
+      <div class="authRow">
+        <span class="nm">${escHtml(r.name)}<div class="muted">${escHtml(r.has ? r.note : "не привязан")}</div></span>
+        ${r.has
+          ? `<span class="badge light">есть</span>`
+          : `<button class="ghost" type="button" data-link="${r.kind}">Привязать</button>`}
+      </div>`).join("");
+    $("authList").querySelectorAll("button[data-link]").forEach((b) => {
+      b.onclick = () => startLink(b.dataset.link);
+    });
+  }
+
   // ── Профиль ────────────────────────────────────────────────────────────────
   function renderMe() {
     const p = me?.player;
     $("meGuest").style.display = p ? "none" : "";
     $("meBox").style.display = p ? "" : "none";
     if (!p) {
-      // В Telegram профиль есть всегда — предлагаем вернуться в него, а не
-      // ссылку «открой приложение», которое и так открыто.
-      $("guestHead").textContent = initData ? "Ты не вошёл" : "Профиль — в Telegram";
-      $("guestText").textContent = initData
-        ? "Расписание видно и так, а чтобы записаться — войди."
-        : "Расписание видно и так, а записаться можно из приложения клуба в Telegram.";
-      $("guestTgLink").textContent = initData ? "Войти" : "Открыть в Telegram";
-      $("guestTgLink").href = initData ? "javascript:void(0)" : CLUB.tgApp;
-      $("guestTgLink").onclick = initData
-        ? async (e) => { e.preventDefault(); authBusy = true; try { await login(); } catch (err) { toast(errText(err), "bad"); } finally { authBusy = false; renderAll(); } }
-        : null;
+      // Вход теперь есть везде, а не только в телеграме: снаружи это VK и
+      // почта, внутри — initData, который уже на руках.
+      $("guestHead").textContent = "Ты не вошёл";
+      $("guestText").textContent = "Расписание видно и так, а чтобы записаться — войди: через VK, по почте или телеграмом.";
+      $("guestTgLink").textContent = "Войти";
+      $("guestTgLink").href = "javascript:void(0)";
+      $("guestTgLink").onclick = (e) => { e.preventDefault(); startAuth(); };
       return;
     }
 
-    $("meTg").textContent = p.tg_username ? "@" + p.tg_username : "Telegram";
+    $("meTg").textContent = p.vk_username ? "VK · " + p.vk_username
+      : p.tg_username ? "@" + p.tg_username
+      : p.email ? p.email
+      : "Профиль";
+    renderAuthList(p);
     const hist = me.history || [];
     $("stGames").textContent = fmtInt(hist.length);
     $("stWins").textContent = fmtInt(hist.filter((h) => h.place === 1).length);
@@ -1133,11 +1502,10 @@ body{
 
     let cta;
     if (!me?.player) {
-      // Три разных «не записан»: вход ещё идёт, вход нужен (вышел из профиля
-      // и вернулся) и записи нет вообще — приложение открыли не в Telegram.
+      // Два «не записан»: вход ещё идёт — или его надо начать. Отдельной
+      // ветки «уходи в Telegram» больше нет: войти можно прямо здесь.
       if (authBusy) cta = `<button class="ghost" type="button" disabled>Входим в клуб…</button>`;
-      else if (initData) cta = `<button type="button" id="btnLogin">Войти и записаться</button>`;
-      else cta = `<a class="badge gold" style="display:block;text-align:center;padding:15px;text-decoration:none;border-radius:var(--r-md)" href="${escHtml(CLUB.tgApp)}" target="_blank" rel="noopener">Записаться — в Telegram</a>`;
+      else cta = `<button type="button" id="btnLogin">Войти и записаться</button>`;
     } else if (isPast(t)) {
       cta = "";
     } else if (reg) {
@@ -1182,11 +1550,9 @@ body{
 
     $("btnReg")?.addEventListener("click", () => doRegister(t.id, true));
     $("btnCancel")?.addEventListener("click", () => doRegister(t.id, false));
-    $("btnLogin")?.addEventListener("click", async () => {
-      authBusy = true; renderTourney();
-      try { await login(); } catch (e) { toast(errText(e), "bad"); }
-      finally { authBusy = false; renderAll(); renderTourney(); }
-    });
+    // Вход из карточки турнира: человек шёл записываться, а не «в профиль», —
+    // после входа он должен вернуться сюда же, к той же кнопке.
+    $("btnLogin")?.addEventListener("click", () => startAuth("scrTourney"));
   }
 
   // ── Запись / отмена ────────────────────────────────────────────────────────
@@ -1298,6 +1664,33 @@ body{
   };
   $("nameInput").onkeydown = (e) => { if (e.key === "Enter") $("nameSave").click(); };
 
+  // ── Кнопки входа ───────────────────────────────────────────────────────────
+  $("authEmail").onclick = () => showEmail();
+  $("authTg").onclick    = async () => {
+    if (!initData) { $("authErr").textContent = "Телеграмный вход работает только в приложении клуба в Telegram."; return; }
+    pendingAuth = { kind: "tg", proof: initData };
+    authBusy = true; renderAll();
+    try { await login(); } catch (e) { $("authErr").textContent = errText(e); }
+    finally { authBusy = false; renderAll(); }
+  };
+  $("authBack").onclick = () => { linkMode = false; screen(authReturn === "scrTourney" ? "scrTourney" : "scrApp"); };
+
+  $("emSend").onclick   = () => sendCode(false);
+  $("emResend").onclick = () => sendCode(true);
+  $("emVerify").onclick = () => verifyCode();
+  $("emOther").onclick  = () => showEmail();
+  // Из почты назад — на выбор способа, а не на расписание: человек сюда
+  // пришёл входить, и выкидывать его из входа на полпути незачем.
+  $("emBack").onclick   = () => { if (linkMode) { linkMode = false; screen("scrApp"); tab("me"); } else screen("scrAuth"); };
+  $("emInput").onkeydown = (e) => { if (e.key === "Enter") $("emSend").click(); };
+  $("emCode").onkeydown  = (e) => { if (e.key === "Enter") $("emVerify").click(); };
+  // Шесть цифр из письма часто вставляют целиком вместе с пробелами.
+  $("emCode").oninput = () => {
+    const v = $("emCode").value.replace(/\D/g, "").slice(0, 6);
+    $("emCode").value = v;
+    if (v.length === 6) $("emVerify").click();
+  };
+
   $("pfSave").onclick = async () => {
     $("pfErr").textContent = "";
     const btn = $("pfSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
@@ -1319,7 +1712,13 @@ body{
     if (!confirm("Выйти из профиля? Запись на турниры останется.")) return;
     try { await rpc("vp_app_logout", { p_token: token }); } catch (_) {}
     token = ""; me = null;
+    // Доказательство VK или почты после выхода не должно оставаться в памяти:
+    // иначе следующий же «Войти» молча вернёт в тот же профиль, из которого
+    // человек только что вышел. Телеграмное оставляем — оно и так приезжает
+    // с каждым запуском Mini App.
+    if (pendingAuth?.kind !== "tg") pendingAuth = null;
     try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
+    sb.auth.signOut().catch(() => {});
     renderAll(); tab("home");
   };
 
@@ -1349,11 +1748,14 @@ body{
     screen("scrApp");
     startLive();
 
-    authBusy = !!(token || initData);
+    // Возврат из VK редиректом — это уже начатый вход, и ждать он не должен.
+    const fromVk = vkFromRedirect();
+
+    authBusy = !!(token || pendingAuth?.kind === "tg" || fromVk);
     renderAll();
     try {
       if (token) await loadMe();
-      else if (initData) await login();
+      else if (pendingAuth?.kind === "tg") await login();
     } catch (e) {
       toast(errText(e), "bad");
     }

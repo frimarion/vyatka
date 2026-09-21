@@ -376,11 +376,17 @@
   // Подписи Telegram в песочнице нет: «initData» — это просто JSON пользователя,
   // и vp_app_login читает из него id, ничего не проверяя. На бою так нельзя
   // (см. 005_player_app.sql), и именно поэтому стаб живёт только на localhost.
-  window.VP_DEV_INIT_DATA = "dev:" + JSON.stringify(DEV_TG);
+  // ?dev=1&tg=0 — песочница без телеграма: приложение не входит само и
+  // показывает экран выбора способа, то есть VK и почту можно посмотреть
+  // ровно так, как их увидит человек с телефона на сайте.
+  const DEV_NO_TG = new URLSearchParams(location.search).get("tg") === "0";
+  if (!DEV_NO_TG) window.VP_DEV_INIT_DATA = "dev:" + JSON.stringify(DEV_TG);
 
   const playerJson = (p) => (p ? {
     id: p.id, name: p.name, full_name: p.full_name ?? null, phone: p.phone ?? null,
     tg_id: p.tg_id ?? null, tg_username: p.tg_username ?? null,
+    vk_id: p.vk_id ?? null, vk_username: p.vk_username ?? null,
+    email: p.email_verified ? p.email : null, auth_provider: p.auth_provider ?? null,
     photo_url: p.photo_url ?? null, games_played: p.games_played ?? 0,
   } : null);
 
@@ -413,27 +419,133 @@
     };
   }
 
+  // Три способа входа сходятся здесь же, где и на сервере (006): найти по
+  // тому, чем вошли, иначе приклеиться к «бумажному» игроку, иначе завести.
+  // Ошибка возвращается строкой-кодом — её ловит вызывающий.
+  function devFindOrCreate(db, id, name) {
+    let p = null;
+    if (id.tg_id != null)  p = (db.players || []).find((x) => String(x.tg_id) === String(id.tg_id));
+    if (!p && id.vk_id != null) p = (db.players || []).find((x) => String(x.vk_id) === String(id.vk_id));
+    if (!p && id.email) p = (db.players || []).find((x) => x.email_verified && String(x.email).toLowerCase() === id.email);
+    if (p) {
+      if (p.tg_id == null && id.tg_id != null) p.tg_id = id.tg_id;
+      if (p.vk_id == null && id.vk_id != null) p.vk_id = id.vk_id;
+      if (!p.email && id.email) { p.email = id.email; p.email_verified = true; }
+      if (id.tg_username) p.tg_username = id.tg_username;
+      if (id.vk_username) p.vk_username = id.vk_username;
+      return p;
+    }
+    const nm = String(name || "").trim();
+    if (nm.length < 2 || nm.length > 60) throw new Error("invalid_name");
+    p = (db.players || []).find((x) => nkey(x.name) === nkey(nm) && x.tg_id == null && x.vk_id == null && !x.email);
+    if (p) { Object.assign(p, id); if (id.email) p.email_verified = true; return p; }
+    if ((db.players || []).some((x) => nkey(x.name) === nkey(nm))) throw new Error("name_taken");
+    p = {
+      id: Date.now(), name: nm, games_played: 0, email_verified: !!id.email,
+      auth_provider: id.tg_id != null ? "telegram" : id.vk_id != null ? "vk" : "email",
+      ...id,
+    };
+    db.players.push(p);
+    return p;
+  }
+
+  function devIssueSession(db, p) {
+    const token = ("dev" + Math.random().toString(36).slice(2)).padEnd(40, "0");
+    db.player_sessions = (db.player_sessions || []).filter((s) => String(s.player_id) !== String(p.id));
+    db.player_sessions.push({ token, player_id: p.id });
+    return { data: { token, player: playerJson(p) }, error: null };
+  }
+
+  // Доказательства в песочнице ненастоящие: «dev-vk:<id>» и «dev-mail:<адрес>».
+  // На бою их проверяет сервер (у VK спрашивает владельца токена, у JWT
+  // сверяет подпись), и подменить их из браузера нельзя — см. 006.
+  const devVkUser = (t) => {
+    const m = /^dev-vk:(\d+)$/.exec(String(t || ""));
+    if (!m) throw new Error("auth_token_invalid");
+    return { user_id: Number(m[1]), screen_name: "dev_vk" + m[1] };
+  };
+  const devMail = (t) => {
+    const m = /^dev-mail:(.+)$/.exec(String(t || ""));
+    if (!m) throw new Error("auth_token_invalid");
+    return m[1].toLowerCase();
+  };
+
+  // Склейка: донор отдаёт входы, записи и сыгранное и исчезает.
+  function devMerge(db, keepId, donor) {
+    if (!donor) return fail("player_not_found");
+    if (String(donor.id) === String(keepId)) return fail("same_player");
+    const keep = db.players.find((x) => String(x.id) === String(keepId));
+    keep.tg_id = keep.tg_id ?? donor.tg_id ?? null;
+    keep.vk_id = keep.vk_id ?? donor.vk_id ?? null;
+    if (!keep.email && donor.email) { keep.email = donor.email; keep.email_verified = donor.email_verified; }
+    keep.tg_username = keep.tg_username || donor.tg_username || null;
+    keep.vk_username = keep.vk_username || donor.vk_username || null;
+    keep.games_played = (keep.games_played || 0) + (donor.games_played || 0);
+    (db.registrations || []).forEach((r) => {
+      if (String(r.player_id) !== String(donor.id)) return;
+      const dup = (db.registrations || []).some((x) => String(x.tournament_id) === String(r.tournament_id) && String(x.player_id) === String(keepId));
+      r.player_id = dup ? null : keepId;
+    });
+    db.registrations = (db.registrations || []).filter((r) => r.player_id != null);
+    (db.tournament_result_players || []).forEach((r) => {
+      if (String(r.player_id) === String(donor.id)) r.player_id = keepId;
+    });
+    db.players = db.players.filter((x) => String(x.id) !== String(donor.id));
+    db.player_sessions = (db.player_sessions || []).filter((s) => String(s.player_id) !== String(donor.id));
+    return { data: playerJson(keep), error: null };
+  }
+
   const APP_RPC = {
     vp_app_login(db, args) {
       const raw = String(args?.p_init_data || "");
       if (!raw.startsWith("dev:")) return fail("init_data_invalid");
       const user = JSON.parse(raw.slice(4));
-      let p = (db.players || []).find((x) => String(x.tg_id) === String(user.id));
-      if (!p) {
-        const name = String(args?.p_name || [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username || "").trim();
-        if (name.length < 2) return fail("invalid_name");
-        p = (db.players || []).find((x) => nkey(x.name) === nkey(name) && x.tg_id == null);
-        if (p) { p.tg_id = user.id; p.tg_username = user.username || null; }
-        else if ((db.players || []).some((x) => nkey(x.name) === nkey(name))) return fail("name_taken");
-        else {
-          p = { id: Date.now(), name, tg_id: user.id, tg_username: user.username || null, games_played: 0 };
-          db.players.push(p);
-        }
-      }
-      const token = ("dev" + Math.random().toString(36).slice(2)).padEnd(40, "0");
-      db.player_sessions = (db.player_sessions || []).filter((s) => String(s.player_id) !== String(p.id));
-      db.player_sessions.push({ token, player_id: p.id });
-      return { data: { token, player: playerJson(p) }, error: null };
+      const p = devFindOrCreate(db,
+        { tg_id: user.id, tg_username: user.username || null },
+        args?.p_name || [user.first_name, user.last_name].filter(Boolean).join(" ") || user.username);
+      return devIssueSession(db, p);
+    },
+    vp_app_login_vk(db, args) {
+      const u = devVkUser(args?.p_access_token);
+      const p = devFindOrCreate(db, { vk_id: u.user_id, vk_username: u.screen_name }, args?.p_name);
+      return devIssueSession(db, p);
+    },
+    vp_app_login_email(db, args) {
+      const email = devMail(args?.p_jwt);
+      const p = devFindOrCreate(db, { email }, args?.p_name);
+      return devIssueSession(db, p);
+    },
+    vp_app_link_vk(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const u = devVkUser(args?.p_access_token);
+      if ((db.players || []).some((x) => String(x.vk_id) === String(u.user_id) && String(x.id) !== String(pid))) return fail("vk_id_taken");
+      const p = db.players.find((x) => String(x.id) === String(pid));
+      p.vk_id = u.user_id; p.vk_username = u.screen_name;
+      return { data: playerJson(p), error: null };
+    },
+    vp_app_link_email(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const email = devMail(args?.p_jwt);
+      if ((db.players || []).some((x) => x.email_verified && String(x.email).toLowerCase() === email && String(x.id) !== String(pid))) return fail("email_taken");
+      const p = db.players.find((x) => String(x.id) === String(pid));
+      p.email = email; p.email_verified = true;
+      return { data: playerJson(p), error: null };
+    },
+    vp_app_merge_vk(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const u = devVkUser(args?.p_access_token);
+      const donor = (db.players || []).find((x) => String(x.vk_id) === String(u.user_id));
+      return devMerge(db, pid, donor);
+    },
+    vp_app_merge_email(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const email = devMail(args?.p_jwt);
+      const donor = (db.players || []).find((x) => x.email_verified && String(x.email).toLowerCase() === email);
+      return devMerge(db, pid, donor);
     },
     vp_app_logout(db, args) {
       db.player_sessions = (db.player_sessions || []).filter((s) => s.token !== args?.p_token);
@@ -557,10 +669,52 @@
       },
       signOut: async () => { signedOut = true; return { error: null }; },
       onAuthStateChange: () => ({ data: { subscription: { unsubscribe() {} } } }),
+      // Почтовый вход игрока. Письма из песочницы не уходят — код всегда
+      // 000000, и он печатается в консоль, чтобы это было видно, а не
+      // угадывалось. На бою и письмо, и код — работа GoTrue.
+      signInWithOtp: async ({ email }) => {
+        console.info("[vyatka dev] код для " + email + ": 000000");
+        return { data: {}, error: null };
+      },
+      verifyOtp: async ({ email, token }) => {
+        if (String(token) !== "000000") return { data: null, error: { message: "invalid otp" } };
+        return { data: { session: { access_token: "dev-mail:" + String(email).toLowerCase() } }, error: null };
+      },
     },
   };
 
   window.supabase = { createClient: () => client };
+
+  // ── Кнопка VK ──────────────────────────────────────────────────────────────
+  // Настоящий SDK ходит в id.vk.com и требует заведённого приложения, то есть
+  // в песочнице бесполезен. Подменяем его кнопкой с тем же интерфейсом: она
+  // отдаёт ненастоящий access_token, и весь путь после кнопки — вход, выбор
+  // имени, привязка, склейка — проверяется локально, как есть.
+  const DEV_VK_ID = 777001;
+  window.VKIDSDK = {
+    ConfigResponseMode: { Callback: "callback" },
+    ConfigSource: { LOWCODE: "lowcode" },
+    WidgetEvents: { ERROR: "error" },
+    OneTapInternalEvents: { LOGIN_SUCCESS: "login_success" },
+    Config: { init() {} },
+    Auth: { exchangeCode: async (code) => ({ access_token: "dev-vk:" + code }) },
+    OneTap: class {
+      render({ container }) {
+        const b = document.createElement("button");
+        b.type = "button";
+        b.textContent = "Войти через VK (песочница)";
+        b.style.cssText = "width:100%;background:#07f;color:#fff";
+        b.onclick = () => this._on?.(DEV_VK_ID);
+        container.appendChild(b);
+        return this;
+      }
+      on(evt, fn) {
+        // Порядок как у настоящего SDK: сначала ERROR, потом LOGIN_SUCCESS.
+        if (evt === "login_success") this._on = (id) => fn({ code: String(id), device_id: "dev" });
+        return this;
+      }
+    },
+  };
   // VP_BLUEPRINTS намеренно не трогаем: песочница должна идти тем же путём,
   // что и боевая админка, — теперь через таблицу `tournament_blueprints`,
   // она в стабе засеяна (см. выше). Путь через служебную строку в rooms
