@@ -44,18 +44,20 @@ body{
 html.locked,body.locked{overflow:hidden}
 
 /* Водяной знак клуба на фоне страниц — тот же вордмарк, что и в шапке,
-   мелко и почти невидимо повторён по фону. Фиксирован, чтобы не скроллился
-   вместе со страницей, и лежит ниже всего контента (карточки его перекрывают
-   своей непрозрачной подложкой). */
+   мелко и почти невидимо повторён по фону в шахматную клетку: второй слой
+   того же лого сдвинут на полшага по обеим осям, вместо ровной сетки —
+   кладка в разбежку. Фиксирован, чтобы не скроллился вместе со страницей,
+   и лежит ниже всего контента (карточки его перекрывают своей непрозрачной
+   подложкой). */
 body::before{
   content:"";
   position:fixed;
   inset:0;
-  background-image:url("../assets/logo.svg");
-  background-repeat:repeat;
-  background-position:center;
-  background-size:260px auto;
-  opacity:.05;
+  background-image:url("../assets/logo.svg"), url("../assets/logo.svg");
+  background-repeat:repeat, repeat;
+  background-position:0 0, 190px 47px;
+  background-size:380px 95px, 380px 95px;
+  opacity:.045;
   pointer-events:none;
   z-index:-1;
 }
@@ -214,8 +216,9 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .listRow.busted .nm{text-decoration:line-through}
 .avatar{
   width:32px;height:32px;border-radius:999px;background:var(--accent-soft);color:var(--accent-dark);
-  display:grid;place-items:center;font-size:11px;font-weight:900;flex:none;
+  display:grid;place-items:center;font-size:11px;font-weight:900;flex:none;overflow:hidden;
 }
+.avatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .tag{
   font-size:11px;font-weight:800;padding:3px 8px;border-radius:999px;
   background:var(--surface-2);color:var(--muted);
