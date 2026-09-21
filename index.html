@@ -622,7 +622,7 @@ body{
   .tcard.hero::after{width:168px;right:-56px}
 }
 .ratingTable{padding:0;overflow:hidden}
-.ratingRow{display:grid;grid-template-columns:48px minmax(0,1fr) auto;gap:12px;align-items:center;padding:15px 16px;border-bottom:1px solid var(--line)}
+.ratingRow{display:grid;grid-template-columns:48px 32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:15px 16px;border-bottom:1px solid var(--line)}
 .ratingRow:last-child{border-bottom:0}
 .ratingLabels{font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;background:var(--surface-2)}
 .ratingPlace{font-weight:900;text-align:center;font-variant-numeric:tabular-nums}
@@ -950,7 +950,7 @@ body{
 
   const $ = (id) => document.getElementById(id);
   const {
-    escHtml, fmtInt, fmtTime, nowMs, initials, clampInt, NF,
+    escHtml, fmtInt, fmtTime, nowMs, initials, avatarHtml, clampInt, NF,
     normalizeState, curLevel, playLevelNum, remainingSec, breakRemainingSec,
     isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries,
   } = window.VP;
@@ -1878,7 +1878,7 @@ body{
           : roster.length
             ? `<div class="list">${roster.map((r, i) => `<div class="listRow">
                  <span class="idx">${i + 1}</span>
-                 <span class="avatar">${escHtml(initials(r.name))}</span>
+                 ${avatarHtml(r.name, r.photo_url)}
                  <span class="nm">${escHtml(r.name)}</span>
                  ${Number(r.player_id) === Number(me?.player?.id) ? '<span class="tag hot">это ты</span>' : ""}
                </div>`).join("")}</div>`
@@ -1972,7 +1972,7 @@ body{
     if (!rows.length && ratingRows.length) {
       $("ratingList").innerHTML = '<div class="empty"><div class="eT">Игрок не найден</div><div class="eS">Попробуй другое имя.</div></div>'; return;
     }
-    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span><div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
+    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span></span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span>${avatarHtml(r.name, r.photo_url)}<div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
   }
   async function loadRating() {
     const request = ++ratingRequest;

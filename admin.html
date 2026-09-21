@@ -895,10 +895,10 @@
     if (linkTid) {
       try {
         const { data: regs, error } = await sb.from(TBL.registrations)
-          .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", linkTid)
+          .select(`player_id, ${TBL.players}(name, photo_url)`).eq("tournament_id", linkTid)
           .order("created_at", { ascending: true });
         if (error) throw error;
-        regPlayers = (regs || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
+        regPlayers = (regs || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id, photo_url: r[TBL.players].photo_url || null } : null)).filter(Boolean);
         const { data: tour } = await sb.from(TBL.tournaments).select("entry_fee").eq("id", linkTid).maybeSingle();
         if (tour?.entry_fee != null) linkedFee = clampInt(tour.entry_fee, 0);
       } catch (e) { setErr(e); return; }
@@ -945,10 +945,10 @@
 
   async function fetchRegPlayers(tid) {
     const { data, error } = await sb.from(TBL.registrations)
-      .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", tid)
+      .select(`player_id, ${TBL.players}(name, photo_url)`).eq("tournament_id", tid)
       .order("created_at", { ascending: true });
     if (error) throw error;
-    return (data || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
+    return (data || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id, photo_url: r[TBL.players].photo_url || null } : null)).filter(Boolean);
   }
 
   async function loadTgRegistrations(mode) {
@@ -1235,6 +1235,7 @@
     return new Promise((resolve) => {
       const modal = $("playerPickModal"), input = $("pickInput"), box = $("pickResults"), add = $("pickAdd");
       let selected = null, timer = null, reqSeq = 0;
+      const photoById = new Map();
       input.value = ""; box.innerHTML = ""; add.disabled = true;
       modal.classList.add("show");
       setTimeout(() => input.focus(), 50);
@@ -1257,10 +1258,12 @@
         const or = pats.map((p) => `name.ilike.%${p}%,full_name.ilike.%${p}%`).join(",");
         try {
           const { data, error } = await sb.from(TBL.players)
-            .select("id,name,full_name").or(or).order("name").limit(20);
+            .select("id,name,full_name,photo_url").or(or).order("name").limit(20);
           if (seq !== reqSeq) return;
           if (error) throw error;
           if (!data?.length) { note("В базе не нашлось — можно добавить как есть"); selected = null; add.disabled = false; return; }
+          photoById.clear();
+          data.forEach((p) => { if (p.photo_url) photoById.set(p.id, p.photo_url); });
           box.innerHTML = data.map((p) => {
             const full = p.full_name ? `<span class="full">${escHtml(p.full_name)}</span>` : "";
             return `<div class="pickItem" data-id="${p.id}" data-name="${escHtml(p.name)}">${escHtml(p.name)}${full}</div>`;
@@ -1285,7 +1288,8 @@
         if (!item) return;
         box.querySelectorAll(".pickItem").forEach((el) => el.classList.remove("sel"));
         item.classList.add("sel");
-        selected = { name: item.dataset.name, id: Number(item.dataset.id) || null };
+        const pid = Number(item.dataset.id) || null;
+        selected = { name: item.dataset.name, id: pid, photo_url: pid ? photoById.get(pid) || null : null };
         add.disabled = false;
       };
       add.onclick = () => {
@@ -1311,9 +1315,13 @@
         const exists = st.players.find((p) => keyName(p.name) === keyName(name));
         // Повторное добавление не плодит дубль, но доклеивает player_id —
         // он нужен, чтобы регистрация из приложения нашла своего игрока.
-        if (exists) { if (picked.id && !exists.player_id) exists.player_id = picked.id; return st; }
+        if (exists) {
+          if (picked.id && !exists.player_id) exists.player_id = picked.id;
+          if (picked.photo_url && !exists.photo_url) exists.photo_url = picked.photo_url;
+          return st;
+        }
         st.players.push({ name, present: true, reentries: 0, status: "registered",
-          ko: 0, player_id: picked.id ?? null });
+          ko: 0, player_id: picked.id ?? null, photo_url: picked.photo_url ?? null });
         return computeStatsFromPlayers(st);
       });
     } catch (e) {}

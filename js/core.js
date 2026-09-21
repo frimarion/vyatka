@@ -46,6 +46,13 @@
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  // Аватарка игрока: фото из TG/VK, если есть, иначе инициалы — как раньше.
+  function avatarHtml(name, photoUrl, cls = "avatar") {
+    return photoUrl
+      ? `<span class="${cls}"><img src="${escHtml(photoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>`
+      : `<span class="${cls}">${escHtml(initials(name))}</span>`;
+  }
+
   // ── Структура блайндов ────────────────────────────────────────────────────
   const FALLBACK_LEVELS = [
     { min: 16, sb: 100, bb: 100, anteMode: "BB" }, { min: 16, sb: 100, bb: 200, anteMode: "BB" },
@@ -705,6 +712,7 @@
     ensurePlayers(st);
     const raw = (Array.isArray(incoming) ? incoming : [])
       .map((p) => ({ name: normName(p.name || ""), player_id: p.player_id ?? null,
+        photo_url: p.photo_url || null,
         present: !!p.present, reentries: 0, status: "registered", ko: 0 }))
       .filter((p) => p.name);
     // Одно имя — одна строка. Список из TG легко приносит человека дважды, а
@@ -715,7 +723,11 @@
     for (const p of raw) {
       const k = keyName(p.name);
       const first = seenIncoming.get(k);
-      if (first) { if (p.player_id && !first.player_id) first.player_id = p.player_id; continue; }
+      if (first) {
+        if (p.player_id && !first.player_id) first.player_id = p.player_id;
+        if (p.photo_url && !first.photo_url) first.photo_url = p.photo_url;
+        continue;
+      }
       seenIncoming.set(k, p);
       list.push(p);
     }
@@ -729,7 +741,10 @@
         const k = keyName(p.name);
         const old = byKey.get(k);
         if (!old) { st.players.push(p); byKey.set(k, p); }
-        else if (p.player_id && !old.player_id) old.player_id = p.player_id; // доклеиваем id из БД
+        else {
+          if (p.player_id && !old.player_id) old.player_id = p.player_id; // доклеиваем id из БД
+          if (p.photo_url && !old.photo_url) old.photo_url = p.photo_url;
+        }
       }
     }
     return computeStatsFromPlayers(st);
@@ -747,7 +762,7 @@
 
   global.VP = {
     NF, BRANCH, BREAK_MINUTES, PRESETS, DEFAULT_BONUS_HAND, DEFAULT_BONUS_COMMENT,
-    clampInt, fmtInt, fmtTime, fmtDuration, nowMs, escHtml, normName, keyName, initials,
+    clampInt, fmtInt, fmtTime, fmtDuration, nowMs, escHtml, normName, keyName, initials, avatarHtml,
     plural, withPlural,
     defaultLevels, normalizeLevels, initialState, normalizeState,
     ensurePlayers, recomputePlaces, computeStatsFromPlayers, nextBustOrder, rollbackBustKo,

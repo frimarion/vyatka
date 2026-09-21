@@ -161,6 +161,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .ftGrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;width:min(96%,960px)}
 .ftSlot{display:flex;align-items:center;gap:12px;padding:13px 18px;border-radius:12px;
   border:1px solid color-mix(in srgb,var(--accent) 32%,transparent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+.ftAvatar{width:38px;height:38px;border-radius:999px;background:var(--accent-soft);color:var(--accent-dark);
+  display:grid;place-items:center;font-size:13px;font-weight:900;flex:none;overflow:hidden}
+.ftAvatar img{width:100%;height:100%;object-fit:cover;border-radius:inherit}
 .ftNum{min-width:22px;width:auto;text-align:center;font-family:var(--mono);font-weight:900;font-size:15px;
   color:var(--accent);flex-shrink:0}
 .ftName{font-size:clamp(16px,1.45vw,24px);font-weight:900;line-height:1.2;color:var(--d-fg);
@@ -322,7 +325,7 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
   "use strict";
   const $ = (id) => document.getElementById(id);
   const {
-    fmtInt, fmtTime, fmtDuration, nowMs, escHtml, clampInt, normalizeState,
+    fmtInt, fmtTime, fmtDuration, nowMs, escHtml, clampInt, normalizeState, avatarHtml,
     curLevel, playLevelNum, calcAvg, calcTotalChips, isOnBreak, breakRemainingSec,
     remainingSec, levelRemainingSec, lateRegRemainingSec, nextBreakInSec, advanceExpiredLevels,
   } = window.VP;
@@ -402,13 +405,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     if (!on) { ov.style.display = "none"; ftOrder = null; return; }
     if (ov.style.display !== "flex") {
       // Состав и порядок фиксируем один раз при показе, иначе имена прыгают.
-      const alive = (state.players || []).filter((p) => p.present && p.status !== "busted").slice(0, 9).map((p) => p.name || "—");
+      const alive = (state.players || []).filter((p) => p.present && p.status !== "busted").slice(0, 9)
+        .map((p) => ({ name: p.name || "—", photo_url: p.photo_url || null }));
       for (let i = alive.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [alive[i], alive[j]] = [alive[j], alive[i]]; }
       ftOrder = alive;
       ov.style.display = "flex";
     }
-    $("ftGrid").innerHTML = (ftOrder || []).map((n, i) =>
-      `<div class="ftSlot"><span class="ftNum">${i + 1}</span><span class="ftName">${escHtml(n)}</span></div>`).join("");
+    $("ftGrid").innerHTML = (ftOrder || []).map((p, i) =>
+      `<div class="ftSlot">${avatarHtml(p.name, p.photo_url, "ftAvatar")}<span class="ftNum">${i + 1}</span><span class="ftName">${escHtml(p.name)}</span></div>`).join("");
   }
 
   function render() {
