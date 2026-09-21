@@ -269,7 +269,7 @@ body{
   text-align:left;color:var(--ink);text-decoration:none;
   display:flex;flex-direction:column;gap:8px;min-height:104px;
   /* Плитки — это <button>, а кнопкам в дизайн-системе задан nowrap: без
-     возврата к normal подпись «Домашние правила клуба» обрезается по краю. */
+     возврата к normal длинные подписи обрезаются по краю. */
   white-space:normal;
 }
 .tile::after{
@@ -339,6 +339,19 @@ body{
 .spec .sv{font-size:16px;font-weight:900;font-variant-numeric:tabular-nums;margin-top:2px}
 .feat{display:flex;gap:9px;font-size:14px;font-weight:600;padding:5px 0}
 .feat::before{content:"\25C6";color:var(--accent);font-size:10px;line-height:1.7}
+
+/* ── Карточка адреса в модалке ──────────────────────────────── */
+.addrRow{display:flex;align-items:center;gap:12px}
+.addrRow .addrMain{font-size:17px;font-weight:900;letter-spacing:-.01em}
+.mapBtn{
+  display:flex;align-items:center;justify-content:center;gap:7px;
+  margin-top:16px;width:100%;
+  padding:12px 16px;border-radius:var(--r-md);
+  background:var(--accent);color:var(--surface);
+  font-weight:800;font-size:14px;text-decoration:none;
+}
+.mapBtn:hover{filter:brightness(1.05)}
+.mapBtn svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
 /* Живой блок — единственное место, где что-то меняется на глазах.
    Поэтому он ярче всего на экране и с бегущей точкой. */
@@ -680,9 +693,9 @@ body{
       <button class="tile" type="button" data-info="address">
         <span class="coin"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
         <span class="tt">Адрес</span><span class="muted" id="tileAddr">—</span></button>
-      <button class="tile" type="button" data-info="rules">
+      <a class="tile" href="https://vk.ru/poker_kirov43" target="_blank" rel="noopener">
         <span class="coin"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M8 7.5h7M8 11h5"/></svg></span>
-        <span class="tt">Правила</span><span class="muted">Домашние правила клуба</span></button>
+        <span class="tt">Группа ВК</span><span class="muted">Новости и фото клуба</span></a>
       <button class="tile" type="button" data-info="about">
         <span class="coin"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg></span>
         <span class="tt">О клубе</span><span class="muted">Как всё устроено</span></button>
@@ -822,18 +835,11 @@ body{
     support: "https://t.me/maks9228",
     address: "Бар «Готика», Киров",
     addressNote: "Сбор за полчаса до старта.",
-    mapUrl:  "https://yandex.ru/maps/?rtext=~Бар Готика, Киров&rtt=auto",
+    mapUrl:  "https://yandex.ru/maps/org/gotika/25340841013/",
     about: [
       "«Вятка» — покерный клуб в Кирове. Играем турниры по вечерам: фриз-ауты, ПКО и глубокие стеки.",
       "Запись — здесь, в приложении. Место держим до старта; если планы поменялись, сними запись — её ждёт кто-то из листа.",
       "Взнос платят на месте: переводом, наличными или картой.",
-    ],
-    rules: [
-      "Опоздание: поздняя регистрация открыта до уровня, указанного в карточке турнира. Стек выдаётся стартовый.",
-      "Телефон на столе — только лицом вниз, разговоры — от стола.",
-      "Карты и фишки остаются на столе видимыми, самая крупная фишка стека — сверху.",
-      "Объявленное вслух действие обязательно к исполнению: сказал «колл» — колл.",
-      "Все споры решает организатор вечера; решение окончательное.",
     ],
   };
 
@@ -1906,9 +1912,16 @@ body{
 
   const INFO = {
     address: { title: "Наш адрес", body: () =>
-      `<b>${escHtml(CLUB.address)}</b><br/>${escHtml(CLUB.addressNote)}<br/><br/>
-       <a href="${escHtml(CLUB.mapUrl)}" target="_blank" rel="noopener">Открыть на карте →</a>` },
-    rules: { title: "Домашние правила", body: () => CLUB.rules.map((r) => `<div class="feat">${escHtml(r)}</div>`).join("") },
+      `<div class="addrRow">
+         <span class="coin"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
+         <div>
+           <div class="addrMain">${escHtml(CLUB.address)}</div>
+           <div class="muted">${escHtml(CLUB.addressNote)}</div>
+         </div>
+       </div>
+       <a class="mapBtn" href="${escHtml(CLUB.mapUrl)}" target="_blank" rel="noopener">
+         <svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg>
+         Открыть на карте</a>` },
     about: { title: "О клубе", body: () => CLUB.about.map((p) => `<p style="margin:0 0 10px">${escHtml(p)}</p>`).join("") },
   };
   function showInfo(kind) {
