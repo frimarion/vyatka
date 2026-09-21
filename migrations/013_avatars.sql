@@ -1,5 +1,9 @@
 -- Аватарки игроков (photo_url уже есть в players из TG/VK-логина) наружу:
 -- в рейтинге и в составе турнира их раньше не отдавали.
+-- create or replace не меняет состав OUT-колонок — функции пересоздаём.
+drop function if exists public.vp_app_rating(text);
+drop function if exists public.vp_tournament_roster(bigint);
+
 create or replace function public.vp_app_rating(p_period text default 'month')
 returns table (player_id bigint, name text, points bigint, games bigint, wins bigint, rank bigint, photo_url text)
 language sql stable security definer set search_path = public
