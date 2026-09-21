@@ -6,7 +6,7 @@
 <title>Вятка — админка таймера</title>
 <link rel="stylesheet" href="css/app.css"/>
 </head>
-<body>
+<body class="adminPage">
 
 <!-- ── Авторизация ─────────────────────────────────────────────────────── -->
 <div id="authLock" class="authLock">
@@ -617,7 +617,7 @@
   // Комнату целиком показываем там, где она помещается: на ПК таббар из пяти
   // кнопок — лишний клик между карточками, которые все нужны одновременно.
   // Порог по ширине, а не по «устройству»: узкое окно на ПК ведёт себя как телефон.
-  const ONEPAGE = window.matchMedia("(min-width: 1100px)");
+  const ONEPAGE = window.matchMedia("(min-width: 768px)");
   const ROOM_SCREENS = ALL_SCREENS.filter((id) => id !== "screenCreate");
   let currentTab = "timer";
 

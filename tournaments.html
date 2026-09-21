@@ -22,9 +22,17 @@
 .s-running{background:var(--accent);color:var(--surface)}
 .s-past{background:var(--surface-2);color:var(--ink-2)}
 .s-cancelled{background:rgba(194,46,46,.12);color:var(--danger)}
+.tourGroup+.tourGroup{margin-top:22px;padding-top:18px;border-top:1px solid var(--line)}
+.tourGroupHead{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.tourGroupHead h3{flex:1;font-size:17px}
+@media(min-width:768px){
+  body.tournamentsPage .wrap{padding-bottom:32px}
+  body.tournamentsPage .tabbar{display:none!important}
+  body.tournamentsPage #screenForm{margin-top:16px}
+}
 </style>
 </head>
-<body>
+<body class="tournamentsPage">
 
 <!-- ── Авторизация ─────────────────────────────────────────────────────── -->
 <div id="authLock" class="authLock">
@@ -159,6 +167,7 @@
   let editId = null;
   let openPanels = {};             // id турнира → развёрнут список записавшихся
   let rosters = {};                // id → массив записей
+  const ONEPAGE = window.matchMedia("(min-width: 768px)");
 
   const isOperator = () => profile?.role === "operator";
   const isAdmin = () => !!profile && !isOperator();
@@ -217,6 +226,22 @@
   const isPastRow = (t) => t.status === "past" || t.status === "cancelled";
 
   function render() {
+    if (ONEPAGE.matches) {
+      const open = tours.filter((t) => !isPastRow(t)).sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
+      const past = tours.filter(isPastRow).sort((a, b) => new Date(b.date || 0) - new Date(a.date || 0));
+      const group = (title, items, empty) => `<div class="tourGroup">
+        <div class="tourGroupHead"><h3>${title}</h3><span class="tag">${items.length}</span></div>
+        ${items.length ? items.map(row).join("") : `<div class="muted">${empty}</div>`}
+      </div>`;
+      $("screenList").style.display = "";
+      $("screenForm").style.display = isAdmin() ? "" : "none";
+      $("listTitle").textContent = "Все турниры";
+      $("listInfo").textContent = String(tours.length);
+      $("list").innerHTML = group("Расписание", open, "Турниров нет.")
+        + group("Прошедшие", past, "Прошедших турниров нет.");
+      Object.keys(openPanels).forEach((id) => { if (openPanels[id]) renderRoster(Number(id)); });
+      return;
+    }
     $("screenList").style.display = view === "form" ? "none" : "";
     $("screenForm").style.display = view === "form" ? "" : "none";
     if (view === "form") return;
@@ -623,7 +648,8 @@
     view = v;
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === v));
     render();
-    window.scrollTo(0, 0);
+    if (ONEPAGE.matches && v === "form") $("screenForm").scrollIntoView({ behavior: "smooth", block: "start" });
+    else window.scrollTo(0, 0);
   }
   document.querySelectorAll("#tabbar button").forEach((b) => {
     b.onclick = () => { if (b.dataset.tab === "form" && !editId) resetForm(); setView(b.dataset.tab); };
@@ -640,10 +666,11 @@
   function setUi() {
     $("badgeUser").style.display = profile ? "" : "none";
     if (profile) $("userText").textContent = `${profile.email || "—"} · ${isOperator() ? "оператор" : "админ"}`;
-    $("tabbar").style.display = "";
+    $("tabbar").style.display = ONEPAGE.matches ? "none" : "";
     // Оператор турниры не создаёт: расписание клуба — дело админа.
     document.querySelector('#tabbar button[data-tab="form"]').style.display = isAdmin() ? "" : "none";
   }
+  ONEPAGE.addEventListener("change", () => { setUi(); render(); });
 
   async function checkAuth() {
     const { data: { session } } = await sb.auth.getSession();
