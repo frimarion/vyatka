@@ -15,7 +15,7 @@
   --gold:#E8B94A;
   --olive:#8A7A3A;
   --text:#241B14;
-  --muted:#AB9D87;
+  --muted:#6B5D45;
   --line:rgba(36,27,20,.10);
   --line-strong:rgba(36,27,20,.22);
   --danger:#C22E2E;
@@ -253,7 +253,7 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .payTop{display:flex;align-items:baseline;gap:10px}
 .payName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .payRest{margin-left:auto;font-weight:900;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
-.payRest.debt{color:var(--accent)}
+.payRest.debt{color:var(--accent-dark)}
 .payRest.ok{color:var(--ok)}
 .payMeta{font-size:12px;font-weight:600;color:var(--muted);margin-top:2px;line-height:1.35}
 .payBtns{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
