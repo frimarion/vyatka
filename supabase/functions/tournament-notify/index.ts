@@ -78,20 +78,39 @@ async function getPlayers(tournamentId: number) {
   return (regs ?? []).map((r: any) => ({ name: r.players?.name ?? "—" }));
 }
 
+function fmtInt(n: number): string {
+  return new Intl.NumberFormat("ru-RU").format(n);
+}
+
 // Стиль — гостевой список клуба, а не сухая карточка турнира: заголовок дня,
-// особенности турнира буллетами (из tournaments.features — то же поле, что
-// правит tournaments.html), дальше список записавшихся цитатой (<blockquote>,
-// Telegram отрисовывает её полосой сбоку — как у гостевых списков в других
-// клубах) и ссылка на приложение вместо голого URL.
+// особенности турнира буллетами, дальше список записавшихся цитатой
+// (<blockquote>, Telegram отрисовывает её полосой сбоку — как у гостевых
+// списков в других клубах) и ссылка на приложение вместо голого URL.
+//
+// Буллеты — из двух источников, оба правятся в tournaments.html:
+// start_stack/late_reg_level/level_minutes — отдельные колонки (карточка
+// турнира), дальше свободный текст из features (то самое поле "Особенности").
+// Реентри отдельной колонки не заводили — это описывается текстом в features
+// или description, готовых данных для авто-строки про реентри нет.
+// Пустое поле — это просто нет строки, а не "0" или прочерк.
 //
 // Возвращает готовый HTML: имена и название турнира экранированы по месту,
 // поэтому весь результат уходит в sendMessage как есть, без escHtml() сверху —
 // иначе <blockquote> и <a> превратились бы обратно в текст.
 function buildDraftHtml(
-  t: { name: string; date: string; entry_fee: number; slots: number | null; features?: unknown },
+  t: {
+    name: string; date: string; entry_fee: number; slots: number | null;
+    start_stack?: number | null; late_reg_level?: number | null; level_minutes?: number | null;
+    features?: unknown;
+  },
   players: { name: string }[],
 ): string {
-  const features = Array.isArray(t.features) ? (t.features as string[]) : [];
+  const details: string[] = [];
+  if (t.start_stack) details.push(`Стартовый стек — ${fmtInt(t.start_stack)} фишек`);
+  if (t.late_reg_level) details.push(`Поздняя регистрация до ${t.late_reg_level} уровня`);
+  if (t.level_minutes) details.push(`Уровни по ${t.level_minutes} мин`);
+  if (Array.isArray(t.features)) details.push(...(t.features as string[]));
+
   const lines = [
     "📋 Список записавшихся — клуб «Вятка»! ♠️",
     "",
@@ -101,8 +120,8 @@ function buildDraftHtml(
     `🏆 ${escHtml(t.name)} 🏆`,
     "",
   ];
-  features.forEach((f) => lines.push(`♦️ ${escHtml(f)}`));
-  if (features.length) lines.push("");
+  details.forEach((d) => lines.push(`♦️ ${escHtml(d)}`));
+  if (details.length) lines.push("");
   lines.push(`💰 Взнос — ${t.entry_fee} ₽`, "", "Участники:");
 
   const playerLines = players.length
