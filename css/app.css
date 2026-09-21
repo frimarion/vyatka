@@ -344,13 +344,10 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
   body.adminPage #btnScrollTop{bottom:20px}
 }
 @media(min-width:1100px){
-  /* Колонки, а не сетка: карточки разной высоты, и в сетке строка равнялась бы
-     по самой длинной, оставляя дыры под короткими. */
-  #screens.onepage{columns:2;column-gap:16px}
-  #screens.onepage>.card{break-inside:avoid;margin:0 0 16px}
-  /* Таймер читают через зал, таблица уровней широкая — им вся ширина. */
-  #screens.onepage>#screenTimer,
-  #screens.onepage>#screenStructure{column-span:all}
+  /* Одна колонка сверху вниз, как в админке Дойла: две CSS-колонки заставляли
+     глаз прыгать между ними, а порядок карточек внутри колонки был неочевиден. */
+  #screens.onepage{max-width:720px;margin:0 auto}
+  #screens.onepage>.card{margin:0 0 16px}
 }
 
 /* ── Переход между страницами клуба ──────────────────────────── */
