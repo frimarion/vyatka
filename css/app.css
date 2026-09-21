@@ -371,3 +371,10 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
   .pagenav::-webkit-scrollbar{display:none}
   .pagenav a,.pagenav .here{flex:none}
 }
+
+/* Кнопки таймера на телефоне переносят подпись. Глобальный nowrap держит
+   кнопки аккуратными, но в сетке по 130px «🏆 Финальный стол» в колонку не
+   влезал и обрезался ровно на слове «стол». */
+@media(max-width:640px){
+  .controlRow button{white-space:normal}
+}
