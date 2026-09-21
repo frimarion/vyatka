@@ -396,6 +396,8 @@
     vk_id: p.vk_id ?? null, vk_username: p.vk_username ?? null,
     email: p.email_verified ? p.email : null, auth_provider: p.auth_provider ?? null,
     photo_url: p.photo_url ?? null, games_played: p.games_played ?? 0,
+    pd_consent_at: p.pd_consent_at ?? null, pd_consent_version: p.pd_consent_version ?? null,
+    photo_consent: !!p.photo_consent, marketing_consent: !!p.marketing_consent,
   } : null);
 
   const fail = (code) => ({ data: null, error: { message: code } });
@@ -576,6 +578,32 @@
       }
       if (args?.p_full_name) p.full_name = String(args.p_full_name).trim();
       if (args?.p_phone) p.phone = String(args.p_phone).trim();
+      return { data: playerJson(p), error: null };
+    },
+    // Журнал согласий из 008_player_consent.sql: без него экран согласия в
+    // песочнице падал бы на первом же «Продолжить», то есть проверить главное —
+    // что без согласия дальше не пускают — было бы нечем.
+    vp_app_log_consent(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("no_session");
+      const ver = String(args?.p_consent_version || "").trim();
+      if (!ver) return fail("no_version");
+      if (!["tg", "vk", "email"].includes(String(args?.p_source))) return fail("invalid_source");
+      const p = db.players.find((x) => String(x.id) === String(pid));
+      if (!p) return fail("no_session");
+      db.consent_log = db.consent_log || [];
+      const row = (type) => ({
+        id: Date.now() + Math.floor(Math.random() * 1000), player_id: p.id, consent_type: type,
+        agreed: true, consent_version: ver, agreed_at: new Date().toISOString(),
+        source: String(args.p_source), user_agent: String(args?.p_user_agent || "").slice(0, 400) || null,
+      });
+      db.consent_log.push(row("pd"));
+      if (args?.p_photo_consent) db.consent_log.push(row("photo"));
+      if (args?.p_marketing_consent) db.consent_log.push(row("marketing"));
+      p.pd_consent_version = ver;
+      p.pd_consent_at = new Date().toISOString();
+      p.photo_consent = !!args?.p_photo_consent;
+      p.marketing_consent = !!args?.p_marketing_consent;
       return { data: playerJson(p), error: null };
     },
     vp_app_register(db, args) {

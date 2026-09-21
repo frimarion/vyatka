@@ -378,3 +378,11 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
 @media(max-width:640px){
   .controlRow button{white-space:normal}
 }
+
+/* ── Строка с галочкой (согласия при первом входе) ───────────── */
+.checkRow{
+  display:flex;gap:10px;align-items:flex-start;
+  margin:0 0 12px;font-size:13px;line-height:1.45;cursor:pointer;
+}
+.checkRow input[type=checkbox]{flex:none;margin:1px 0 0;transform:scale(1.2)}
+.checkRow a{color:var(--accent-dark);font-weight:800}

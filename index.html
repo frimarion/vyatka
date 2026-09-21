@@ -533,13 +533,36 @@ body{
 <div id="scrName" class="screen">
   <div class="gate">
     <div style="width:100%">
-      <div class="eyebrow">Первый вход</div>
-      <h1 style="margin:8px 0 6px">Как тебя звать?</h1>
-      <div class="sub" style="margin-bottom:16px">Имя увидят за столом и в списке участников.</div>
+      <div class="eyebrow" id="nameEyebrow">Первый вход</div>
+      <h1 style="margin:8px 0 6px" id="nameTitle">Знакомимся</h1>
+      <div class="sub" style="margin-bottom:16px" id="nameLead">Никнейм увидят за столом и в списке участников, имя нужно клубу.</div>
       <div class="card" style="text-align:left">
-        <div class="field"><label>Имя и фамилия</label>
-          <input id="nameInput" type="text" maxlength="60" placeholder="Андрей Кузнецов" autocomplete="name"/></div>
-        <button id="nameSave" type="button" style="width:100%">Продолжить</button>
+        <div id="nameFields">
+          <div class="field"><label>Никнейм</label>
+            <input id="nameInput" type="text" maxlength="30" placeholder="Например: Андрей или Cowboy88" autocomplete="nickname"/>
+            <div class="muted" style="margin-top:4px;font-size:12px">Его видят другие игроки. Должен быть свободен.</div></div>
+          <div class="field"><label>Имя и фамилия</label>
+            <input id="fullInput" type="text" maxlength="60" placeholder="Андрей Кузнецов" autocomplete="name"/>
+            <div class="muted" style="margin-top:4px;font-size:12px">Для клуба — за столом не показывается.</div></div>
+        </div>
+
+        <!-- Согласие на ПД обязательно, фото и рассылка — отдельно и по желанию:
+             согласие должно быть конкретным и предметным, одной галочкой на всё
+             это требование не выполняется. -->
+        <label class="checkRow">
+          <input id="agreePd" type="checkbox"/>
+          <span>Я прочитал и соглашаюсь с <a href="legal.html#privacy" target="_blank" rel="noopener">политикой обработки персональных данных</a></span>
+        </label>
+        <label class="checkRow">
+          <input id="agreePhoto" type="checkbox"/>
+          <span>Я выражаю <a href="legal.html#photo" target="_blank" rel="noopener">согласие на фото- и видеосъёмку</a> во время турниров</span>
+        </label>
+        <label class="checkRow">
+          <input id="agreePromo" type="checkbox"/>
+          <span>Хочу получать новости и анонсы турниров клуба</span>
+        </label>
+
+        <button id="nameSave" type="button" style="width:100%;margin-top:6px" disabled>Продолжить</button>
         <div id="nameErr" class="err"></div>
       </div>
     </div>
@@ -723,6 +746,8 @@ body{
   const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
 
   const TOKEN_KEY = "vp_app_token";
+  // Редакция документов клуба (js/config.js). Сменилась — согласие спросим заново.
+  const CONSENT_VERSION = String(window.VP_CONSENT_VERSION || "1.0");
   let token = "";
   try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
 
@@ -929,6 +954,11 @@ body{
       if (token) { try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {} }
       me = { player: res?.player || null, registrations: [], history: [] };
       await loadMe();
+      // Имя передали — значит мы в знакомстве, и согласие там берут сразу
+      // после входа. Без имени это молчаливый вход, и вот его мимо согласия
+      // пропускать нельзя: иначе игрок, заведённый до этой редакции, никогда
+      // его и не увидит.
+      if (!name && needsConsent(me?.player)) { askConsent(); return true; }
       screen(authReturn);
       if (authReturn === "scrTourney") renderTourney();
       authReturn = "scrApp";
@@ -944,10 +974,71 @@ body{
     }
   }
 
+  // Экран работает в двух режимах. «Знакомство» — первый вход: спрашиваем
+  // никнейм, имя и согласия. «Только согласие» — человек в клубе давно, но
+  // редакция документов сменилась (или он завёлся до того, как согласие стали
+  // спрашивать): имя у него уже есть, переспрашивать его незачем.
+  let consentOnly = false;
+
+  const needsConsent = (p) =>
+    !!p && (!p.pd_consent_at || String(p.pd_consent_version || "") !== CONSENT_VERSION);
+
   function askName(err) {
+    consentOnly = false;
+    $("nameEyebrow").textContent = "Первый вход";
+    $("nameTitle").textContent = "Знакомимся";
+    $("nameLead").textContent = "Никнейм увидят за столом и в списке участников, имя нужно клубу.";
+    $("nameFields").style.display = "";
     $("nameErr").textContent = err || "";
+    syncNameSave();
     screen("scrName");
     setTimeout(() => $("nameInput").focus(), 60);
+  }
+
+  function askConsent() {
+    consentOnly = true;
+    $("nameEyebrow").textContent = "Документы клуба";
+    $("nameTitle").textContent = "Нужно согласие";
+    $("nameLead").textContent = "Редакция документов обновилась — подтверди согласие, чтобы продолжить.";
+    $("nameFields").style.display = "none";
+    $("nameErr").textContent = "";
+    // Фото и рассылку показываем в том виде, в каком они стоят сейчас: человек
+    // уже сказал по ним «да», и молча снять это при смене редакции нечестно.
+    // Галочку ПД не ставим: согласие на новую редакцию должно быть действием.
+    $("agreePd").checked = false;
+    $("agreePhoto").checked = !!me?.player?.photo_consent;
+    $("agreePromo").checked = !!me?.player?.marketing_consent;
+    syncNameSave();
+    screen("scrName");
+  }
+
+  // Кнопка живёт, когда есть согласие на ПД и (в режиме знакомства) оба имени.
+  function syncNameSave() {
+    const pd = $("agreePd").checked;
+    const named = consentOnly
+      || (($("nameInput").value || "").trim().length >= 2 && ($("fullInput").value || "").trim().length >= 2);
+    $("nameSave").disabled = !(pd && named);
+  }
+
+  // Согласие пишется отдельным вызовом, а не полем логина: журнал согласий
+  // append-only и живёт своей жизнью, в том числе когда имя уже есть.
+  async function logConsent() {
+    if (!token) return;
+    try {
+      const player = await rpc("vp_app_log_consent", {
+        p_token: token,
+        p_consent_version: CONSENT_VERSION,
+        p_source: pendingAuth?.kind || me?.player?.auth_provider || "email",
+        p_user_agent: navigator.userAgent,
+        p_photo_consent: $("agreePhoto").checked,
+        p_marketing_consent: $("agreePromo").checked,
+      });
+      if (me && player) me.player = player;
+    } catch (e) {
+      // Молчать нельзя: без записи согласия его нечем подтвердить, и пускать
+      // дальше как ни в чём не бывало значит соврать самим себе.
+      throw e;
+    }
   }
 
   // Куда вернуть человека после входа. Шёл записываться с карточки турнира —
@@ -1655,14 +1746,39 @@ body{
   $("infoModal").onclick = (e) => { if (e.target === $("infoModal")) $("infoModal").classList.remove("show"); };
 
   $("nameSave").onclick = async () => {
-    const v = ($("nameInput").value || "").trim();
-    if (v.length < 2) { $("nameErr").textContent = "Имя от 2 символов."; return; }
+    if (!$("agreePd").checked) { $("nameErr").textContent = "Без согласия на обработку данных вход невозможен."; return; }
+
+    // Режим «только согласие»: человек уже в клубе, писать надо одно согласие.
+    if (consentOnly) {
+      $("nameErr").textContent = "Сохраняем…";
+      try {
+        await logConsent();
+        $("nameErr").textContent = "";
+        renderAll(); screen("scrApp");
+      } catch (e) { $("nameErr").textContent = errText(e); }
+      return;
+    }
+
+    const nick = ($("nameInput").value || "").trim();
+    const full = ($("fullInput").value || "").trim();
+    if (nick.length < 2) { $("nameErr").textContent = "Никнейм от 2 символов."; return; }
+    if (full.length < 2) { $("nameErr").textContent = "Имя и фамилия от 2 символов."; return; }
     $("nameErr").textContent = "Входим…";
     try {
-      if (await login(v)) { $("nameErr").textContent = ""; renderAll(); screen("scrApp"); }
+      // login кладёт никнейм в players.name — это он виден за столом и в посте.
+      if (!await login(nick)) return;
+      await rpc("vp_app_update_profile", { p_token: token, p_full_name: full });
+      await logConsent();
+      await loadMe();
+      $("nameErr").textContent = "";
+      renderAll(); screen("scrApp");
     } catch (e) { $("nameErr").textContent = errText(e); }
   };
-  $("nameInput").onkeydown = (e) => { if (e.key === "Enter") $("nameSave").click(); };
+  ["nameInput", "fullInput"].forEach((id) => {
+    $(id).oninput = syncNameSave;
+    $(id).onkeydown = (e) => { if (e.key === "Enter" && !$("nameSave").disabled) $("nameSave").click(); };
+  });
+  ["agreePd", "agreePhoto", "agreePromo"].forEach((id) => { $(id).onchange = syncNameSave; });
 
   // ── Кнопки входа ───────────────────────────────────────────────────────────
   $("authEmail").onclick = () => showEmail();
@@ -1756,6 +1872,9 @@ body{
     try {
       if (token) await loadMe();
       else if (pendingAuth?.kind === "tg") await login();
+      // Вход по сохранённому токену минует login(), поэтому согласие проверяем
+      // и здесь: иначе у давнего игрока экран не покажется никогда.
+      if (token && needsConsent(me?.player)) askConsent();
     } catch (e) {
       toast(errText(e), "bad");
     }
