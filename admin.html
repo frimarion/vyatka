@@ -29,6 +29,9 @@
       <h1 id="headTitle">Админка</h1>
     </div>
     <div class="headSide">
+      <!-- Единственный выход из комнаты раньше вёл через «Выйти», то есть через
+           логаут: ведущий, промахнувшийся комнатой, разлогинивался посреди зала. -->
+      <a class="badge light" id="btnBackRooms" href="admin.html" style="display:none;text-decoration:none" title="К списку комнат">← Комнаты</a>
       <span class="badge" id="badgeRoom"><span class="dot gold"></span><span class="mono" id="metaRoom">—</span></span>
       <span class="badge" id="badgeRole"><span class="dot" id="roleDot"></span><span id="roleText">…</span></span>
       <span class="badge" id="badgeUser" style="display:none"><span id="userText">—</span></span>
@@ -38,11 +41,11 @@
     </div>
   </header>
 
-  <div id="err" class="err"></div>
+  <div id="err" class="errToast" role="alert"></div>
 
   <!-- ── Комнаты ───────────────────────────────────────────────────────── -->
   <section id="screenCreate" class="card" style="display:none">
-    <div class="cardHead"><h2>Комнаты</h2>
+    <div class="cardHead"><h2 id="createTitle">Комнаты</h2>
       <button id="btnRefreshRooms" class="ghost tiny" type="button">↻ Обновить</button></div>
     <div class="field" id="newRoomNameField"><label>Название турнира</label>
       <input id="newRoomName" type="text" maxlength="80" placeholder="Вятский Фриз-аут, 19:00"/></div>
@@ -178,8 +181,12 @@
 
   <!-- ── Инфо на дисплее ───────────────────────────────────────────────── -->
   <section id="screenInfo" class="card" style="display:none">
-    <div class="cardHead"><h2>Инфо на дисплее</h2></div>
-    <div class="sub" style="margin-bottom:10px">Показывается слева на ТВ, пока открыта поздняя регистрация.</div>
+    <div class="cardHead"><h2>Инфо на дисплее</h2><span class="tag" id="infoState">—</span></div>
+    <!-- Левая колонка на ТВ одна на двоих: до конца поздней регистрации там инфо,
+         потом её занимает призовая зона. Раньше об этом нигде не было сказано —
+         ведущий сохранял руку дня и не понимал, почему на экране пусто. -->
+    <div class="sub" style="margin-bottom:10px">Левая колонка ТВ: видна, пока открыта поздняя регистрация и выключена призовая зона.</div>
+    <div class="sub err" id="infoWhy" style="margin:-6px 0 10px"></div>
     <div class="field"><label>🃏 Бонусная рука дня</label>
       <input id="infoBonusHand" type="text" maxlength="20" placeholder="T♥ 2♣"/></div>
     <div class="field"><label>💬 Комментарий</label>
@@ -190,10 +197,21 @@
     </div>
   </section>
 
+  <!-- ── Турнир из расписания ──────────────────────────────────────────── -->
+  <!-- Раньше привязка жила только в форме создания комнаты: рум, заведённый
+       руками, уже нельзя было связать с турниром, а без связи нет ни записей
+       из приложения, ни операторов. -->
+  <section id="screenLinkTour" class="card" style="display:none">
+    <div class="cardHead"><h2>Турнир из расписания</h2><span class="tag" id="linkTourInfo">—</span></div>
+    <div class="sub" style="margin-bottom:10px">Связь с карточкой турнира: из неё приезжают записавшиеся через приложение и по ней назначают операторов.</div>
+    <div id="linkTourBox"></div>
+    <div class="sub" id="linkTourNote" style="margin-top:8px"></div>
+  </section>
+
   <!-- ── Операторы ─────────────────────────────────────────────────────── -->
   <section id="screenOperators" class="card" style="display:none">
     <div class="cardHead"><h2>Операторы</h2><span class="tag" id="opsInfo">—</span></div>
-    <div class="sub" style="margin-bottom:10px">Кто может открыть этот турнир в админке. Назначения общие с Дойлом — таблица <span class="mono">tournament_operators</span>.</div>
+    <div class="sub" style="margin-bottom:10px">Кто может открыть этот турнир в админке — строки в <span class="mono">tournament_operators</span>. Назначение живёт на турнире, а не на комнате: комнату пересоздают, турнир остаётся.</div>
     <div id="opsList" class="list"></div>
     <div class="row2" style="margin-top:10px">
       <select id="opsPick"><option value="">— выбери оператора —</option></select>
@@ -432,6 +450,7 @@
   const $ = (id) => document.getElementById(id);
   const {
     clampInt, fmtInt, fmtTime, nowMs, escHtml, normName, keyName, initials,
+    withPlural,
     normalizeState, initialState, computeStatsFromPlayers, recomputePlaces,
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
     calcAddonCount, curLevel, playLevelNum, calcPayouts, recalcRating,
@@ -442,6 +461,13 @@
     effectiveBuyIn, effectiveReentryCost, effectiveFreeEntries, addonCostFor, calcExpected, remainingAmount,
     payStatus, tariffOf, buyInForTariff, calcPayTotals,
   } = window.VP;
+
+  // Строковый аргумент внутрь onclick="…". Раньше экранировалась только кавычка
+  // (`JSON.stringify(x).replace(/"/g,"&quot;")`), а амперсанд — нет: имя вида
+  // `x&quot;);…//` после разбора атрибута закрывало строку и остаток имени
+  // исполнялся как код в сессии админа. Имена игроков приходят из приложения
+  // и из списков, вставленных в админку, то есть сочиняет их кто угодно.
+  const jsArg = (v) => escHtml(JSON.stringify(v ?? ""));
 
   const TBL = window.VP_TABLES;
   const ROOMS_BRANCH = window.VP_ROOMS_BRANCH ?? null;   // null — комнаты только свои
@@ -499,7 +525,17 @@
     $("userText").textContent = `${profile.email || "—"} · ${role}`;
   }
 
-  const setErr = (e) => { $("err").textContent = e ? (e.message || String(e)) : ""; };
+  // Ошибка живёт плашкой над таббаром, а не строкой в начале страницы: в списке
+  // игроков или оплаты экран прокручен далеко вниз, и «BUSTED», не доехавший до
+  // базы, выглядел как будто ничего не нажалось.
+  let errTimer = null;
+  const setErr = (e) => {
+    const box = $("err");
+    box.textContent = e ? (e.message || String(e)) : "";
+    box.classList.toggle("show", !!e);
+    clearTimeout(errTimer);
+    if (e) errTimer = setTimeout(() => { box.classList.remove("show"); box.textContent = ""; }, 8000);
+  };
   const setSync = (x) => { $("syncText").textContent = `sync: ${x}`; };
 
   // ── Хранилище: та же таблица rooms, что у Дойла ───────────────────────────
@@ -556,19 +592,22 @@
   // ── Экраны и вкладки ─────────────────────────────────────────────────────
   const TABS = {
     timer: ["screenTimer", "screenLinks"],
-    tour: ["screenQuick", "screenRating", "screenInfo", "screenOperators"],
+    tour: ["screenQuick", "screenRating", "screenInfo", "screenLinkTour", "screenOperators"],
     players: ["screenPlayers", "screenTgImport", "screenPost"],
     pay: ["screenPayments"],
     struct: ["screenPreset", "screenStructure"],
   };
   const ALL_SCREENS = ["screenCreate", "screenLinks", "screenTimer", "screenQuick", "screenRating", "screenInfo",
-    "screenOperators", "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenPreset", "screenStructure"];
+    "screenLinkTour", "screenOperators", "screenPlayers", "screenPayments", "screenTgImport", "screenPost",
+    "screenPreset", "screenStructure"];
 
   function showCreateOnly() {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     $("screenCreate").style.display = "";
     $("tabbar").style.display = "none";
-    $("headTitle").textContent = isOperator() ? "Ваши турниры" : "Комнаты";
+    const listTitle = isOperator() ? "Ваши турниры" : "Комнаты";
+    $("headTitle").textContent = listTitle;
+    $("createTitle").textContent = listTitle;   // шапка и карточка под ней не должны спорить
     // Оператор комнаты не заводит — ему остаётся только список назначенных.
     ["newRoomNameField", "newRoomTournamentField", "btnCreate"].forEach((id) => {
       const el = $(id); if (el) el.style.display = isOperator() ? "none" : "";
@@ -579,8 +618,10 @@
   function switchTab(tab) {
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
     (TABS[tab] || TABS.timer).forEach((id) => { $(id).style.display = ""; });
-    if (isOperator()) $("screenOperators").style.display = "none";   // назначает только админ
-    if (tab === "tour" && !isOperator() && $("screenOperators").style.display === "") renderOperators();
+    // Привязку турнира и операторов трогает только админ.
+    if (isOperator()) ["screenLinkTour", "screenOperators"].forEach((id) => { $(id).style.display = "none"; });
+    // Операторы читают уже найденный турнир, поэтому строго после привязки.
+    if (tab === "tour" && !isOperator()) renderLinkTour().then(renderOperators).catch(() => {});
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
@@ -631,7 +672,11 @@
     const box = $("roomsList");
     box.innerHTML = '<div class="muted">Загрузка…</div>';
     try {
-      let q = sb.from(TBL.rooms).select("room_id,state").limit(50);
+      // Сверху свежие: без сортировки порядок отдавала база, и комната
+      // сегодняшнего вечера могла оказаться внизу полусотни прошлых — или,
+      // упершись в limit, не приехать вовсе.
+      let q = sb.from(TBL.rooms).select("room_id,state,created_at")
+        .order("created_at", { ascending: false }).limit(50);
       if (ROOMS_BRANCH) q = q.eq("branch", ROOMS_BRANCH);
       const { data, error } = await q;
       if (error) throw error;
@@ -648,23 +693,53 @@
       const rows = visible.map((r) => {
         const st = r.state || {};
         const name = escHtml(st.tournament?.name || "Без названия");
-        const created = st.tournament?.createdAt ? new Date(st.tournament.createdAt) : null;
+        const created = st.tournament?.createdAt ? new Date(st.tournament.createdAt)
+          : (r.created_at ? new Date(r.created_at) : null);
         const when = created ? created.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "";
         const alive = clampInt(st.stats?.alive ?? 0, 0), reg = clampInt(st.stats?.registered ?? 0, 0);
-        return `<a class="listRow" href="admin.html?room=${encodeURIComponent(r.room_id)}" style="text-decoration:none;color:inherit">
-          <span class="avatar">${escHtml(r.room_id.slice(0, 2))}</span>
-          <span class="nm">${name}<div class="muted mono">${escHtml(r.room_id)} · ${when}</div></span>
-          <span class="tag">${alive}/${reg}</span></a>`;
+        // Ссылкой сделана не вся строка, а имя: иначе кнопка удаления жила бы
+        // внутри <a> и нажатие уводило бы в комнату.
+        const del = isOperator() ? ""
+          : `<button class="tiny ghost" type="button" data-del="${escHtml(r.room_id)}" title="Удалить комнату">✕</button>`;
+        return `<div class="listRow">
+          <a class="roomLink" href="admin.html?room=${encodeURIComponent(r.room_id)}">
+            <span class="avatar">${escHtml(r.room_id.slice(0, 2))}</span>
+            <span class="nm">${name}<div class="muted mono">${escHtml(r.room_id)} · ${when}</div></span>
+          </a>
+          <span class="rowActs"><span class="tag">${alive}/${reg}</span>${del}</span>
+        </div>`;
       });
       box.innerHTML = rows.join("");
     } catch (e) { box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`; }
   }
 
+  // Комнаты копились вечно: удаления не было нигде, и через год список
+  // становился свалкой, в которой нужную ещё поискать.
+  $("roomsList").addEventListener("click", async (ev) => {
+    const btn = ev.target.closest("[data-del]");
+    if (!btn) return;
+    ev.preventDefault();
+    const id = btn.dataset.del;
+    const ok = await confirm2("Удалить комнату?",
+      `${id} — таймер, список игроков и оплата этого вечера исчезнут без возврата. `
+      + "Сохранённый отчёт в CRM останется, привязанный турнир просто отвяжется.");
+    if (!ok) return;
+    setErr(null);
+    btn.disabled = true;
+    try {
+      const { error } = await sb.from(TBL.rooms).delete().eq("room_id", id);
+      if (error) throw error;
+      await loadRooms();
+      await loadLinkableTournaments();   // турнир освободился — вернулся в список
+    } catch (e) { setErr(e); btn.disabled = false; }
+  });
+
   const dateKey = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
   // Турниры, к которым ещё не привязан рум. Сегодняшний выбирается сам.
-  async function loadLinkableTournaments() {
-    const sel = $("newRoomTournament"); if (!sel) return;
+  // Список нужен дважды: при создании комнаты и при поздней привязке готовой.
+  async function loadLinkableTournaments(selId = "newRoomTournament", placeholder = "— без привязки —") {
+    const sel = $(selId); if (!sel) return;
     try {
       const from = dateKey(new Date(Date.now() - 24 * 3600 * 1000)); // вчера — запас на таймзону
       const { data, error } = await sb.from(TBL.tournaments)
@@ -673,7 +748,7 @@
         .order("date", { ascending: true });
       if (error) throw error;
       const prev = sel.value, today = dateKey(new Date());
-      sel.innerHTML = '<option value="">— без привязки —</option>';
+      sel.innerHTML = `<option value="">${escHtml(placeholder)}</option>`;
       let auto = "";
       (data || []).forEach((t) => {
         const dt = t.date ? new Date(t.date) : null;
@@ -734,8 +809,99 @@
   async function findLinkedTournament() {
     if (!roomId) return null;
     const { data } = await sb.from(TBL.tournaments)
-      .select("id, name, date, registered_count").eq("room_id", roomId).maybeSingle();
+      .select("id, name, date, entry_fee, registered_count").eq("room_id", roomId).maybeSingle();
     return data || null;
+  }
+
+  // Привязку правят из этой же вкладки, поэтому ответ держим в одном месте:
+  // бейдж регистраций раньше ставился один раз на загрузке и потом врал.
+  let linkedTournament = null;
+  async function refreshLinkedTournament() {
+    linkedTournament = await findLinkedTournament();
+    const t = linkedTournament;
+    $("tgRegInfo").textContent = t ? `«${t.name}» · записалось ${t.registered_count || 0}` : "турнир не привязан";
+    return t;
+  }
+
+  async function fetchRegPlayers(tid) {
+    const { data, error } = await sb.from(TBL.registrations)
+      .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", tid)
+      .order("created_at", { ascending: true });
+    if (error) throw error;
+    return (data || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
+  }
+
+  // ── Привязка комнаты к турниру ───────────────────────────────────────────
+  async function renderLinkTour() {
+    const box = $("linkTourBox"), info = $("linkTourInfo");
+    if (!isAdmin() || !roomId) return;
+    box.innerHTML = '<div class="muted">Загрузка…</div>';
+    $("linkTourNote").textContent = "";
+    try {
+      const t = await refreshLinkedTournament();
+      if (t) {
+        const dt = t.date ? new Date(t.date) : null;
+        const when = dt ? dt.toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) : "без даты";
+        info.textContent = `«${t.name}»`;
+        box.innerHTML = `<div class="listRow">
+          <span class="avatar">${escHtml(initials(t.name))}</span>
+          <span class="nm">${escHtml(t.name)}<div class="muted mono">${escHtml(when)} · записалось: ${clampInt(t.registered_count ?? 0, 0)}</div></span>
+          <button class="tiny ghost" id="btnUnlinkTour" type="button">Отвязать</button>
+        </div>`;
+        $("btnUnlinkTour").onclick = unlinkTour;
+        return;
+      }
+      info.textContent = "не привязана";
+      box.innerHTML = `<div class="row2">
+          <select id="linkTourSelect"><option value="">— выбери турнир —</option></select>
+          <button id="btnLinkTour" type="button">Привязать</button>
+        </div>`;
+      $("btnLinkTour").onclick = linkTour;
+      await loadLinkableTournaments("linkTourSelect", "— выбери турнир —");
+    } catch (e) { box.innerHTML = `<div class="err">${escHtml(e.message || e)}</div>`; }
+  }
+
+  async function linkTour() {
+    const sel = $("linkTourSelect"), out = $("linkTourNote");
+    const tid = parseInt(sel?.value || "", 10);
+    if (!tid) { out.textContent = "Выбери турнир из списка."; return; }
+    $("btnLinkTour").disabled = true;
+    out.textContent = "Привязываю…";
+    try {
+      // `.is("room_id", null)` держит турнир за одной комнатой: без него второй
+      // ведущий перевесил бы турнир на свой рум, и записи уехали бы к нему.
+      const { data, error } = await sb.from(TBL.tournaments)
+        .update({ room_id: roomId }).eq("id", tid).is("room_id", null).select("id").maybeSingle();
+      if (error) throw error;
+      const row = Array.isArray(data) ? data[0] : data;
+      // Список перерисовываем первым: он чистит заметку под карточкой.
+      if (!row) { await renderLinkTour(); out.textContent = "Турнир уже привязан к другой комнате — список обновлён."; return; }
+      // Записавшихся тянем сразу: триггер в базе довозит только новые записи,
+      // а ради уже набранного списка привязку обычно и делают.
+      const list = await fetchRegPlayers(tid);
+      if (list.length) await saveWithReload((st) => mergePlayers(st, list, "add"));
+      await renderLinkTour();
+      await renderOperators();
+      out.textContent = list.length
+        ? `✓ Привязан · игроков из приложения: ${list.length}`
+        : "✓ Привязан · на турнир пока никто не записался";
+    } catch (e) {
+      out.textContent = e.message || "Не удалось привязать";
+    } finally { const b = $("btnLinkTour"); if (b) b.disabled = false; }
+  }
+
+  async function unlinkTour() {
+    if (!linkedTournament) return;
+    const ok = await confirm2("Отвязать турнир?",
+      "Записи из приложения перестанут доезжать в эту комнату, назначенные операторы её не увидят. Игроки из списка останутся.");
+    if (!ok) return;
+    setErr(null);
+    try {
+      const { error } = await sb.from(TBL.tournaments).update({ room_id: null }).eq("id", linkedTournament.id);
+      if (error) throw error;
+      await renderLinkTour();
+      await renderOperators();
+    } catch (e) { setErr(e); }
   }
 
   // ── Операторы турнира ────────────────────────────────────────────────────
@@ -748,10 +914,10 @@
     if (!isAdmin()) return;
     box.innerHTML = '<div class="muted">Загрузка…</div>';
     try {
-      opsTournament = await findLinkedTournament();
+      opsTournament = linkedTournament;
       if (!opsTournament) {
         info.textContent = "турнир не привязан";
-        box.innerHTML = '<div class="muted">Комната не привязана к турниру — привязка задаётся при создании.</div>';
+        box.innerHTML = '<div class="muted">Назначать некого: комната не привязана к турниру — привяжи её в карточке «Турнир из расписания» выше.</div>';
         pick.innerHTML = '<option value="">— нет турнира —</option>';
         $("btnOpsAdd").disabled = true;
         return;
@@ -768,7 +934,7 @@
       box.innerHTML = assigned.length
         ? assigned.map((r) => {
             const email = r[TBL.profiles]?.email || r.profile_id;
-            const j = JSON.stringify(r.profile_id).replace(/"/g, "&quot;");
+            const j = jsArg(r.profile_id);
             return `<div class="listRow">
               <span class="avatar">${escHtml(initials(email))}</span>
               <span class="nm">${escHtml(email)}</span>
@@ -816,20 +982,15 @@
     const out = $("tgImportResult");
     out.textContent = "Загружаю…";
     try {
-      const tour = await findLinkedTournament();
+      const tour = await refreshLinkedTournament();
       if (!tour) {
-        out.textContent = "Турнир не привязан к этому руму — привязать можно только при создании комнаты.";
+        out.textContent = "Турнир не привязан к этому руму — привяжи его во вкладке «Турнир», карточка «Турнир из расписания».";
         return;
       }
-      $("tgRegInfo").textContent = `«${tour.name}»`;
-      const { data: regs, error } = await sb.from(TBL.registrations)
-        .select(`player_id, ${TBL.players}(name)`).eq("tournament_id", tour.id)
-        .order("created_at", { ascending: true });
-      if (error) throw error;
-      const list = (regs || []).map((r) => (r[TBL.players] ? { name: r[TBL.players].name, player_id: r.player_id } : null)).filter(Boolean);
+      const list = await fetchRegPlayers(tour.id);
       if (!list.length) { out.textContent = "Никто ещё не записался."; return; }
       await saveWithReload((st) => mergePlayers(st, list, mode));
-      out.textContent = `✓ Загружено ${list.length} игроков`;
+      out.textContent = `✓ Загружено ${withPlural(list.length, "игрок", "игрока", "игроков")}`;
     } catch (e) { out.textContent = e.message || "Ошибка загрузки"; }
   }
   $("btnImportFromTG").onclick = () => loadTgRegistrations("replace");
@@ -867,7 +1028,7 @@
     setErr(null);
     const rows = parseResultsPost($("resultsIn").value);
     if (!rows.length) { info.textContent = "строк не найдено"; return; }
-    const ok = await confirm2(`Применить ${rows.length} строк?`,
+    const ok = await confirm2(`Применить ${withPlural(rows.length, "строку", "строки", "строк")}?`,
       "Места, ноки и хронология вылетов в этой комнате будут перезаписаны.");
     if (!ok) return;
     const btn = $("btnResultsApply");
@@ -1071,10 +1232,16 @@
 
   // ── Игроки ───────────────────────────────────────────────────────────────
   // Нумерованный список из Telegram: «1.», «1)», «1️⃣», маркеры и пустые строки.
+  // Одно имя — одна строка: в списке из чата человек нередко записан дважды,
+  // а дальше вся админка ходит по имени и дубль живёт отдельной жизнью.
   function parseRegList(text) {
-    return String(text || "").split(/\r?\n/)
+    const names = String(text || "").split(/\r?\n/)
       .map((l) => l.replace(/^\s*(?:\d+[.)]?|[0-9]️?⃣|[-–—•*])\s*/u, ""))
       .map(normName).filter(Boolean);
+    const seen = new Set(), out = [];
+    for (const n of names) { const k = keyName(n); if (seen.has(k)) continue; seen.add(k); out.push(n); }
+    out.dropped = names.length - out.length;
+    return out;
   }
   $("btnImportToggle").onclick = () => {
     const box = $("importBox");
@@ -1083,7 +1250,9 @@
   $("btnPlayersReplace").onclick = async () => {
     const list = parseRegList($("playersImportText").value);
     if (!list.length) return;
-    const ok = await confirm2("Заменить список?", `В списке будет ${list.length} игроков. Отметки пришедших и вылеты у совпавших имён сохранятся.`);
+    const dup = list.dropped ? ` Повторы имён убраны: ${list.dropped}.` : "";
+    const ok = await confirm2("Заменить список?",
+      `В списке будет ${withPlural(list.length, "игрок", "игрока", "игроков")}. Отметки пришедших и вылеты у совпавших имён сохранятся.${dup}`);
     if (!ok) return;
     try { await saveWithReload((st) => mergePlayers(st, list.map((name) => ({ name })), "replace")); } catch (e) {}
   };
@@ -1371,7 +1540,7 @@
     });
     box.innerHTML = sorted.map((p) => {
       const n = escHtml(p.name);
-      const j = JSON.stringify(p.name).replace(/"/g, "&quot;");
+      const j = jsArg(p.name);
       const busted = p.status === "busted";
       const tags = [
         busted && p.place ? `<span class="tag hot">${p.place} место</span>` : "",
@@ -1395,7 +1564,7 @@
       return `<div class="listRow${busted ? " busted" : ""}">
         <span class="avatar">${escHtml(initials(p.name))}</span>
         <span class="nm">${n}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${tags}</div></span>
-        <span style="display:flex;gap:4px;flex-wrap:wrap;justify-content:flex-end">${actions}
+        <span class="rowActs stack">${actions}
           <button class="tiny ghost" onclick="_vp.removePlayer(${j})">✕</button></span>
       </div>`;
     }).join("");
@@ -1556,7 +1725,7 @@
       return a.name.localeCompare(b.name, "ru");
     });
     box.innerHTML = sorted.map((p) => {
-      const j = JSON.stringify(p.name).replace(/"/g, "&quot;");
+      const j = jsArg(p.name);
       const stt = payStatus(p, tour);
       const rest = remainingAmount(p, tour);
       const paid = totalPaid(p);
@@ -1632,6 +1801,15 @@
 
   $("btnPaymentsReport").onclick = async () => {
     const btn = $("btnPaymentsReport"), info = $("paymentsReportInfo");
+    // Отчёт уезжает в CRM и оттуда в долги игроков. Незакрытый долг чаще всего
+    // значит «ещё не успел отметить оплату», а не «вечер отыграли бесплатно».
+    const totals = calcPayTotals(state || {});
+    if (totals.debt > 0) {
+      const ok = await confirm2("Сохранить с долгом?",
+        `Не рассчитались: ${totals.players - totals.settled} из ${totals.players}, долг ${fmtInt(totals.debt)} ₽. `
+        + "В CRM это уедет как есть. Отчёт перезаписывается — можно закрыть оплату и сохранить снова.");
+      if (!ok) return;
+    }
     btn.disabled = true; info.textContent = "Сохранение…"; setErr(null);
     try {
       const snap = await saveReportSnapshot();
@@ -1671,7 +1849,7 @@
     // Текущий уровень подсвечиваем только в структуре идущей комнаты
     const cur = ctx.tracksEdits ? (state?.timer?.levelIndex ?? 0) : -1;
     const markEdit = () => { if (ctx.tracksEdits) editingStructure = true; };
-    $(ctx.info).textContent = `${levels.filter((l) => !l.isBreak).length} уровней · ${levels.filter((l) => l.isBreak).length} перерывов`;
+    $(ctx.info).textContent = `${withPlural(levels.filter((l) => !l.isBreak).length, "уровень", "уровня", "уровней")} · ${withPlural(levels.filter((l) => l.isBreak).length, "перерыв", "перерыва", "перерывов")}`;
     $(ctx.box).innerHTML = levels.map((l, i) => {
       const num = l.isBreak ? "☕" : playLevelNum(levels, i);
       return `<div class="levelRow${l.isBreak ? " isBreak" : ""}${i === cur ? " current" : ""}" data-lv="${i}" data-break="${l.isBreak ? 1 : 0}">
@@ -1841,7 +2019,7 @@
       return `<div class="presetWrap">
         <button class="presetCard${state?.presetKey === p.id ? " active" : ""}" data-preset="${escHtml(p.id)}" type="button">
           <div class="pName">${escHtml(p.name)}</div>
-          <div class="pMeta">${fmtInt(p.startStack)} фишек · ${lvl} уровней · ПР до ${p.lateRegUntilLevel}</div>
+          <div class="pMeta">${fmtInt(p.startStack)} фишек · ${withPlural(lvl, "уровень", "уровня", "уровней")} · ПР до ${p.lateRegUntilLevel}</div>
         </button>${edit}
       </div>`;
     }).join("");
@@ -1976,7 +2154,13 @@
     $("finalTableToggleBtn").textContent = ti.finalTableActive ? "✕ Скрыть финал" : "🏆 Финальный стол";
 
     const endAt = ti.levelEndAt ? new Date(ti.levelEndAt).toLocaleTimeString("ru-RU") : "—";
-    $("tinfo").textContent = `L${ti.levelIndex + 1}/${levels.length} · ${status} · конец уровня ${endAt}`;
+    // Счёт по игровым уровням, а не по строкам структуры: раньше тут стояло
+    // «L1/31», пока экран структуры рядом писал «30 уровней · 1 перерыв».
+    const playTotal = levels.filter((l) => !l.isBreak).length;
+    const where = levels[ti.levelIndex]?.isBreak
+      ? `перерыв после L${playLevelNum(levels, ti.levelIndex)}/${playTotal}`
+      : `L${playLevelNum(levels, ti.levelIndex)}/${playTotal}`;
+    $("tinfo").textContent = `${where} · ${status} · конец уровня ${endAt}`;
   }
 
   function renderKpis() {
@@ -1989,7 +2173,7 @@
   function renderRating() {
     const r = state?.rating;
     const active = !!r?.isActive && Array.isArray(r?.payouts) && r.payouts.length;
-    $("ratingState").textContent = active ? `${r.P} мест · ${fmtInt(r.TOTAL)} очков` : "выключена";
+    $("ratingState").textContent = active ? `${withPlural(r.P, "место", "места", "мест")} · ${withPlural(r.TOTAL, "очко", "очка", "очков")}` : "выключена";
     $("ratingState").className = active ? "tag ok" : "tag";
     if (!active) { $("ratingPreview").innerHTML = '<div class="muted">Нажми «Рассчитать» — призовая зона появится на дисплее.</div>'; return; }
     $("ratingPreview").innerHTML = r.payouts.map((pts, i) => {
@@ -1998,6 +2182,26 @@
         <span class="nm">${winner ? escHtml(winner.name) : '<span class="muted">—</span>'}</span>
         <span class="tag hot num">${fmtInt(pts)}</span></div>`;
     }).join("");
+  }
+
+  // Почему инфо не доезжает до ТВ. Условия те же, что в display.html
+  // (showLateReg && !hasRating) — но там они молчат, а тут их надо назвать.
+  function renderInfoState() {
+    const tag = $("infoState"), why = $("infoWhy");
+    const has = !!((state?.info?.bonusHand || "").trim() || (state?.info?.comment || "").trim());
+    const lateRegLvl = clampInt(state?.tournament?.lateRegUntilLevel ?? 0, 0);
+    const levels = state?.structure?.levels || [];
+    const curPlay = playLevelNum(levels, state?.timer?.levelIndex ?? 0);
+    const rating = !!(state?.rating?.isActive && state.rating.payouts?.length);
+    let reason = "";
+    if (!has) reason = "Пусто — на ТВ показывать нечего.";
+    else if (rating) reason = "Левую колонку занимает призовая зона — скрой её, чтобы вернуть инфо.";
+    else if (lateRegLvl <= 0) reason = "Поздняя регистрация выключена (0) — поставь уровень в карточке «Турнир».";
+    else if (curPlay > lateRegLvl) reason = `Поздняя регистрация закрылась на уровне ${lateRegLvl} — инфо уже снято с ТВ.`;
+    const shown = has && !reason;
+    tag.textContent = shown ? "видно на ТВ" : (has ? "не видно на ТВ" : "пусто");
+    tag.className = shown ? "tag ok" : "tag";
+    why.textContent = shown ? "" : reason;
   }
 
   function fillFields() {
@@ -2028,6 +2232,7 @@
     safe(renderPlayers, "players");
     safe(renderPayments, "payments");
     safe(renderRating, "rating");
+    safe(renderInfoState, "infoState");
     safe(buildPresetGrid, "presets");
     // Не перетираем таблицу уровней, пока её правят руками.
     if (!editingStructure) safe(() => renderLevels(state.structure.levels), "levels");
@@ -2053,22 +2258,24 @@
   $("btnRefresh").onclick = async () => {
     if (!roomId) return;
     setSync("loading");
-    try { state = await loadStateFresh(); renderAll(); setSync("ok"); }
-    catch (e) { setSync("error"); setErr(e); }
+    try {
+      state = await loadStateFresh(); renderAll(); setSync("ok");
+      await refreshLinkedTournament().catch(() => {});
+    } catch (e) { setSync("error"); setErr(e); }
   };
 
-  function boot() {
+  function boot(firstState) {
     setLinks(roomId);
     $("metaRoom").textContent = roomId;
     $("btnRefresh").style.display = "";
+    $("btnBackRooms").style.display = "";
+    $("btnBackRooms").textContent = isOperator() ? "← Турниры" : "← Комнаты";
     $("tabbar").style.display = "";
     switchTab("timer");
-    loadStateFresh().then((st) => { state = st; renderAll(); setSync("ok"); }).catch(setErr);
+    state = firstState; renderAll(); setSync("ok");
     loadBlueprints().catch(() => {});
     subscribeRealtime();
-    findLinkedTournament().then((t) => {
-      $("tgRegInfo").textContent = t ? `«${t.name}» · записалось ${t.registered_count || 0}` : "турнир не привязан";
-    }).catch(() => {});
+    refreshLinkedTournament().catch(() => {});
     acquireLockOnce().catch(() => {});
     setInterval(() => acquireLockOnce().catch(() => {}), 2000);
     setInterval(() => { tickLeader().catch(() => {}); }, 1000);
@@ -2120,7 +2327,13 @@
       setErr(new Error(`Комната «${roomId}» не назначена на твой аккаунт.`));
       showCreateOnly(); setRoleUi(); return;
     }
-    boot();
+    // Комнату читаем до того, как показать панель. Раньше при «комната не
+    // найдена» таймер всё равно рисовался живым, со статусом «ведущий» и
+    // рабочей кнопкой «Старт» — жать её было некуда, но выглядело как рабочий зал.
+    let firstState;
+    try { firstState = await loadStateFresh(); }
+    catch (e) { setErr(e); showCreateOnly(); setRoleUi(); return; }
+    boot(firstState);
   }
 
   document.addEventListener("DOMContentLoaded", () => {

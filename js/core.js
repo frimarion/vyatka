@@ -25,6 +25,17 @@
   const escHtml = (s) =>
     String(s ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;")
       .replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  // Русское склонение после числа: «1 перерыв», «2 перерыва», «5 перерывов».
+  // Раньше везде стояла форма родительного множественного, и админка писала
+  // «1 перерывов», «3 уровней», «Применить 4 строк?».
+  const plural = (n, one, few, many) => {
+    const a = Math.abs(clampInt(n, 0)) % 100, b = a % 10;
+    if (a > 10 && a < 20) return many;
+    if (b > 1 && b < 5) return few;
+    if (b === 1) return one;
+    return many;
+  };
+  const withPlural = (n, one, few, many) => `${fmtInt(n)} ${plural(n, one, few, many)}`;
   const normName = (s) => (s || "").replace(/ /g, " ").replace(/\s+/g, " ").trim();
   const keyName = (s) => normName(s).toLowerCase();
 
@@ -722,10 +733,22 @@
   // импорт из TG стирал бы уже отмеченных за столом.
   function mergePlayers(st, incoming, mode) {
     ensurePlayers(st);
-    const list = (Array.isArray(incoming) ? incoming : [])
+    const raw = (Array.isArray(incoming) ? incoming : [])
       .map((p) => ({ name: normName(p.name || ""), player_id: p.player_id ?? null,
         present: !!p.present, reentries: 0, status: "registered", ko: 0, koPts: 0 }))
       .filter((p) => p.name);
+    // Одно имя — одна строка. Список из TG легко приносит человека дважды, а
+    // дальше всё в админке ходит по имени: вылет, оплата и разбор поста берут
+    // разные строки, дубль получает место и уезжает лишним входом в CRM.
+    const list = [];
+    const seenIncoming = new Map();
+    for (const p of raw) {
+      const k = keyName(p.name);
+      const first = seenIncoming.get(k);
+      if (first) { if (p.player_id && !first.player_id) first.player_id = p.player_id; continue; }
+      seenIncoming.set(k, p);
+      list.push(p);
+    }
     const byKey = new Map(st.players.map((p) => [keyName(p.name), p]));
     if (mode === "replace") {
       const keep = st.players.filter((p) => p.present || p.status === "busted");
@@ -755,6 +778,7 @@
   global.VP = {
     NF, BRANCH, BREAK_MINUTES, PRESETS, DEFAULT_BONUS_HAND, DEFAULT_BONUS_COMMENT,
     clampInt, fmtInt, fmtTime, fmtDuration, nowMs, escHtml, normName, keyName, initials,
+    plural, withPlural,
     defaultLevels, normalizeLevels, initialState, normalizeState,
     ensurePlayers, recomputePlaces, computeStatsFromPlayers, nextBustOrder, rollbackBustKo,
     buildTelegramPost, parseResultsPost, applyResults, mergePlayers,

@@ -234,10 +234,15 @@
   function row(t) {
     const seats = t.slots == null ? "" : ` / ${fmtInt(t.slots)}`;
     const past = isPastRow(t);
+    // Расписание делится по статусу, а не по дате: «Завершить» жмут руками, и
+    // забытый вечер висит в приложении открытым для записи хоть неделю.
+    // Статус за людей не меняем — но и молчать об этом не будем.
+    const stale = !past && t.date && new Date(t.date).getTime() < Date.now() - 6 * 3600 * 1000;
     return `<div class="tRow${past ? " isPast" : ""}" id="row-${t.id}">
       <div class="tTop">
         <span class="tName">${escHtml(t.name || "Без названия")}</span>
         <span class="sPill s-${t.status}">${escHtml(STATUS[t.status] || t.status)}</span>
+        ${stale ? '<span class="tag hot">дата прошла — заверши</span>' : ""}
       </div>
       <div class="tPills">
         <span class="tag">🗓 ${escHtml(fmtWhen(t.date))}</span>

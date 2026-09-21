@@ -335,10 +335,18 @@
         touched.forEach((r) => Object.assign(r, this.op.patch));
         this._save(db);
         touched.forEach((r) => bus?.postMessage({ kind: "pg", table: this.table, new: JSON.parse(JSON.stringify(r)) }));
+        // update().select().maybeSingle() на бою отдаёт строку или null — по нему
+        // проверяют, что условие вроде `.is("room_id", null)` вообще кого-то нашло.
+        if (this._single) return { data: touched[0] ? { ...touched[0] } : null, error: null };
         return { data: touched, error: null };
       }
       if (this.op.kind === "delete") {
         db[this.table] = rows.filter((r) => !hit(r));
+        // Удаление комнаты отвязывает турнир: в базе это on delete set null.
+        if (this.table === "rooms") {
+          const alive = new Set((db.rooms || []).map((r) => String(r.room_id)));
+          (db.tournaments || []).forEach((t) => { if (t.room_id && !alive.has(String(t.room_id))) t.room_id = null; });
+        }
         // Удаление турнира уносит его регистрации: в базе это on delete cascade.
         if (this.table === "tournaments") {
           const alive = new Set((db.tournaments || []).map((t) => String(t.id)));
