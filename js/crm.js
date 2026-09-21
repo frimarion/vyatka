@@ -113,7 +113,7 @@
   // rows — строки tournament_result_players, results — шапки (для дат и имён).
   // Сшивка идёт по player_id, а при его отсутствии по свёрнутому имени: без
   // этого незаведённый игрок дробился бы на отдельную строку в каждом турнире.
-  function aggregatePlayers(rows, results) {
+  function aggregatePlayers(rows, results, playersById) {
     const byResult = new Map((Array.isArray(results) ? results : []).map((r) => [String(r.id), r]));
     const out = new Map();
     // Имя с player_id — главное: один человек может быть записан и «Петя»,
@@ -170,11 +170,16 @@
       }
     });
 
-    return [...out.values()].map((a) => ({
-      ...a,
-      avgPlace: a.placesCount ? a.placesSum / a.placesCount : null,
-      itmRate: a.games ? a.itm / a.games : 0,
-    }));
+    return [...out.values()].map((a) => {
+      const card = a.player_id != null && playersById ? playersById.get(a.player_id) : null;
+      return {
+        ...a,
+        avgPlace: a.placesCount ? a.placesSum / a.placesCount : null,
+        itmRate: a.games ? a.itm / a.games : 0,
+        fullName: card?.full_name || "",
+        phone: card?.phone || "",
+      };
+    });
   }
 
   const SORTS = {
@@ -236,7 +241,7 @@
   // Три листа: турниры вечер за вечером, показатели игроков и построчная
   // оплата. Оплата повторяет набор колонок старой выгрузки в Google Sheets —
   // бухгалтерия клуба уже привыкла к этому порядку.
-  function buildWorkbook({ results, rows, from, to }) {
+  function buildWorkbook({ results, rows, from, to, playersById }) {
     const heads = (results || []).slice().sort((a, b) => new Date(a.played_at) - new Date(b.played_at));
     const byResult = new Map(heads.map((r) => [String(r.id), r]));
     const totals = periodTotals(heads);
@@ -264,11 +269,12 @@
       totals.expected, totals.paid, totals.debt, totals.transfer, totals.cash, totals.card,
     ]);
 
-    const agg = sortPlayers(aggregatePlayers(rows, heads), "games");
+    const agg = sortPlayers(aggregatePlayers(rows, heads, playersById), "games");
     const players = {
       name: "Игроки",
       columns: [
-        { title: "Игрок", width: 26 }, { title: "Турниров", width: 10, type: "int" },
+        { title: "Игрок", width: 26 }, { title: "ФИО", width: 26 }, { title: "Телефон", width: 16 },
+        { title: "Турниров", width: 10, type: "int" },
         { title: "Входов", width: 10, type: "int" }, { title: "Реентри", width: 10, type: "int" },
         { title: "Победы", width: 10, type: "int" }, { title: "Топ-3", width: 10, type: "int" },
         { title: "В призах", width: 10, type: "int" }, { title: "Ср. место", width: 11 },
@@ -277,7 +283,7 @@
         { title: "Долг", width: 10, type: "money" }, { title: "Последняя игра", width: 14, type: "date" },
       ],
       rows: agg.map((p) => [
-        p.name, p.games, p.entries, p.reentries, p.wins, p.top3, p.itm,
+        p.name, p.fullName || "", p.phone || "", p.games, p.entries, p.reentries, p.wins, p.top3, p.itm,
         p.avgPlace == null ? "" : Math.round(p.avgPlace * 10) / 10,
         p.bestPlace ?? "", p.ko, p.points, p.paid, p.debt,
         p.lastPlayedAt || null,

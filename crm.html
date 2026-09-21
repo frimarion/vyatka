@@ -152,6 +152,7 @@
   let profile = null;
   let results = [];                 // шапки турниров периода
   let rows = [];                    // строки игроков этих турниров
+  let playersById = new Map();      // карточки из players: ФИО, телефон
   let aggregated = [];
   let search = "";
   let sortKey = "games";
@@ -195,6 +196,20 @@
     return out;
   }
 
+  // ФИО и телефон живут в players, а не в снимке турнира: снимок хранит только
+  // то, что видел стол в момент игры (ник), карточка игрока правится отдельно.
+  async function fetchPlayersById(ids) {
+    const out = new Map();
+    const uniq = [...new Set(ids)];
+    for (let i = 0; i < uniq.length; i += 200) {
+      const chunk = uniq.slice(i, i + 200);
+      const { data, error } = await sb.from(TBL.players).select("id,full_name,phone").in("id", chunk);
+      if (error) throw error;
+      (data || []).forEach((p) => out.set(p.id, p));
+    }
+    return out;
+  }
+
   async function load() {
     const seq = ++loadSeq;
     const { from, to } = currentPeriod();
@@ -209,14 +224,17 @@
       if (error) throw error;
       const heads = data || [];
       const players = heads.length ? await fetchResultPlayers(heads.map((r) => r.id)) : [];
+      const ids = players.map((r) => r.player_id).filter((id) => id != null);
+      const cards = ids.length ? await fetchPlayersById(ids) : new Map();
       if (seq !== loadSeq) return;                       // приехал ответ на прошлый период
       results = heads;
       rows = players;
-      aggregated = aggregatePlayers(rows, results);
+      playersById = cards;
+      aggregated = aggregatePlayers(rows, results, playersById);
       renderAll();
     } catch (e) {
       if (seq !== loadSeq) return;
-      results = []; rows = []; aggregated = [];
+      results = []; rows = []; playersById = new Map(); aggregated = [];
       renderAll();
       // Пока клуб не переехал на свою базу, таблиц отчётов в инсталляции нет:
       // объясняем это прямо, иначе пустая CRM выглядит как потерянные данные.
@@ -236,7 +254,10 @@
     $("kEntries").textContent = fmtInt(totals.entries);
     $("kAvgField").textContent = totals.tournaments ? (Math.round(totals.avgEntries * 10) / 10).toString().replace(".", ",") : "—";
 
-    const visible = aggregated.filter((p) => !search || keyName(p.name).includes(search));
+    const visible = aggregated.filter((p) => !search
+      || keyName(p.name).includes(search)
+      || keyName(p.fullName || "").includes(search)
+      || (p.phone || "").includes(search));
     $("playersInfo").textContent = aggregated.length
       ? `${visible.length} из ${aggregated.length}`
       : "нет сохранённых турниров";
@@ -250,10 +271,14 @@
       const avg = p.avgPlace == null ? "—" : (Math.round(p.avgPlace * 10) / 10).toString().replace(".", ",");
       const last = p.lastPlayedAt ? fmtDate(p.lastPlayedAt) : "—";
       const debt = p.debt > 0 ? `<span class="tag hot">долг ${NF.format(p.debt)} ₽</span>` : "";
+      const contact = p.fullName || p.phone
+        ? `<div class="crmMeta"><span class="muted">${[escHtml(p.fullName), escHtml(p.phone)].filter(Boolean).join(" · ")}</span></div>`
+        : "";
       return `<div class="crmRow" data-key="${escHtml(p.key)}">
         <span class="avatar">${escHtml(initials(p.name))}</span>
         <div class="crmMain">
           <div class="crmTop"><span class="crmName">${escHtml(p.name)}</span>${debt}<span class="tag">${fmtInt(p.games)} тур.</span></div>
+          ${contact}
           <div class="crmMeta">
             <span>входов <b>${fmtInt(p.entries)}</b></span>
             <span>побед <b>${fmtInt(p.wins)}</b></span>
@@ -283,8 +308,9 @@
       return rowKey === p.key || (p.player_id != null && r.player_id == null && nameKey(r.name) === nameKey(p.name));
     });
     $("pmName").textContent = p.name;
+    const contact = [p.fullName, p.phone].filter(Boolean).join(" · ");
     $("pmMeta").textContent = p.player_id != null
-      ? `id ${p.player_id} · последняя игра ${p.lastPlayedAt ? fmtDate(p.lastPlayedAt) : "—"}`
+      ? `${contact ? contact + " · " : ""}id ${p.player_id} · последняя игра ${p.lastPlayedAt ? fmtDate(p.lastPlayedAt) : "—"}`
       : "нет в базе игроков · сведён по имени";
     $("pmGames").textContent = fmtInt(p.games);
     $("pmWins").textContent = fmtInt(p.wins);
@@ -342,7 +368,7 @@
     const info = $("excelInfo");
     try {
       const { from, to } = currentPeriod();
-      const wb = buildWorkbook({ results, rows, from, to });
+      const wb = buildWorkbook({ results, rows, from, to, playersById });
       window.VPXlsx.download(wb.fileName, wb.sheets);
       info.textContent = `Готово: ${wb.totals.tournaments} турнир(ов), ${rows.length} строк`;
     } catch (e) {
