@@ -705,9 +705,13 @@ body{
   <section id="tabRating" class="tab" style="display:none">
     <div class="cardHead" style="margin-bottom:12px"><h2>Рейтинг</h2><button id="ratingRefresh" class="ghost" type="button" aria-label="Обновить рейтинг">↻ Обновить</button></div>
     <div class="chips" id="ratingPeriods" aria-label="Период рейтинга">
-      <button class="on" data-period="month" type="button" aria-pressed="true">Этот месяц</button>
+      <button class="on" data-period="month" type="button" aria-pressed="true">По месяцам</button>
       <button data-period="year" type="button" aria-pressed="false">Этот год</button>
       <button data-period="all" type="button" aria-pressed="false">Всё время</button>
+    </div>
+    <div class="field" id="ratingMonthField">
+      <label for="ratingMonth">Месяц рейтинга</label>
+      <input id="ratingMonth" type="month" required/>
     </div>
     <div class="banner" style="cursor:default">
       <div class="bEyebrow">За игровым столом</div>
@@ -872,6 +876,10 @@ body{
   let tours = [];             // расписание: только публичные статусы
   let roomStates = {};        // room_id → state комнаты, для живого турнира
   let filter = "open";
+  const ratingCurrentMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit" }).format(new Date());
+  let ratingMonth = ratingCurrentMonth;
+  $("ratingMonth").value = ratingMonth;
+  $("ratingMonth").max = ratingCurrentMonth;
   let ratingPeriod = "month", ratingRows = [], ratingRequest = 0;
   let ratingLoading = false, ratingError = false, ratingLoaded = false;
   let openId = null;          // турнир на экране деталей
@@ -1850,7 +1858,7 @@ body{
     const request = ++ratingRequest;
     ratingLoading = true; ratingError = false; renderRating();
     try {
-      const rows = await rpc("vp_app_rating", { p_period: ratingPeriod });
+      const rows = await rpc("vp_app_rating", { p_period: ratingPeriod === "month" ? ratingMonth : ratingPeriod });
       if (request !== ratingRequest) return;
       ratingRows = rows || []; ratingLoaded = true;
     } catch (_) { if (request === ratingRequest) ratingError = true; }
@@ -1860,9 +1868,16 @@ body{
     const button = ev.target.closest("button[data-period]");
     if (!button) return;
     ratingPeriod = button.dataset.period;
+    $("ratingMonthField").hidden = ratingPeriod !== "month";
     $("ratingPeriods").querySelectorAll("button").forEach(b => {
       b.classList.toggle("on", b === button); b.setAttribute("aria-pressed", String(b === button));
     });
+    haptic(); loadRating();
+  };
+  $("ratingMonth").onchange = () => {
+    const input = $("ratingMonth");
+    if (!input.value || !input.checkValidity()) { input.reportValidity(); return; }
+    ratingMonth = input.value;
     haptic(); loadRating();
   };
   $("ratingSearch").oninput = renderRating;

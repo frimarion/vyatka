@@ -37,3 +37,16 @@ assert.equal(all[0].games, 2);
 assert.equal(rpc(db, {p_period: 'invalid'}).data.length, 0);
 assert.equal(rpc({...db, tournament_results: []}, {p_period: 'all'}).data.length, 0);
 console.log('Rating — checks passed');
+
+// Half-open month intervals use Moscow midnight, including the year boundary.
+const dates = ['2024-12-31T20:59:59Z', '2024-12-31T21:00:00Z', '2025-01-31T20:59:59Z', '2025-01-31T21:00:00Z'];
+const archiveDb = {...db, tournament_results: dates.map((played_at, i) => ({id: i, played_at})),
+  tournament_result_players: dates.map((_, i) => ({result_id: i, player_id: 1, name: 'One', points: 10, place: 1}))};
+assert.equal(rpc(archiveDb, {p_period: '2025-01'}).data[0].points, 20);
+assert.equal(rpc(archiveDb, {p_period: '2024-12'}).data[0].games, 1);
+assert.equal(rpc(archiveDb, {p_period: '2025-02'}).data[0].games, 1);
+assert.equal(rpc(archiveDb, {p_period: '2025-03'}).data.length, 0);
+for (const invalid of ['2025-13', '2025-00', '0000-01', '2025-1', 'garbage']) {
+  assert.equal(rpc(archiveDb, {p_period: invalid}).data.length, 0);
+}
+console.log('Monthly rating — checks passed');

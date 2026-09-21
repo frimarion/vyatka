@@ -642,14 +642,23 @@
     },
     vp_app_rating(db, args) {
       const period = args?.p_period || "month";
-      if (!["month", "year", "all"].includes(period)) return { data: [], error: null };
+      const archive = /^([0-9]{4})-(0[1-9]|1[0-2])$/.exec(period);
+      if (!["month", "year", "all"].includes(period) && (!archive || Number(archive[1]) === 0)) return { data: [], error: null };
       const now = new Date();
       const local = new Date(now.getTime() + 3 * 3600000);
-      const start = period === "all" ? -Infinity : Date.UTC(local.getUTCFullYear(), period === "year" ? 0 : local.getUTCMonth(), 1) - 3 * 3600000;
+      const year = archive ? Number(archive[1]) : local.getUTCFullYear();
+      const month = archive ? Number(archive[2]) - 1 : period === "year" ? 0 : local.getUTCMonth();
+      const boundary = offset => {
+        const d = new Date(0);
+        d.setUTCFullYear(year, month + offset, 1); d.setUTCHours(0, 0, 0, 0);
+        return d.getTime() - 3 * 3600000;
+      };
+      const start = period === "all" ? -Infinity : boundary(0);
+      const end = period === "all" ? Infinity : boundary(period === "year" ? 12 : 1);
       const all = db.tournament_result_players || [];
       const ids = new Set((db.tournament_results || []).filter(h => {
         const rows = all.filter(r => String(r.result_id) === String(h.id));
-        return new Date(h.played_at).getTime() >= start && new Date(h.played_at) <= now
+        return new Date(h.played_at).getTime() >= start && new Date(h.played_at).getTime() < end && new Date(h.played_at) <= now
           && (h.tournament_id == null || db.tournaments.some(t => String(t.id) === String(h.tournament_id) && t.status === "past"))
           && rows.length && rows.every(r => r.place != null && r.place >= 1);
       }).map(h => String(h.id)));
