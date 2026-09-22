@@ -20,14 +20,16 @@
 html,body{height:100%;overflow:hidden}
 body{margin:0;background:var(--bg);color:var(--d-fg);font-family:var(--sans)}
 
-/* Карточный паттерн — как у Дойла, но масти вятским оранжевым */
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;opacity:.5;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Ctext x='16' y='46' font-size='30' fill='none' stroke='%23E9531F' stroke-width='1.3' opacity='0.22' font-family='serif'%3E%E2%99%A0%3C/text%3E%3Ctext x='84' y='118' font-size='30' fill='none' stroke='%23E9531F' stroke-width='1.3' opacity='0.18' font-family='serif'%3E%E2%99%A6%3C/text%3E%3C/svg%3E");
-  background-size:140px 140px;background-repeat:repeat}
-/* У Дойла центр затемнён, здесь наоборот высветлен — задача та же:
-   убрать паттерн из-под цифр, чтобы он с ними не спорил. */
-body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background:radial-gradient(ellipse 90% 75% at 50% 55%,var(--surface) 0%,rgba(255,252,244,.55) 45%,transparent 100%)}
+/* Фон — тот же, что в админке: сандовый var(--bg) с еле заметным вордмарком
+   клуба вместо шахматки мастей (app.css уже кладёт этот слой, но display.html
+   раньше перекрывал его собственным ::before — здесь просто дублируем тот же
+   паттерн, чтобы ТВ и админка выглядели одним экраном). */
+body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
+  background-image:url("assets/logo.svg"),url("assets/logo.svg");
+  background-repeat:repeat,repeat;
+  background-position:0 0,190px 47px;
+  background-size:380px 95px,380px 95px;
+  opacity:.05}
 
 .dwrap{position:relative;z-index:1;width:100vw;height:100vh;
   padding:clamp(20px,3vh,58px) clamp(24px,3.75vw,74px) clamp(24px,3.2vh,60px);
