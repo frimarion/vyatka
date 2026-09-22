@@ -227,6 +227,32 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .tag.hot{background:var(--accent-soft);color:var(--accent-dark)}
 .tag.gold{background:rgba(232,185,74,.25);color:#7A5E12}
 
+/* ── Пикер карт (бонусная рука дня) ─────────────────────────────
+   Раньше руку набирали текстом ("T♥ 2♣") — ведущие не понимали
+   формат вслепую. Слоты показывают выбранные карты, сетка — все 52. */
+.cpSlots{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+.cpSlot{
+  width:56px;height:78px;padding:0;border-radius:10px;background:var(--surface-2);
+  border:1px dashed var(--line-strong);display:flex;align-items:center;justify-content:center;
+  overflow:hidden;cursor:default;flex:none;
+}
+.cpSlot.filled{border:1px solid var(--line-strong);cursor:pointer;background:var(--surface)}
+.cpSlot .cpPlus{font-size:22px;font-weight:900;color:var(--muted)}
+.cpSlot img{width:100%;height:100%;object-fit:cover}
+.cpGrid{display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--surface-2);border-radius:var(--r-md);border:1px solid var(--line)}
+.cpRow{display:flex;align-items:center;gap:6px}
+.cpSuitLabel{width:16px;flex:none;text-align:center;font-size:15px;font-weight:900}
+.cpSuitLabel.cpRed{color:var(--accent)}
+.cpSuitLabel.cpBlack{color:var(--ink)}
+.cpRanks{display:grid;grid-template-columns:repeat(13,minmax(0,1fr));gap:4px;flex:1;min-width:0}
+.cpCell{
+  padding:6px 0;font-size:12px;font-weight:800;border-radius:8px;
+  background:var(--surface);box-shadow:inset 0 0 0 1px var(--line);white-space:nowrap;
+}
+.cpCell.cpRed{color:var(--accent)}
+.cpCell.cpBlack{color:var(--ink)}
+.cpCell.sel{background:var(--accent) !important;color:var(--surface) !important;box-shadow:none}
+
 /* ── Структура блайндов ──────────────────────────────────────── */
 .levelRow{
   display:grid;grid-template-columns:18px 34px repeat(3,minmax(64px,1fr)) auto auto auto;

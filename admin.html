@@ -223,7 +223,14 @@
     <div class="sub" style="margin-bottom:10px">Левая колонка ТВ: видна, пока открыта поздняя регистрация и выключена призовая зона.</div>
     <div class="sub err" id="infoWhy" style="margin:-6px 0 10px"></div>
     <div class="field"><label>🃏 Бонусная рука дня</label>
-      <input id="infoBonusHand" type="text" maxlength="20" placeholder="T♥ 2♣"/></div>
+      <div class="cpSlots" id="cpSlots">
+        <button type="button" class="cpSlot" id="cpSlot0" data-i="0"><span class="cpPlus">+</span></button>
+        <button type="button" class="cpSlot" id="cpSlot1" data-i="1"><span class="cpPlus">+</span></button>
+        <button type="button" class="ghost tiny" id="btnCpReset">Сбросить</button>
+      </div>
+      <div class="cpGrid" id="cpGrid"></div>
+      <input id="infoBonusHand" type="hidden"/>
+    </div>
     <div class="field"><label>💬 Комментарий</label>
       <textarea id="infoComment" maxlength="200" style="min-height:80px"></textarea></div>
     <div class="btnrow">
@@ -1219,6 +1226,68 @@
   $("btnHideRating").onclick = async () => {
     try { await saveWithReload((st) => { st.rating.isActive = false; return st; }); } catch (e) {}
   };
+
+  // ── Инфо: пикер бонусной руки ───────────────────────────────────────────
+  // Формат хранения — тот же, что читает display.html: "T♥ 2♣" (T = десятка).
+  const CP_RANKS = ["A", "K", "Q", "J", "T", "9", "8", "7", "6", "5", "4", "3", "2"];
+  const CP_SUITS = ["♠", "♥", "♦", "♣"];
+  const CP_SUIT_NAME = { "♠": "spades", "♥": "hearts", "♦": "diamonds", "♣": "clubs" };
+  const cpRankLabel = (r) => (r === "T" ? "10" : r);
+  const cpImgSrc = (tok) => `assets/cards/${cpRankLabel(tok[0])}_${CP_SUIT_NAME[tok[1]]}.svg`;
+  const parseBonusTokens = (str) => (str || "").trim().split(/\s+/).filter(Boolean).slice(0, 2)
+    .map((tok) => (tok[0] || "").toUpperCase() + (tok[1] || ""))
+    .filter((t) => CP_RANKS.includes(t[0]) && CP_SUITS.includes(t[1]));
+
+  CP_SUITS.forEach((s) => {
+    const row = document.createElement("div");
+    row.className = "cpRow";
+    const red = s === "♥" || s === "♦";
+    row.innerHTML = `<span class="cpSuitLabel ${red ? "cpRed" : "cpBlack"}">${s}</span><div class="cpRanks"></div>`;
+    const ranks = row.querySelector(".cpRanks");
+    CP_RANKS.forEach((r) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = `cpCell ${red ? "cpRed" : "cpBlack"}`;
+      btn.textContent = cpRankLabel(r);
+      btn.dataset.token = r + s;
+      btn.onclick = () => toggleBonusToken(r + s);
+      ranks.appendChild(btn);
+    });
+    $("cpGrid").appendChild(row);
+  });
+
+  function toggleBonusToken(tok) {
+    const tokens = parseBonusTokens($("infoBonusHand").value);
+    const idx = tokens.indexOf(tok);
+    if (idx >= 0) tokens.splice(idx, 1);
+    else { if (tokens.length >= 2) tokens.shift(); tokens.push(tok); }
+    $("infoBonusHand").value = tokens.join(" ");
+    DIRTY.add("infoBonusHand");
+    renderCardPicker();
+  }
+  [0, 1].forEach((i) => {
+    $("cpSlot" + i).onclick = () => {
+      const tok = parseBonusTokens($("infoBonusHand").value)[i];
+      if (tok) toggleBonusToken(tok);
+    };
+  });
+  $("btnCpReset").onclick = () => {
+    $("infoBonusHand").value = "";
+    DIRTY.add("infoBonusHand");
+    renderCardPicker();
+  };
+
+  function renderCardPicker() {
+    const tokens = parseBonusTokens($("infoBonusHand").value);
+    [0, 1].forEach((i) => {
+      const slot = $("cpSlot" + i), tok = tokens[i];
+      slot.classList.toggle("filled", !!tok);
+      slot.innerHTML = tok ? `<img src="${cpImgSrc(tok)}" alt="${tok}"/>` : `<span class="cpPlus">+</span>`;
+    });
+    $("cpGrid").querySelectorAll(".cpCell").forEach((el) => {
+      el.classList.toggle("sel", tokens.includes(el.dataset.token));
+    });
+  }
 
   // ── Инфо ─────────────────────────────────────────────────────────────────
   $("btnSaveInfo").onclick = async () => {
@@ -2291,6 +2360,7 @@
     setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 0);
     setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
     setIfNotFocused("infoComment", state.info?.comment ?? "");
+    renderCardPicker();
   }
 
   const safe = (fn, label) => { try { fn(); } catch (e) { console.error(`render ${label}`, e); } };
