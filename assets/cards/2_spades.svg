@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="350" viewBox="0 0 250 350" role="img" aria-labelledby="title desc">
+  <title id="title">2♠</title>
+  <desc id="desc">Four-color poker card: 2 of spades</desc>
+  <rect x="2" y="2" width="246" height="346" rx="20" fill="#FFFFFF" stroke="#D7DADF" stroke-width="4"/>
+  <g fill="#17191C">
+      <path d="M590 283H1247V0H162V283L707 764Q780 830 815.0 893.0Q850 956 850 1024Q850 1129 779.5 1193.0Q709 1257 592 1257Q502 1257 395.0 1218.5Q288 1180 166 1104V1432Q296 1475 423.0 1497.5Q550 1520 672 1520Q940 1520 1088.5 1402.0Q1237 1284 1237 1073Q1237 951 1174.0 845.5Q1111 740 909 563Z" transform="translate(51.7691 190.0000) scale(0.103947 -0.103947)"/>
+    <path d="M50 6C42 20 17 35 17 55C17 68 26 76 38 76C43 76 47 74 50 70C49 80 45 88 38 94H62C55 88 51 80 50 70C53 74 57 76 62 76C74 76 83 68 83 55C83 35 58 20 50 6Z" transform="translate(62 194) scale(1.26)"/>
+  </g>
+</svg>

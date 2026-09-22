@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="350" viewBox="0 0 250 350" role="img" aria-labelledby="title desc">
+  <title id="title">7♦</title>
+  <desc id="desc">Four-color poker card: 7 of diamonds</desc>
+  <rect x="2" y="2" width="246" height="346" rx="20" fill="#FFFFFF" stroke="#D7DADF" stroke-width="4"/>
+  <g fill="#1976D2">
+      <path d="M137 1493H1262V1276L680 0H305L856 1210H137Z" transform="translate(50.9739 190.0000) scale(0.105827 -0.105827)"/>
+    <path d="M50 5L88 50L50 95L12 50Z" transform="translate(62 194) scale(1.26)"/>
+  </g>
+</svg>

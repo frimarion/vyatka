@@ -140,12 +140,9 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .infoValue{font-size:clamp(18px,1.7vw,28px);font-weight:800;line-height:1.25;white-space:pre-wrap;word-break:break-word}
 .dCards{display:flex;gap:clamp(8px,.8vw,16px);align-items:center}
 .dCard{--h:clamp(70px,7vw,120px);width:calc(var(--h)*.72);height:var(--h);border-radius:calc(var(--h)*.11);
-  background:var(--surface);color:var(--ink);border:1px solid rgba(36,27,20,.25);box-shadow:var(--shadow);
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  font-family:var(--d-display);font-weight:900;line-height:1;aspect-ratio:auto}
-.dCard i{font-style:normal;font-size:calc(var(--h)*.35)}
-.dCard em{font-style:normal;font-size:calc(var(--h)*.31)}
-.dCard.s-h,.dCard.s-d{color:var(--accent)}
+  background:var(--surface);border:1px solid rgba(36,27,20,.25);box-shadow:var(--shadow);
+  display:flex;align-items:center;justify-content:center;overflow:hidden;aspect-ratio:auto}
+.dCard img{width:100%;height:100%;object-fit:cover}
 
 /* ── Оверлеи ── */
 .overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;
@@ -385,12 +382,14 @@ body::after{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     const show = showLateReg && !hasRating && (bonus || comment);
     $("infoCard").style.display = show ? "" : "none";
     if (!show) return;
-    const SUIT = { "♠": "s-s", "♥": "s-h", "♦": "s-d", "♣": "s-c" };
+    const SUIT_NAME = { "♠": "spades", "♥": "hearts", "♦": "diamonds", "♣": "clubs" };
     if (bonus) {
       const cards = bonus.split(/\s+/).filter(Boolean).slice(0, 2).map((tok) => {
         const rank = tok[0].toUpperCase() === "T" ? "10" : tok[0].toUpperCase();
         const suit = tok[1] || "";
-        return `<div class="dCard ${SUIT[suit] || ""}"><i>${escHtml(rank)}</i><em>${escHtml(suit)}</em></div>`;
+        const suitName = SUIT_NAME[suit];
+        if (!suitName) return "";
+        return `<div class="dCard"><img src="assets/cards/${rank}_${suitName}.svg" alt="${escHtml(rank + suit)}"/></div>`;
       }).join("");
       $("infoBonusVal").innerHTML = `<div class="dCards">${cards}</div>`;
       $("infoBonusBlock").style.display = "";

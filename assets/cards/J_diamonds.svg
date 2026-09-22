@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="350" viewBox="0 0 250 350" role="img" aria-labelledby="title desc">
+  <title id="title">J♦</title>
+  <desc id="desc">Four-color poker card: J of diamonds</desc>
+  <rect x="2" y="2" width="246" height="346" rx="20" fill="#FFFFFF" stroke="#D7DADF" stroke-width="4"/>
+  <g fill="#1976D2">
+      <path d="M188 1493H573V145Q573 -134 421.5 -272.0Q270 -410 -37 -410H-115V-119H-55Q65 -119 126.5 -52.0Q188 15 188 145Z" transform="translate(105.9869 155.9590) scale(0.083027 -0.083027)"/>
+    <path d="M50 5L88 50L50 95L12 50Z" transform="translate(62 194) scale(1.26)"/>
+  </g>
+</svg>

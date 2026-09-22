@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="250" height="350" viewBox="0 0 250 350" role="img" aria-labelledby="title desc">
+  <title id="title">7♥</title>
+  <desc id="desc">Four-color poker card: 7 of hearts</desc>
+  <rect x="2" y="2" width="246" height="346" rx="20" fill="#FFFFFF" stroke="#D7DADF" stroke-width="4"/>
+  <g fill="#E53935">
+      <path d="M137 1493H1262V1276L680 0H305L856 1210H137Z" transform="translate(50.9739 190.0000) scale(0.105827 -0.105827)"/>
+    <path d="M50 91C44 82 13 61 13 35C13 19 24 9 38 9C45 9 51 13 50 20C49 13 56 9 63 9C77 9 87 19 87 35C87 61 56 82 50 91Z" transform="translate(62 194) scale(1.26)"/>
+  </g>
+</svg>
