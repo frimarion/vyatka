@@ -925,7 +925,6 @@ body.navOn .tabbar{display:grid}
 .rkMine .mVal small{font-size:15px}
 .rkMine .mGo{font-size:26px;color:var(--muted);line-height:1}
 
-.rkSearch{margin-bottom:10px}
 .rkList{display:flex;flex-direction:column;gap:8px}
 .rkLabels{display:flex;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:800;color:var(--muted)}
 .rkRow{
@@ -1187,7 +1186,6 @@ document.addEventListener("touchmove", e => {
     <div id="ratingPodium"></div>
     <div id="ratingMine"></div>
     <div class="rkListHead"><h2>Все игроки</h2><span class="tag" id="ratingCount"></span></div>
-    <div class="field rkSearch"><input id="ratingSearch" type="search" placeholder="Найти игрока" maxlength="60" aria-label="Найти игрока"/></div>
     <div id="ratingStatus" role="status" class="muted" style="margin:12px 0"></div>
     <div id="ratingList"></div>
   </section>
@@ -2579,11 +2577,7 @@ document.addEventListener("touchmove", e => {
           <div class="mTxt"><div class="mLbl">Твоё место</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
           <span class="mGo">›</span></div>`;
 
-    const query = $("ratingSearch").value.trim().toLocaleLowerCase("ru");
-    const rows = ratingRows.filter(r => r.name.toLocaleLowerCase("ru").includes(query));
-    if (!rows.length && ratingRows.length) {
-      $("ratingList").innerHTML = '<div class="empty"><div class="eT">Игрок не найден</div><div class="eS">Попробуй другое имя.</div></div>'; return;
-    }
+    const rows = ratingRows;
     $("ratingList").innerHTML = rows.length ? `<div class="rkList"><div class="rkLabels"><span>Игрок</span><span>Очки</span></div>${rows.map(r => {
       const rank = Number(r.rank);
       return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
@@ -2617,7 +2611,6 @@ document.addEventListener("touchmove", e => {
   };
   $("ratingPrev").onclick = () => stepMonth(-1);
   $("ratingNext").onclick = () => stepMonth(1);
-  $("ratingSearch").oninput = renderRating;
   $("ratingRefresh").onclick = loadRating;
   function renderAll() { renderHome(); renderTours(); renderMe(); renderRating(); }
 
