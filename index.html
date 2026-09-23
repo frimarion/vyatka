@@ -2016,32 +2016,18 @@ document.addEventListener("touchmove", e => {
     $("tileSupport").href = CLUB.support;
   }
 
-  // Широкая плашка между геро и плитками. У Дойла на этом месте таблица
-  // лидеров; здесь плашка с личной историей игрока —
-  // плашка показывает то, что уже есть: сыгранное игрока, а гостю — расписание.
+  // Широкая плашка между геро и плитками — только для гостя: расписание клуба.
+  // Игроку на главной она не нужна, его история живёт в профиле.
   function renderBanner() {
-    const hist = me?.history || [];
     const box = $("bannerWrap");
-    if (!me?.player) {
-      const open = tours.filter((t) => !isPast(t)).length;
-      box.innerHTML = `<div class="banner" data-tab="tours">
-        <div class="bLeft">
-          <div class="bEyebrow">Расписание клуба</div>
-          <div class="bTitle">${open ? `${open} ${plural(open, "турнир", "турнира", "турниров")} впереди` : "Скоро новые турниры"}</div>
-          <div class="bSub">Взносы, стеки и состав участников</div>
-          <div class="bCta">Смотреть →</div>
-        </div>${DECK}</div>`;
-      return;
-    }
-    const wins = hist.filter((h) => h.place === 1).length;
-    box.innerHTML = `<div class="banner" data-tab="me">
+    if (me?.player) { box.innerHTML = ""; return; }
+    const open = tours.filter((t) => !isPast(t)).length;
+    box.innerHTML = `<div class="banner" data-tab="tours">
       <div class="bLeft">
-        <div class="bEyebrow">Сыгранное</div>
-        <div class="bTitle">${hist.length
-          ? `${hist.length} ${plural(hist.length, "турнир", "турнира", "турниров")}${wins ? ` · ${wins} ${plural(wins, "победа", "победы", "побед")}` : ""}`
-          : "Первый турнир впереди"}</div>
-        <div class="bSub">${hist.length ? "Места, ноки и очки по вечерам" : "Запишись — и здесь появится история"}</div>
-        <div class="bCta">Открыть профиль →</div>
+        <div class="bEyebrow">Расписание клуба</div>
+        <div class="bTitle">${open ? `${open} ${plural(open, "турнир", "турнира", "турниров")} впереди` : "Скоро новые турниры"}</div>
+        <div class="bSub">Взносы, стеки и состав участников</div>
+        <div class="bCta">Смотреть →</div>
       </div>${DECK}</div>`;
   }
   const DECK = '<span class="bDeck" aria-hidden="true"><i></i><i></i><i></i></span>';
