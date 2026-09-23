@@ -989,6 +989,21 @@ body.navOn .tabbar{display:grid}
 .rankLadder small{color:var(--muted);font-weight:700;margin-left:auto}
 .lvUp{text-align:center}
 .lvUp .lvWrap{margin:6px auto 12px}
+/* Ачивки: сетка 3×2, картинка — assets/ach/<id>.webp. Пока картинки нет,
+   на её месте значок-заглушка. Закрытая — серая и приглушённая, с прогрессом. */
+.achGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 8px}
+.ach{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
+.achPic{
+  position:relative;width:72px;height:72px;border-radius:50%;display:grid;place-items:center;
+  background:radial-gradient(circle at 50% 35%,#FFF6DF,#EBD6A6);font-size:28px;
+  box-shadow:inset 0 0 0 2px rgba(199,149,59,.55), 0 3px 10px rgba(36,27,20,.14);overflow:hidden;
+}
+.achPic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.achName{margin-top:6px;font-size:11.5px;font-weight:800;line-height:1.25}
+.achProg{margin-top:2px;font-size:10.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
+.ach.done .achProg{color:var(--ok)}
+.ach:not(.done) .achPic{filter:grayscale(1);opacity:.45}
+.ach:not(.done) .achName{color:var(--muted)}
 .lvUp .lvWrap .avatar{width:84px;height:84px;font-size:26px}
 .lvUp .lvWrap .lvBadge{min-width:26px;height:26px;line-height:26px;font-size:13px}
 .lvUp .lvKick{font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
@@ -1255,6 +1270,11 @@ document.addEventListener("touchmove", e => {
         <button class="xpRules" id="xpRulesBtn" type="button">Как получить опыт →</button>
       </div>
 
+      <div class="card achCard">
+        <div class="cardHead"><h2>Ачивки</h2><span class="tag" id="meAchInfo">—</span></div>
+        <div class="achGrid" id="meAch"></div>
+      </div>
+
       <div class="card">
         <div class="cardHead"><h2>Я записан</h2><span class="tag" id="myRegsInfo">—</span></div>
         <div id="myRegs" class="list"></div>
@@ -1292,6 +1312,10 @@ document.addEventListener("touchmove", e => {
       <div class="phStat"><b class="num" id="plTop3">—</b><span>Топ-3</span></div>
       <div class="phStat hot"><b class="num" id="plKo">—</b><span>Ноки</span></div>
     </div>
+  </div>
+  <div class="card achCard">
+    <div class="cardHead"><h2>Ачивки</h2><span class="tag" id="plAchInfo">—</span></div>
+    <div class="achGrid" id="plAch"></div>
   </div>
   <div class="card">
     <div class="cardHead"><h2>Сыгранное</h2><span class="tag" id="plHistInfo">—</span></div>
@@ -2106,6 +2130,12 @@ document.addEventListener("touchmove", e => {
     $("stWins").textContent = fmtInt(hist.filter((h) => h.place === 1).length);
     $("stTop3").textContent = fmtInt(hist.filter((h) => h.place && h.place <= 3).length);
     $("stKo").textContent = fmtInt(hist.reduce((a, h) => a + clampInt(h.ko, 0), 0));
+    renderAch("me", {
+      games: hist.length,
+      wins: hist.filter((h) => h.place === 1).length,
+      ko: hist.reduce((a, h) => a + clampInt(h.ko, 0), 0),
+      maxKo: hist.reduce((a, h) => Math.max(a, clampInt(h.ko, 0)), 0),
+    }, p.id);
 
     // Поля не перезатираем, пока человек в них печатает.
     if (document.activeElement !== $("pfName")) $("pfName").value = p.name || "";
@@ -2254,6 +2284,40 @@ document.addEventListener("touchmove", e => {
   $("headLv").onclick = () => tab("me");
   $("headLv").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tab("me"); } };
 
+  // ── Ачивки ─────────────────────────────────────────────────────────────────
+  // Картинки кладутся в assets/ach/<id>.webp; пока файла нет — значок-заглушка.
+  // Считаем по тому, что уже приходит: статистике и истории (в истории
+  // последние 30 турниров — для «10 ноков за игру» этого пока хватает).
+  const ACH = [
+    { id: "ko10game", name: "10 нокаутов за игру", icon: "🥊", goal: 1, of: (s) => s.maxKo >= 10 ? 1 : 0, prog: (s) => `${fmtInt(Math.min(s.maxKo, 10))}/10` },
+    { id: "ko50", name: "50 нокаутов всего", icon: "💥", goal: 50, of: (s) => s.ko },
+    { id: "games10", name: "10 сыгранных игр", icon: "🃏", goal: 10, of: (s) => s.games },
+    { id: "win1", name: "Победа в турнире", icon: "🏆", goal: 1, of: (s) => s.wins },
+    { id: "wins5", name: "5 побед в турнирах", icon: "👑", goal: 5, of: (s) => s.wins },
+    { id: "leader", name: "Лидер рейтинга", icon: "⭐", goal: 1, of: (s) => s.leader ? 1 : 0 },
+  ];
+  // Лидер — первое место рейтинга за всё время. Грузим один раз на сессию.
+  let leaderReq = null;
+  const ratingLeader = () => leaderReq ||= rpc("vp_app_rating", { p_period: "all" })
+    .then((rows) => (rows || []).filter((r) => Number(r.rank) === 1 && r.player_id != null).map((r) => String(r.player_id)))
+    .catch(() => { leaderReq = null; return []; });
+  function renderAch(pre, st, playerId) {
+    const draw = (leaders) => {
+      const s = { ...st, leader: leaders.includes(String(playerId)) };
+      let done = 0;
+      $(pre + "Ach").innerHTML = ACH.map((a) => {
+        const v = a.of(s), ok = v >= a.goal;
+        if (ok) done++;
+        const prog = ok ? "Получено" : a.prog ? a.prog(s) : a.goal > 1 ? `${fmtInt(v)}/${fmtInt(a.goal)}` : "Не получено";
+        return `<div class="ach${ok ? " done" : ""}"><span class="achPic">${a.icon}<img src="assets/ach/${a.id}.webp" alt="" loading="lazy" onerror="this.remove()"/></span>
+          <span class="achName">${escHtml(a.name)}</span><span class="achProg">${prog}</span></div>`;
+      }).join("");
+      $(pre + "AchInfo").textContent = `${done} из ${ACH.length}`;
+    };
+    draw([]);
+    ratingLeader().then((l) => { if (l.length) draw(l); });
+  }
+
   function histRows(hist) {
     return hist.map((h) => {
       const pl = h.place || null;
@@ -2294,6 +2358,7 @@ document.addEventListener("touchmove", e => {
     heroLevel("pl", null);
     ["plGames", "plWins", "plTop3", "plKo"].forEach((k) => { $(k).textContent = "—"; });
     $("plHistInfo").textContent = "—";
+    $("plAch").innerHTML = ""; $("plAchInfo").textContent = "—";
     $("plHist").innerHTML = '<div class="muted">Загрузка…</div>';
     screen("scrPlayer");
     try {
@@ -2311,6 +2376,10 @@ document.addEventListener("touchmove", e => {
       $("plWins").textContent = fmtInt(st.wins || 0);
       $("plTop3").textContent = fmtInt(st.top3 || 0);
       $("plKo").textContent = fmtInt(st.ko || 0);
+      renderAch("pl", {
+        games: Number(st.games) || 0, wins: Number(st.wins) || 0, ko: Number(st.ko) || 0,
+        maxKo: hist.reduce((a, h) => Math.max(a, clampInt(h.ko, 0)), 0),
+      }, id);
       $("plHistInfo").textContent = hist.length ? String(st.games || hist.length) : "нет турниров";
       $("plHist").innerHTML = hist.length
         ? histRows(hist)
