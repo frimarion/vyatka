@@ -143,8 +143,6 @@
   -webkit-mask-composite:source-in;
   mask-composite:intersect;
 }
-.tcard.past{opacity:.78}
-.tcard.past .tcBody::before{opacity:.5}
 
 /* Карточки с картинкой — «Джокер», «Нокаут», «Феникс», «Double Life» (card_art в
    tournaments, выбирается в tournaments.html). Слева на картинке тёмное поле
@@ -166,9 +164,6 @@
 .tcard.art .tcBody{padding-right:38%}
 .tcard.art .tcName{text-shadow:0 2px 12px rgba(0,0,0,.6)}
 .tcard.art .pill{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
-/* Прозрачность прошедших пропускала бы орнамент сквозь картинку — гасим
-   фильтром. */
-.tcard.art.past{opacity:1;filter:saturate(.55) brightness(.8)}
 /* На телефоне карточка почти квадратнее картинки: cover обрезает тёмное поле
    слева, и сюжет уезжает под текст. Картинку прижимаем по высоте и выдвигаем
    за правый край — насколько, зависит от того, где на картинке главное
@@ -1703,11 +1698,15 @@ body.navOn .tabbar{display:grid}
     const st = roomOf(t);
 
     out.push(`<span class="pill">${ICO.cal} ${escHtml(dateLabel(t.date))}</span>`);
+    // У сыгранного взнос и статус уже ни о чём: дата и сколько было игроков.
+    if (past) {
+      const cnt = t.registered_count || 0;
+      if (cnt) out.push(`<span class="pill">${ICO.users} ${fmtInt(cnt)} ${plural(cnt, "игрок", "игрока", "игроков")}</span>`);
+      return out.join("");
+    }
     out.push(`<span class="pill${big ? " hot" : ""}">${ICO.coin} ${escHtml(money(t.entry_fee))}</span>`);
 
-    if (past) {
-      out.push(`<span class="pill">Завершён</span>`);
-    } else if (running) {
+    if (running) {
       const lvl = st ? playLevelNum(st.structure.levels, st.timer.levelIndex) : 0;
       out.push(`<span class="pill live">Идёт${lvl ? ` · ур. ${lvl}` : ""}</span>`);
       if (st) out.push(`<span class="pill">${ICO.users} в игре ${fmtInt(st.stats.alive)}/${fmtInt(calcEntries(st))}</span>`);
@@ -1723,7 +1722,7 @@ body.navOn .tabbar{display:grid}
   }
 
   function ctaFor(t) {
-    if (isPast(t)) return { text: "Как прошло", cls: "flat" };
+    if (isPast(t)) return { text: "Как прошло", cls: "" };
     if (isReg(t.id)) return { text: "✓ Ты записан · подробнее", cls: "done" };
     if (!regOpen(t)) return { text: "Подробнее", cls: "flat" };
     if (isRunning(t)) return { text: "Успеть записаться", cls: "" };
@@ -1742,7 +1741,7 @@ body.navOn .tabbar{display:grid}
       <div class="tcBody">
         ${hero ? `<div class="eyebrow${hero ? " on-accent" : ""}" style="margin-bottom:6px">${isRunning(t) ? "Идёт сейчас" : "Ближайший турнир"}</div>` : ""}
         <div class="tcName">${escHtml(t.name || "Турнир")}</div>
-        ${t.start_stack ? `<div class="tcFee">Стек ${fmtInt(t.start_stack)}${t.level_minutes ? ` · уровни ${t.level_minutes} мин` : ""}</div>` : ""}
+        ${t.start_stack && !isPast(t) ? `<div class="tcFee">Стек ${fmtInt(t.start_stack)}${t.level_minutes ? ` · уровни ${t.level_minutes} мин` : ""}</div>` : ""}
         <div class="pills">${statusPills(t, hero)}</div>
       </div>
       <button class="tcCta ${cta.cls}" type="button" data-open="${t.id}">${escHtml(cta.text)}</button>
