@@ -78,19 +78,61 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* Марка — над водяным знаком масти, иначе ::after кладётся поверх */
 .apphead .logoMark{position:relative;z-index:1}
 .apphead .avatarPill{position:relative;z-index:1;flex:none;width:40px;height:40px}
-/* Уровень под именем: ранг, номер и тонкая шкала до следующего. Тап — в профиль. */
+/* Уровень под именем. Номер — на фишке с кантом цвета ранга: при появлении
+   она прокручивается, как брошенная на стол; шкала опыта наливается от нуля
+   и раз в несколько секунд по ней пробегает блик. Вокруг аватарки — кольцо
+   ранга, в шапке оно медленно вращается. Тап — в профиль. */
+.apphead .lvWrap{z-index:1}
+.lvWrap>.avatarPill{position:relative;margin:0}
+.apphead .lvWrap::before{animation:hlSpin 14s linear infinite}
 .headLv{
-  display:flex;align-items:center;gap:8px;margin-top:5px;max-width:230px;cursor:pointer;
-  font-size:11px;font-weight:800;color:rgba(255,252,244,.9);white-space:nowrap;
+  display:flex;align-items:center;gap:7px;margin-top:6px;max-width:230px;cursor:pointer;
+  font-size:11px;font-weight:800;color:rgba(255,252,244,.92);white-space:nowrap;
+  -webkit-tap-highlight-color:transparent;
 }
 .headLv[hidden]{display:none}
-.headLv .hlNum{
-  flex:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;text-align:center;
-  font:900 10.5px/18px system-ui,sans-serif;background:rgba(255,252,244,.94);color:var(--accent-dark);
+.hlChip{
+  position:relative;flex:none;width:23px;height:23px;border-radius:50%;
+  display:grid;place-items:center;perspective:200px;
+  background:repeating-conic-gradient(#FFFCF4 0 22.5deg,var(--rk) 22.5deg 45deg);
+  box-shadow:0 2px 6px rgba(122,40,12,.4), inset 0 0 0 1px rgba(0,0,0,.08);
+  animation:hlToss .95s cubic-bezier(.2,.9,.3,1.15) .15s both;
 }
-.headLv .hlRank{flex:none}
-.headLv .hlBar{flex:1;min-width:36px;height:5px;border-radius:999px;background:rgba(255,252,244,.25);overflow:hidden}
-.headLv .hlBar>i{display:block;height:100%;border-radius:inherit;background:rgba(255,252,244,.95)}
+.hlChip b{
+  width:16px;height:16px;border-radius:50%;background:#FFFCF4;color:var(--rk);
+  font:900 9.5px/16px system-ui,sans-serif;text-align:center;font-variant-numeric:tabular-nums;
+  box-shadow:inset 0 0 0 1px rgba(36,27,20,.1);
+}
+.headLv.rk-legend .hlChip b{background:linear-gradient(155deg,#FFF6DA,#F2CF7A);color:#6B4A12}
+.hlChip.pop{animation:hlPop .7s cubic-bezier(.2,.9,.3,1.4)}
+.hlRank{flex:none;text-shadow:0 1px 6px rgba(122,40,12,.3)}
+.hlBar{
+  position:relative;flex:1;min-width:36px;height:6px;border-radius:999px;overflow:hidden;
+  background:rgba(255,252,244,.2);box-shadow:inset 0 1px 2px rgba(122,40,12,.3);
+}
+.hlBar>i{
+  position:relative;display:block;height:100%;border-radius:inherit;overflow:hidden;
+  background:linear-gradient(90deg,#F7C66B,#FFEDC4);
+  box-shadow:0 0 8px rgba(255,226,160,.7);
+  transition:width 1.3s cubic-bezier(.22,1,.36,1) .45s;
+}
+.hlBar>i::after{
+  content:"";position:absolute;inset:0;transform:translateX(-100%);
+  background:linear-gradient(100deg,transparent 25%,rgba(255,255,255,.95) 50%,transparent 75%);
+  animation:hlShine 4.2s ease-in-out 2s infinite;
+}
+@keyframes hlToss{
+  0%{opacity:0;transform:translateY(-10px) rotateY(-540deg) scale(.5)}
+  60%{opacity:1}
+  100%{opacity:1;transform:none}
+}
+@keyframes hlPop{0%{transform:scale(1)}40%{transform:scale(1.45) rotate(-12deg)}100%{transform:scale(1)}}
+@keyframes hlShine{0%{transform:translateX(-100%)}35%,100%{transform:translateX(100%)}}
+@keyframes hlSpin{to{transform:rotate(1turn)}}
+@media (prefers-reduced-motion:reduce){
+  .hlChip,.hlChip.pop,.hlBar>i::after,.apphead .lvWrap::before{animation:none}
+  .hlBar>i{transition:none}
+}
 .avatarPill{
   box-shadow:0 4px 12px rgba(122,40,12,.3), inset 0 1px 0 rgba(255,255,255,.9);
   overflow:hidden;
@@ -1085,12 +1127,12 @@ document.addEventListener("touchmove", e => {
 <!-- ═══ Приложение ═════════════════════════════════════════════ -->
 <div id="scrApp" class="screen">
   <header class="apphead compact">
-    <span class="avatarPill" id="meAvatar">ВП</span>
+    <span class="lvWrap" id="meAvWrap"><span class="avatarPill" id="meAvatar">ВП</span></span>
     <div class="headText">
       <div class="hi" id="greet">Клуб «Вятка»</div>
       <h1 id="meName">Гость</h1>
       <div class="headLv" id="headLv" hidden role="button" tabindex="0" title="Открыть профиль">
-        <span class="hlNum num" id="hlNum">1</span><span class="hlRank" id="hlRank">Новичок</span>
+        <span class="hlChip" id="hlChip"><b id="hlNum">1</b></span><span class="hlRank" id="hlRank">Новичок</span>
         <span class="hlBar"><i id="hlFill" style="width:0"></i></span>
       </div>
     </div>
@@ -1958,15 +2000,7 @@ document.addEventListener("touchmove", e => {
     av.innerHTML = p?.photo_url
       ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
       : escHtml(p ? initials(p.name) : "ВП");
-    const lv = p ? me?.level : null;
-    $("headLv").hidden = !lv?.level;
-    if (lv?.level) {
-      $("hlNum").textContent = String(lv.level);
-      $("hlRank").textContent = RANKS[lv.rank_key]?.name || "Новичок";
-      $("hlFill").style.width = `${Math.round(levelProgress(lv) * 100)}%`;
-      $("headLv").title = lv.xp_next == null ? `${fmtInt(lv.xp)} XP — максимальный уровень`
-        : `${fmtInt(lv.xp)} XP · до ${lv.level + 1} уровня ${fmtInt(lv.xp_next - lv.xp)} XP`;
-    }
+    renderHeadLevel(p ? me?.level : null);
 
     const upcoming = tours
       .filter((t) => !isPast(t))
@@ -2197,6 +2231,39 @@ document.addEventListener("touchmove", e => {
   $("lvUpClose").onclick = () => $("lvUpModal").classList.remove("show");
   $("lvUpModal").onclick = (e) => { if (e.target === $("lvUpModal")) $("lvUpModal").classList.remove("show"); };
   $("xpRulesBtn").onclick = () => showInfo("xp");
+  // Уровень в шапке. renderHome зовётся на каждое обновление данных, поэтому
+  // анимации запускаем только на событие: первое появление (шкала наливается
+  // от нуля) и рост уровня (фишка подпрыгивает). Остальное — тихо.
+  let headLvShown = 0;
+  function renderHeadLevel(lv) {
+    const box = $("headLv"), fill = $("hlFill");
+    const has = !!lv?.level;
+    const rk = has ? rankOf(lv) : "novice";
+    $("meAvWrap").className = "lvWrap" + (has ? " rk-" + rk : "");
+    box.hidden = !has;
+    if (!has) { headLvShown = 0; return; }
+    box.className = "headLv rk-" + rk;
+    $("hlNum").textContent = String(lv.level);
+    $("hlRank").textContent = RANKS[rk].name;
+    box.title = lv.xp_next == null ? `${fmtInt(lv.xp)} XP — максимальный уровень`
+      : `${fmtInt(lv.xp)} XP · до ${lv.level + 1} уровня ${fmtInt(lv.xp_next - lv.xp)} XP`;
+    const width = `${Math.round(levelProgress(lv) * 100)}%`;
+    if (!headLvShown) {
+      // Из display:none переход не играет: сперва ноль, пересчёт раскладки —
+      // и цель. Через requestAnimationFrame ненадёжно: в свёрнутой вкладке
+      // кадры не идут, и шкала осталась бы пустой.
+      fill.style.width = "0";
+      void fill.offsetWidth;
+      fill.style.width = width;
+    } else {
+      if (lv.level > headLvShown) {
+        const chip = $("hlChip");
+        chip.classList.remove("pop"); void chip.offsetWidth; chip.classList.add("pop");
+      }
+      fill.style.width = width;
+    }
+    headLvShown = lv.level;
+  }
   $("headLv").onclick = () => tab("me");
   $("headLv").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tab("me"); } };
 
