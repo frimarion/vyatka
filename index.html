@@ -30,18 +30,17 @@
   --hair:1px solid rgba(36,27,20,.05);
 }
 
-/* ── Фон: сукно в масть ──────────────────────────────────────── */
-/* Ровная заливка — главный источник ощущения «пусто». Поверх неё ложатся
-   тёплый свет сверху и редкий узор из мастей. Узор нарисован data-URI: своих
-   картинок у клуба нет, а тянуть их с чужого домена в Telegram незачем. */
-body{
-  background-color:var(--bg);
+/* ── Фон: вятский орнамент ─────────────────────────────────── */
+/* Плитка — из css/app.css (body.ornament); здесь поверх неё тёплый свет
+   сверху и снизу, чтобы фон не был ровным. */
+body.ornament{
+  background-color:#FFF7E9;
   background-image:
-    radial-gradient(1200px 620px at 50% -14%, rgba(233,83,31,.13), transparent 70%),
-    radial-gradient(760px 520px at 100% 100%, rgba(232,185,74,.10), transparent 70%),
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='168' height='146'%3E%3Cg font-family='serif' font-size='22' fill='none' stroke-width='1.1'%3E%3Ctext x='14' y='34' stroke='%23241B14' opacity='.05'%3E%E2%99%A0%3C/text%3E%3Ctext x='100' y='34' stroke='%23E9531F' opacity='.05'%3E%E2%99%A5%3C/text%3E%3Ctext x='58' y='118' stroke='%23241B14' opacity='.04'%3E%E2%99%A3%3C/text%3E%3Ctext x='142' y='118' stroke='%23E9531F' opacity='.045'%3E%E2%99%A6%3C/text%3E%3C/g%3E%3C/svg%3E");
+    radial-gradient(1200px 620px at 50% -14%, rgba(233,83,31,.10), transparent 70%),
+    radial-gradient(760px 520px at 100% 100%, rgba(232,185,74,.08), transparent 70%),
+    url("assets/bg-dymkovo.svg");
   background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 168px 146px;
+  background-size:auto, auto, 540px 540px;
   background-attachment:fixed, fixed, fixed;
 }
 *{-webkit-tap-highlight-color:transparent}
@@ -722,7 +721,7 @@ body.navOn .tabbar{display:grid}
 #tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
 </style>
 </head>
-<body>
+<body class="ornament">
 
 <!-- Показывается при каждом новом открытии документа. Скрипт запускается здесь,
      до тяжёлых SDK внизу страницы, поэтому их загрузка не задерживает анимацию. -->
@@ -1084,7 +1083,7 @@ body.navOn .tabbar{display:grid}
   const tg = window.Telegram?.WebApp;
   if (tg) {
     try { tg.ready(); tg.expand(); } catch (_) {}
-    try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#EADFC8"); } catch (_) {}
+    try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#FFF7E9"); } catch (_) {}
   }
   const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
 
