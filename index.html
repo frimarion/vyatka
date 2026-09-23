@@ -30,19 +30,7 @@
   --hair:1px solid rgba(36,27,20,.05);
 }
 
-/* ── Фон: вятский орнамент ─────────────────────────────────── */
-/* Плитка — из css/app.css (body.ornament); здесь поверх неё тёплый свет
-   сверху и снизу, чтобы фон не был ровным. */
-body.ornament{
-  background-color:#FFF7E9;
-  background-image:
-    radial-gradient(1200px 620px at 50% -14%, rgba(233,83,31,.10), transparent 70%),
-    radial-gradient(760px 520px at 100% 100%, rgba(232,185,74,.08), transparent 70%),
-    url("assets/bg-dymkovo.svg");
-  background-repeat:no-repeat, no-repeat, repeat;
-  background-size:auto, auto, 540px 540px;
-  background-attachment:fixed, fixed, fixed;
-}
+/* Фон — вятский орнамент из css/app.css (body.ornament). */
 *{-webkit-tap-highlight-color:transparent}
 
 .wrap{max-width:560px}
@@ -1083,7 +1071,7 @@ body.navOn .tabbar{display:grid}
   const tg = window.Telegram?.WebApp;
   if (tg) {
     try { tg.ready(); tg.expand(); } catch (_) {}
-    try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#FFF7E9"); } catch (_) {}
+    try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#FBEFE1"); } catch (_) {}
   }
   const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
 
