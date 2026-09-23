@@ -803,45 +803,32 @@ body.navOn .tabbar{display:grid}
 }
 .rkMonth button:disabled{opacity:.35}
 
-/* Пьедестал — тёмное сукно, как у геро-карточки, по краям вятские веточки,
-   у первого места — два дымковских коня. */
-.podium{
-  position:relative;overflow:hidden;border-radius:var(--r-lg);margin-bottom:12px;
-  padding:26px 34px 20px;color:var(--surface);
-  background:
-    radial-gradient(90% 80% at 50% 0%, rgba(233,83,31,.3), transparent 64%),
-    linear-gradient(160deg,#3A2A1E 0%,#271C14 56%,#1B130C 100%);
-  box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.16);
-}
-.podSprig{position:absolute;top:50%;width:22px;height:150px;transform:translateY(-50%);pointer-events:none}
-.podSprig.l{left:8px}
-.podSprig.r{right:8px;transform:translateY(-50%) scaleX(-1)}
-.podGrid{position:relative;display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:4px}
-.podCol{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;cursor:pointer}
-.podCol.p1{padding-bottom:6px}
-.podCol.p2,.podCol.p3{padding-top:30px}
-.podHorse{position:absolute;top:22px;width:56px;height:auto;z-index:0;pointer-events:none;
-  filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
-.podHorse.l{left:-30px}
-.podHorse.r{right:-30px;transform:scaleX(-1)}
-.podAv{position:relative;z-index:1}
-.podAv .avatar{
-  width:64px;height:64px;font-size:18px;
-  border:3px solid #C9CDD3;box-shadow:0 6px 16px rgba(0,0,0,.45);
-}
-.podCol.r1 .podAv .avatar{border-color:var(--gold)}
-.podCol.r3 .podAv .avatar{border-color:#D08A5C}
-.p1 .podAv .avatar{width:84px;height:84px;font-size:24px}
-.podAv .medal{position:absolute;left:50%;top:-15px;transform:translateX(-50%)}
+/* Пьедестал — готовая картинка (assets/rating-podium.webp): тёмная плашка,
+   вятские веточки и три кольца с номерами мест. Поверх колец кладём аватары,
+   под кольцами — имя и очки. Координаты — в процентах от картинки,
+   размеры шрифта — в cqw, чтобы всё масштабировалось вместе с ней. */
+.podium{position:relative;margin-bottom:12px;container-type:inline-size;color:var(--surface)}
+.podium > img{display:block;width:100%;height:auto;filter:drop-shadow(0 12px 22px rgba(36,27,20,.28))}
+.podCol{position:absolute;inset:0;pointer-events:none}
+.podCol[data-player] .podAv,.podCol[data-player] .podTxt{pointer-events:auto;cursor:pointer}
+.podAv{position:absolute;transform:translate(-50%,-50%);aspect-ratio:1}
+.podAv .avatar{width:100%;height:100%;font-size:5cqw;box-shadow:0 0 0 1px rgba(0,0,0,.25)}
+.p1 .podAv .avatar{font-size:6cqw}
+.p2 .podAv{left:19.34%;top:49.7%;width:13.1%}
+.p1 .podAv{left:49.85%;top:46.1%;width:15.8%}
+.p3 .podAv{left:80.37%;top:49.7%;width:13.1%}
+.podTxt{position:absolute;top:73.2%;transform:translateX(-50%);width:26%;text-align:center}
+.p2 .podTxt{left:19.34%}
+.p1 .podTxt{left:49.85%;width:30%}
+.p3 .podTxt{left:80.37%}
 .podName{
-  position:relative;z-index:1;margin-top:8px;max-width:100%;
-  font-weight:900;font-size:13.5px;line-height:1.2;overflow-wrap:anywhere;
-  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  font-weight:900;font-size:3.3cqw;line-height:1.1;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 4px rgba(0,0,0,.5);
 }
-.podPts{position:relative;z-index:1;color:var(--gold);font-weight:900;font-size:16px;font-variant-numeric:tabular-nums}
-.podPts small{font-size:11px;font-weight:800}
-.p1 .podName{font-size:15px}
-.p1 .podPts{font-size:18px}
+.podPts{color:var(--gold);font-weight:900;font-size:3.5cqw;line-height:1.1;font-variant-numeric:tabular-nums}
+.podPts small{font-size:.72em;font-weight:800}
+.p1 .podName{font-size:3.5cqw}
+.p1 .podPts{font-size:3.8cqw}
 
 /* Жетон места: золото, серебро, бронза — из той же латуни, что .coin. */
 .medal{
@@ -860,7 +847,6 @@ body.navOn .tabbar{display:grid}
     radial-gradient(circle at 34% 24%, rgba(255,240,225,.85) 0 9%, transparent 10%),
     linear-gradient(155deg,#EBB38B 0%,#C97A48 44%,#A55E33 78%,#874A26 100%);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 3px rgba(90,45,15,.4), 0 2px 6px rgba(36,27,20,.25)}
-.podAv .medal{width:34px;height:34px;font-size:17px}
 
 /* Твоё место */
 .rkMine{
@@ -895,13 +881,6 @@ body.navOn .tabbar{display:grid}
 .rkRow .sub{color:var(--muted);font-size:11px}
 .rkRow .rkPts{font-weight:900;font-size:17px;font-variant-numeric:tabular-nums}
 .rkRow.isMe{border:2px solid rgba(233,83,31,.45);background:linear-gradient(168deg,#FFF8F0 0%,#FBE6D6 100%)}
-@media(max-width:400px){
-  .podium{padding:24px 28px 18px}
-  .podAv .avatar{width:56px;height:56px}
-  .p1 .podAv .avatar{width:74px;height:74px}
-  .podHorse{width:46px;left:auto}
-  .podHorse.l{left:-24px}
-  .podHorse.r{right:-24px}
 }
 #tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
 </style>
@@ -2304,13 +2283,6 @@ document.addEventListener("touchmove", e => {
     liveTimer = pollTimer = null;
   }
 
-  // Вятская веточка по краям пьедестала: стебель, листья-капли и горох.
-  const RK_SPRIG = `<svg viewBox="0 0 22 150" aria-hidden="true"><path d="M11 6v140" stroke="#C7953B" stroke-width="1.4" opacity=".5"/>
-    <circle cx="11" cy="8" r="4.5" fill="#E9531F"/><circle cx="11" cy="21" r="3" fill="#E8B94A"/>
-    <ellipse cx="6" cy="40" rx="4" ry="10" transform="rotate(-28 6 40)" fill="#E9531F"/><ellipse cx="16" cy="58" rx="4" ry="10" transform="rotate(28 16 58)" fill="#E8B94A"/>
-    <circle cx="11" cy="75" r="3.5" fill="#F3E3C3"/>
-    <ellipse cx="6" cy="92" rx="4" ry="10" transform="rotate(-28 6 92)" fill="#E8B94A"/><ellipse cx="16" cy="110" rx="4" ry="10" transform="rotate(28 16 110)" fill="#E9531F"/>
-    <circle cx="11" cy="128" r="3" fill="#E8B94A"/><circle cx="11" cy="141" r="4.5" fill="#E9531F"/></svg>`;
   const medalHtml = rank => `<span class="medal${rank === 2 ? ' m2' : rank === 3 ? ' m3' : ''}">${fmtInt(rank)}</span>`;
   const playerAttr = r => r.player_id ? ` data-player="${Number(r.player_id)}"` : "";
   function ratingMonthLabel(ym) {
@@ -2340,15 +2312,14 @@ document.addEventListener("touchmove", e => {
     // Пьедестал: первые трое по порядку, место — как пришло (при равенстве очков оно общее).
     const top = ratingRows.slice(0, 3);
     if (top.length) {
-      const col = (r, pos) => r ? `<div class="podCol p${pos} r${Math.min(Number(r.rank), 4)}"${playerAttr(r)}>
-          ${pos === 1 ? '<img class="podHorse l" src="assets/horse.webp" alt=""/><img class="podHorse r" src="assets/horse.webp" alt=""/>' : ''}
-          <div class="podAv">${avatarHtml(r.name, r.photo_url)}${medalHtml(Number(r.rank))}</div>
-          <div class="podName">${escHtml(r.name)}</div>
-          <div class="podPts">${fmtInt(r.points)} <small>${plural(r.points, 'очко', 'очка', 'очков')}</small></div>
-        </div>` : '<div class="podCol"></div>';
-      $("ratingPodium").innerHTML = `<div class="podium">
-        <span class="podSprig l">${RK_SPRIG}</span><span class="podSprig r">${RK_SPRIG}</span>
-        <div class="podGrid">${col(top[1], 2)}${col(top[0], 1)}${col(top[2], 3)}</div></div>`;
+      // Номера мест нарисованы на картинке, поэтому колонка берётся по позиции.
+      const col = (r, pos) => r ? `<div class="podCol p${pos}"${playerAttr(r)}>
+          <div class="podAv">${avatarHtml(r.name, r.photo_url)}</div>
+          <div class="podTxt"><div class="podName">${escHtml(r.name)}</div>
+          <div class="podPts">${fmtInt(r.points)} <small>${plural(r.points, 'очко', 'очка', 'очков')}</small></div></div>
+        </div>` : '';
+      $("ratingPodium").innerHTML = `<div class="podium"><img src="assets/rating-podium.webp" alt="" width="1200" height="401"/>
+        ${col(top[0], 1)}${col(top[1], 2)}${col(top[2], 3)}</div>`;
     }
 
     const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
