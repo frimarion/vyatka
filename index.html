@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="utf-8"/>
-<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover"/>
 <title>Вятка — приложение игрока</title>
 <link rel="stylesheet" href="css/app.css"/>
 <style>
@@ -16,6 +16,10 @@
    набирается слоями, а не цветом: тканевый фон, многоуровневые тени с
    внутренним бликом по верхней кромке, тёмная геро-карточка с тёплой
    подсветкой и нажатия с уменьшением. */
+
+/* Приложение, а не страница: масштаб жестами не нужен. Двойной тап
+   гасим здесь, щипок на iOS — скриптом ниже (WebKit игнорирует user-scalable). */
+html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 
 :root{
   /* Тень одним слоем даёт «наклейку». Три слоя — близкий контактный,
@@ -916,6 +920,11 @@ body.navOn .tabbar{display:grid}
   </div>
 </div>
 <script>
+["gesturestart","gesturechange"].forEach(t =>
+  document.addEventListener(t, e => e.preventDefault(), { passive: false }));
+document.addEventListener("touchmove", e => {
+  if (e.touches.length > 1) e.preventDefault();
+}, { passive: false });
 (() => {
   const splash = document.getElementById("splashScreen");
   if (!splash) return;
