@@ -378,10 +378,10 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     }).join("");
   }
 
-  function renderInfo(showLateReg, hasRating) {
+  function renderInfo(hasRating) {
     const bonus = (state?.info?.bonusHand || "").trim();
     const comment = (state?.info?.comment || "").trim();
-    const show = showLateReg && !hasRating && (bonus || comment);
+    const show = !hasRating && (bonus || comment);
     $("infoCard").style.display = show ? "" : "none";
     if (!show) return;
     const SUIT_NAME = { "♠": "spades", "♥": "hearts", "♦": "diamonds", "♣": "clubs" };
@@ -495,7 +495,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
     const showLateReg = lateRegLvl > 0 && curPlayLvl <= lateRegLvl;
     const hasRating = !!(state.rating?.isActive && state.rating.payouts?.length);
     renderRating();
-    renderInfo(showLateReg, hasRating);
+    renderInfo(hasRating);
 
     const grid = $("dgrid");
     const leftShown = $("infoCard").style.display !== "none" || $("ratingCard").style.display !== "none";

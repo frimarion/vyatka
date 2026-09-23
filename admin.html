@@ -217,10 +217,10 @@
   <section id="screenInfo" class="card collapsible" style="display:none">
     <div class="cardHead"><h2>Инфо на дисплее</h2><span class="tag" id="infoState">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <!-- Левая колонка на ТВ одна на двоих: до конца поздней регистрации там инфо,
-         потом её занимает призовая зона. Раньше об этом нигде не было сказано —
+    <!-- Левая колонка на ТВ одна на двоих: инфо висит там постоянно,
+         пока её не занимает призовая зона. Раньше об этом нигде не было сказано —
          ведущий сохранял руку дня и не понимал, почему на экране пусто. -->
-    <div class="sub" style="margin-bottom:10px">Левая колонка ТВ: видна, пока открыта поздняя регистрация и выключена призовая зона.</div>
+    <div class="sub" style="margin-bottom:10px">Левая колонка ТВ: видна всегда, пока выключена призовая зона.</div>
     <div class="sub err" id="infoWhy" style="margin:-6px 0 10px"></div>
     <div class="field"><label>🃏 Бонусная рука дня</label>
       <div class="cpSlots" id="cpSlots">
@@ -2321,20 +2321,15 @@
     }).join("");
   }
 
-  // Почему инфо не доезжает до ТВ. Условия те же, что в display.html
-  // (showLateReg && !hasRating) — но там они молчат, а тут их надо назвать.
+  // Почему инфо не доезжает до ТВ. Условие то же, что в display.html
+  // (!hasRating) — но там оно молчит, а тут его надо назвать.
   function renderInfoState() {
     const tag = $("infoState"), why = $("infoWhy");
     const has = !!((state?.info?.bonusHand || "").trim() || (state?.info?.comment || "").trim());
-    const lateRegLvl = clampInt(state?.tournament?.lateRegUntilLevel ?? 0, 0);
-    const levels = state?.structure?.levels || [];
-    const curPlay = playLevelNum(levels, state?.timer?.levelIndex ?? 0);
     const rating = !!(state?.rating?.isActive && state.rating.payouts?.length);
     let reason = "";
     if (!has) reason = "Пусто — на ТВ показывать нечего.";
     else if (rating) reason = "Левую колонку занимает призовая зона — скрой её, чтобы вернуть инфо.";
-    else if (lateRegLvl <= 0) reason = "Поздняя регистрация выключена (0) — поставь уровень в карточке «Турнир».";
-    else if (curPlay > lateRegLvl) reason = `Поздняя регистрация закрылась на уровне ${lateRegLvl} — инфо уже снято с ТВ.`;
     const shown = has && !reason;
     tag.textContent = shown ? "видно на ТВ" : (has ? "не видно на ТВ" : "пусто");
     tag.className = shown ? "tag ok" : "tag";
