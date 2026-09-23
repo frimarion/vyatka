@@ -478,7 +478,7 @@
   "use strict";
   const $ = (id) => document.getElementById(id);
   const {
-    clampInt, fmtInt, fmtTime, nowMs, escHtml, normName, keyName, initials,
+    clampInt, fmtInt, fmtTime, nowMs, escHtml, normName, keyName, initials, avatarHtml,
     withPlural,
     normalizeState, initialState, computeStatsFromPlayers, recomputePlaces,
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
@@ -514,6 +514,11 @@
   let saveQueue = Promise.resolve();
   let editingStructure = false;
   let playerSearchQuery = "";
+  // Фото игроков из базы по player_id. В состоянии комнаты photo_url есть не
+  // у всех: список мог приехать импортом из чата раньше, чем человек поставил
+  // фото, — поэтому недостающие добираем одним запросом и держим в памяти.
+  const photoById = new Map();
+  const photoAsked = new Set();
   let paySearchQuery = "";
   let profile = null;                 // строка profiles: {id, email, role}
   let allowedRooms = null;            // для оператора — комнаты назначенных турниров; null = без ограничений
@@ -1637,12 +1642,30 @@
              ${addonBtns}
              <button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>`;
       return `<div class="listRow${busted ? " busted" : ""}">
-        <span class="avatar">${escHtml(initials(p.name))}</span>
+        ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
         <span class="nm">${n}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${tags}</div></span>
         <span class="rowActs stack">${actions}
           <button class="tiny ghost" onclick="_vp.removePlayer(${j})">✕</button></span>
       </div>`;
     }).join("");
+    loadMissingPhotos(players);
+  }
+
+  async function loadMissingPhotos(players) {
+    const ids = [...new Set(players
+      .filter((p) => p.player_id && !p.photo_url && !photoAsked.has(p.player_id))
+      .map((p) => p.player_id))];
+    if (!ids.length) return;
+    ids.forEach((id) => photoAsked.add(id));
+    try {
+      const { data, error } = await sb.from(TBL.players).select("id,photo_url").in("id", ids);
+      if (error) throw error;
+      const got = (data || []).filter((r) => r.photo_url);
+      got.forEach((r) => photoById.set(r.id, r.photo_url));
+      if (got.length) renderPlayers();
+    } catch (e) {
+      ids.forEach((id) => photoAsked.delete(id));   // повторим при следующей отрисовке
+    }
   }
 
   // ── Оплата ───────────────────────────────────────────────────────────────

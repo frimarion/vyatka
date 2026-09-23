@@ -327,6 +327,13 @@ body{
 }
 .detailHead h1{color:var(--surface);font-size:25px;margin-top:8px;letter-spacing:-.025em;position:relative;z-index:1}
 .detailHead .pills{position:relative;z-index:1}
+/* Чужой профиль — шапка того же сукна, что у турнира, а внутри тот же
+   жетон, имя и строка чисел, что в своём профиле. */
+.plHead .phTop{margin-top:14px;position:relative;z-index:1}
+.plHead .phStats{position:relative;z-index:1}
+/* Строки, по которым открывается профиль игрока. */
+[data-player]{cursor:pointer}
+[data-player] .nm::after,[data-player] .hName::after{content:" \203A";color:var(--muted);font-weight:700}
 .backBtn{
   position:relative;z-index:1;
   background:rgba(255,252,244,.13);color:var(--surface);
@@ -911,6 +918,27 @@ body{
     <div class="pills" id="tdTop"></div>
   </div>
   <div id="tdBody"></div>
+</div>
+
+<!-- ═══ Чужой профиль ══════════════════════════════════════════ -->
+<div id="scrPlayer" class="screen">
+  <div class="detailHead plHead">
+    <button class="backBtn" id="plBack" type="button">← Назад</button>
+    <div class="phTop">
+      <span class="phAvatar" id="plAvatar">—</span>
+      <div class="phInfo"><div class="phName" id="plName">Игрок</div></div>
+    </div>
+    <div class="phStats">
+      <div class="phStat"><b class="num" id="plGames">—</b><span>Турниров</span></div>
+      <div class="phStat"><b class="num" id="plWins">—</b><span>Победы</span></div>
+      <div class="phStat"><b class="num" id="plTop3">—</b><span>Топ-3</span></div>
+      <div class="phStat hot"><b class="num" id="plKo">—</b><span>Ноки</span></div>
+    </div>
+  </div>
+  <div class="card">
+    <div class="cardHead"><h2>Сыгранное</h2><span class="tag" id="plHistInfo">—</span></div>
+    <div id="plHist" class="list"></div>
+  </div>
 </div>
 
 </div><!-- /wrap -->
@@ -1706,20 +1734,67 @@ body{
 
     $("histInfo").textContent = hist.length ? String(hist.length) : "нет турниров";
     $("histList").innerHTML = hist.length
-      ? hist.map((h) => {
-          const pl = h.place || null;
-          const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
-          const when = h.played_at ? new Date(h.played_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
-          const extra = [];
-          if (h.ko) extra.push(`${h.ko} нок.`);
-          if (h.entries > 1) extra.push(`входов ${h.entries}`);
-          return `<div class="hRow">
-            <span class="place ${cls}">${pl ? pl : "—"}</span>
-            <span class="hMain"><span class="hName">${escHtml(h.name || "Турнир")}</span>
-              <div class="muted">${when}${extra.length ? " · " + escHtml(extra.join(" · ")) : ""}</div></span>
-            ${h.points ? `<span class="tag gold">${fmtInt(h.points)} оч.</span>` : ""}</div>`;
-        }).join("")
+      ? histRows(hist)
       : `<div class="muted">Сыгранные турниры появятся после первого вечера.</div>`;
+  }
+
+  function histRows(hist) {
+    return hist.map((h) => {
+      const pl = h.place || null;
+      const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
+      const when = h.played_at ? new Date(h.played_at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit", year: "2-digit" }) : "—";
+      const extra = [];
+      if (h.ko) extra.push(`${h.ko} нок.`);
+      if (h.entries > 1) extra.push(`входов ${h.entries}`);
+      return `<div class="hRow">
+        <span class="place ${cls}">${pl ? pl : "—"}</span>
+        <span class="hMain"><span class="hName">${escHtml(h.name || "Турнир")}</span>
+          <div class="muted">${when}${extra.length ? " · " + escHtml(extra.join(" · ")) : ""}</div></span>
+        ${h.points ? `<span class="tag gold">${fmtInt(h.points)} оч.</span>` : ""}</div>`;
+    }).join("");
+  }
+
+  // ── Чужой профиль ──────────────────────────────────────────────────────────
+  // Открывается из состава, итогов и рейтинга. Сервер отдаёт только публичное:
+  // ник, фото, числа и сыгранное — телефона и почты тут нет и быть не должно.
+  let plReturn = "scrApp";
+  let plReq = 0;
+  async function openPlayer(id) {
+    id = Number(id);
+    if (!id) return;
+    // Свой профиль уже есть на вкладке — второй, урезанный, незачем.
+    if (me?.player && Number(me.player.id) === id) { screen("scrApp"); tab("me"); return; }
+    plReturn = document.querySelector(".screen.on")?.id || "scrApp";
+    const req = ++plReq;
+    $("plName").textContent = "Загрузка…";
+    $("plAvatar").textContent = "…";
+    ["plGames", "plWins", "plTop3", "plKo"].forEach((k) => { $(k).textContent = "—"; });
+    $("plHistInfo").textContent = "—";
+    $("plHist").innerHTML = '<div class="muted">Загрузка…</div>';
+    screen("scrPlayer");
+    try {
+      const d = await rpc("vp_app_player_public", { p_player_id: id });
+      if (req !== plReq) return;
+      const p = d?.player || {};
+      const st = d?.stats || {};
+      const hist = d?.history || [];
+      $("plName").textContent = p.name || "Игрок";
+      $("plAvatar").innerHTML = p.photo_url
+        ? `<img src="${escHtml(p.photo_url)}" alt="" referrerpolicy="no-referrer"/>`
+        : escHtml(initials(p.name || "Игрок"));
+      $("plGames").textContent = fmtInt(st.games || 0);
+      $("plWins").textContent = fmtInt(st.wins || 0);
+      $("plTop3").textContent = fmtInt(st.top3 || 0);
+      $("plKo").textContent = fmtInt(st.ko || 0);
+      $("plHistInfo").textContent = hist.length ? String(st.games || hist.length) : "нет турниров";
+      $("plHist").innerHTML = hist.length
+        ? histRows(hist)
+        : '<div class="muted">Пока ни одного сыгранного турнира.</div>';
+    } catch (e) {
+      if (req !== plReq) return;
+      $("plName").textContent = "Игрок";
+      $("plHist").innerHTML = `<div class="muted">${escHtml(errText(e))}</div>`;
+    }
   }
 
   // ── Турнир: подробно ───────────────────────────────────────────────────────
@@ -1788,8 +1863,9 @@ body{
             const pl = r.place || null;
             const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
             const mine = myName && String(r.name || "").toLowerCase() === myName;
-            return `<div class="hRow">
+            return `<div class="hRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}>
               <span class="place ${cls}">${pl || "—"}</span>
+              ${avatarHtml(r.name, r.photo_url)}
               <span class="hMain"><span class="hName">${escHtml(r.name)}</span>
                 ${r.ko ? `<div class="muted">${fmtInt(r.ko)} нок.</div>` : ""}</span>
               ${mine ? '<span class="tag hot">это ты</span>' : ""}
@@ -1844,7 +1920,7 @@ body{
         ${roster === null
           ? '<div class="muted">Список участников сейчас недоступен.</div>'
           : roster.length
-            ? `<div class="list">${roster.map((r, i) => `<div class="listRow">
+            ? `<div class="list">${roster.map((r, i) => `<div class="listRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}>
                  <span class="idx">${i + 1}</span>
                  ${avatarHtml(r.name, r.photo_url)}
                  <span class="nm">${escHtml(r.name)}</span>
@@ -1950,7 +2026,7 @@ body{
     if (!rows.length && ratingRows.length) {
       $("ratingList").innerHTML = '<div class="empty"><div class="eT">Игрок не найден</div><div class="eS">Попробуй другое имя.</div></div>'; return;
     }
-    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span></span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span>${avatarHtml(r.name, r.photo_url)}<div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
+    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span></span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ''}><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span>${avatarHtml(r.name, r.photo_url)}<div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
   }
   async function loadRating() {
     const request = ++ratingRequest;
@@ -1986,6 +2062,8 @@ body{
   document.addEventListener("click", (ev) => {
     const opener = ev.target.closest("[data-open]");
     if (opener) { haptic(); openTourney(opener.dataset.open); return; }
+    const pl = ev.target.closest("[data-player]");
+    if (pl) { haptic(); openPlayer(pl.dataset.player); return; }
     const banner = ev.target.closest(".banner[data-tab]");
     if (banner) { haptic(); tab(banner.dataset.tab); return; }
     const info = ev.target.closest("[data-info]");
@@ -1993,6 +2071,7 @@ body{
   });
 
   $("tdBack").onclick = () => { openId = null; screen("scrApp"); };
+  $("plBack").onclick = () => { plReq++; screen(plReturn); };
   document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => { haptic(); tab(b.dataset.tab); }; });
   document.querySelectorAll(".chips button").forEach((b) => {
     b.onclick = () => {

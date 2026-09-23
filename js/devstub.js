@@ -558,6 +558,21 @@
       db.player_sessions = (db.player_sessions || []).filter((s) => s.token !== args?.p_token);
       return { data: null, error: null };
     },
+    vp_app_player_public(db, args) {
+      const p = (db.players || []).find((x) => String(x.id) === String(args?.p_player_id));
+      if (!p) return fail("player_not_found");
+      const history = appMe(db, p.id).history;
+      return { data: {
+        player: { id: p.id, name: p.name, photo_url: p.photo_url ?? null },
+        stats: {
+          games: history.length,
+          wins: history.filter((h) => h.place === 1).length,
+          top3: history.filter((h) => h.place >= 1 && h.place <= 3).length,
+          ko: history.reduce((a, h) => a + (h.ko || 0), 0),
+        },
+        history: history.slice(0, 30),
+      }, error: null };
+    },
     vp_app_me(db, args) {
       const pid = sessionPlayerId(db, args?.p_token);
       if (!pid) return fail("not_authorized");
@@ -633,7 +648,7 @@
         .sort((a, b) => String(a.created_at || "").localeCompare(String(b.created_at || "")))
         .map((r) => {
           const p = (db.players || []).find((x) => String(x.id) === String(r.player_id));
-          return p ? { player_id: p.id, name: p.name, registered_at: r.created_at } : null;
+          return p ? { player_id: p.id, name: p.name, registered_at: r.created_at, photo_url: p.photo_url ?? null } : null;
         }).filter(Boolean);
       return { data: rows, error: null };
     },
@@ -681,7 +696,12 @@
         .filter((r) => String(r.tournament_id) === String(t.id)).map((r) => String(r.id));
       const rows = (db.tournament_result_players || [])
         .filter((r) => ids.includes(String(r.result_id)))
-        .map((r) => ({ place: r.place ?? null, name: r.name, ko: r.ko || 0, points: r.points || 0 }))
+        .map((r) => {
+          const p = (db.players || []).find((x) => String(x.id) === String(r.player_id))
+            || (r.player_id == null ? (db.players || []).find((x) => nkey(x.name) === nkey(r.name)) : null);
+          return { place: r.place ?? null, name: r.name, ko: r.ko || 0, points: r.points || 0,
+            player_id: p?.id ?? null, photo_url: p?.photo_url ?? null };
+        })
         .sort((a, b) => (a.place == null) - (b.place == null) || (a.place || 0) - (b.place || 0));
       return { data: rows, error: null };
     },
