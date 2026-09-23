@@ -345,10 +345,9 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tile{
   position:relative;overflow:hidden;cursor:pointer;
-  /* Тёплый крем, заметно светлее бежевого фона страницы, с чёткой кромкой. */
-  background:linear-gradient(166deg,#F9EDD5 0%,#ECD7AF 100%);
-  border:1px solid rgba(120,84,20,.2);border-radius:18px;padding:14px;
-  box-shadow:0 1px 2px rgba(36,27,20,.1), 0 6px 16px rgba(36,27,20,.12), var(--edge);
+  background:linear-gradient(166deg,#FFFEF9 0%,#F7EFDE 100%);
+  border:var(--hair);border-radius:18px;padding:14px;
+  box-shadow:var(--sh-sm), var(--edge);
   text-align:left;color:var(--ink);text-decoration:none;
   display:flex;flex-direction:column;gap:6px;min-height:118px;
   /* Плитки — это <button>, а кнопкам в дизайн-системе задан nowrap: без
