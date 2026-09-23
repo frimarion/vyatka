@@ -752,20 +752,14 @@ body.navOn .tabbar{display:grid}
   transform:skewX(-16deg);opacity:0;
   animation:splashGlint .56s ease 1s forwards;
 }
-.splashCaption{
-  margin-top:18px;text-align:center;color:rgba(255,252,244,.48);
-  font-size:10px;font-weight:800;letter-spacing:.24em;text-transform:uppercase;
-  opacity:0;animation:splashCaptionIn .45s ease .8s forwards;
-}
 @keyframes splashIn{to{opacity:1;transform:translateY(0) scale(1)}}
 @keyframes splashGlint{0%{left:-70%;opacity:1}100%{left:130%;opacity:1}}
 @keyframes splashHalo{from{opacity:0;transform:scale(.62) rotate(-4deg)}to{opacity:.22;transform:scale(.82) rotate(0)}}
-@keyframes splashCaptionIn{to{opacity:1}}
 
 @media(prefers-reduced-motion:reduce){
   #splashScreen{transition-duration:.2s}
-  #splashScreen::before,.splashHorse,.splashLogo,.splashShine::after,.splashCaption{animation:none}
-  .splashHorse,.splashLogo,.splashCaption{opacity:1;transform:none}
+  #splashScreen::before,.splashHorse,.splashLogo,.splashShine::after{animation:none}
+  .splashHorse,.splashLogo{opacity:1;transform:none}
 }
 
 @media(max-width:400px){
@@ -798,7 +792,6 @@ body.navOn .tabbar{display:grid}
       <img class="splashLogo" src="assets/logo.svg" alt="Vyatka Poker Club"/>
       <span class="splashShine"></span>
     </div>
-    <div class="splashCaption">Poker Club · Kirov</div>
   </div>
 </div>
 <script>
