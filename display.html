@@ -20,16 +20,9 @@
 html,body{height:100%;overflow:hidden}
 body{margin:0;background:var(--bg);color:var(--d-fg);font-family:var(--sans)}
 
-/* Фон — тот же, что в админке: сандовый var(--bg) с еле заметным вордмарком
-   клуба вместо шахматки мастей (app.css уже кладёт этот слой, но display.html
-   раньше перекрывал его собственным ::before — здесь просто дублируем тот же
-   паттерн, чтобы ТВ и админка выглядели одним экраном). */
-body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
-  background-image:url("assets/logo.svg"),url("assets/logo.svg");
-  background-repeat:repeat,repeat;
-  background-position:0 0,190px 47px;
-  background-size:380px 95px,380px 95px;
-  opacity:.05}
+/* Фон — вятский орнамент из css/app.css (body.ornament), как в приложении
+   и админке. Слой ::before поднят на z-index:0 под .dwrap (z-index:1). */
+body::before{z-index:0}
 
 .dwrap{position:relative;z-index:1;width:100vw;height:100vh;
   padding:clamp(20px,3vh,58px) clamp(24px,3.75vw,74px) clamp(24px,3.2vh,60px);
@@ -247,7 +240,7 @@ body::before{content:'';position:fixed;inset:0;z-index:0;pointer-events:none;
 .backToAdmin.show{opacity:1;pointer-events:auto}
 </style>
 </head>
-<body>
+<body class="ornament">
 <!-- Выход в админку. Дисплей висит на ТВ, где мыши нет, поэтому ссылка
      проявляется только от движения мыши и снова гаснет: на экране в зале её
      не увидят никогда, а с ноутбука она под рукой. -->
