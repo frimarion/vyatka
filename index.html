@@ -78,6 +78,19 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 /* Марка — над водяным знаком масти, иначе ::after кладётся поверх */
 .apphead .logoMark{position:relative;z-index:1}
 .apphead .avatarPill{position:relative;z-index:1;flex:none;width:40px;height:40px}
+/* Уровень под именем: ранг, номер и тонкая шкала до следующего. Тап — в профиль. */
+.headLv{
+  display:flex;align-items:center;gap:8px;margin-top:5px;max-width:230px;cursor:pointer;
+  font-size:11px;font-weight:800;color:rgba(255,252,244,.9);white-space:nowrap;
+}
+.headLv[hidden]{display:none}
+.headLv .hlNum{
+  flex:none;min-width:18px;height:18px;padding:0 5px;border-radius:999px;text-align:center;
+  font:900 10.5px/18px system-ui,sans-serif;background:rgba(255,252,244,.94);color:var(--accent-dark);
+}
+.headLv .hlRank{flex:none}
+.headLv .hlBar{flex:1;min-width:36px;height:5px;border-radius:999px;background:rgba(255,252,244,.25);overflow:hidden}
+.headLv .hlBar>i{display:block;height:100%;border-radius:inherit;background:rgba(255,252,244,.95)}
 .avatarPill{
   box-shadow:0 4px 12px rgba(122,40,12,.3), inset 0 1px 0 rgba(255,255,255,.9);
   overflow:hidden;
@@ -1076,6 +1089,10 @@ document.addEventListener("touchmove", e => {
     <div class="headText">
       <div class="hi" id="greet">Клуб «Вятка»</div>
       <h1 id="meName">Гость</h1>
+      <div class="headLv" id="headLv" hidden role="button" tabindex="0" title="Открыть профиль">
+        <span class="hlNum num" id="hlNum">1</span><span class="hlRank" id="hlRank">Новичок</span>
+        <span class="hlBar"><i id="hlFill" style="width:0"></i></span>
+      </div>
     </div>
     <a class="logoLink" href="index.html" title="На главную">
       <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
@@ -1941,6 +1958,15 @@ document.addEventListener("touchmove", e => {
     av.innerHTML = p?.photo_url
       ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
       : escHtml(p ? initials(p.name) : "ВП");
+    const lv = p ? me?.level : null;
+    $("headLv").hidden = !lv?.level;
+    if (lv?.level) {
+      $("hlNum").textContent = String(lv.level);
+      $("hlRank").textContent = RANKS[lv.rank_key]?.name || "Новичок";
+      $("hlFill").style.width = `${Math.round(levelProgress(lv) * 100)}%`;
+      $("headLv").title = lv.xp_next == null ? `${fmtInt(lv.xp)} XP — максимальный уровень`
+        : `${fmtInt(lv.xp)} XP · до ${lv.level + 1} уровня ${fmtInt(lv.xp_next - lv.xp)} XP`;
+    }
 
     const upcoming = tours
       .filter((t) => !isPast(t))
@@ -2171,6 +2197,8 @@ document.addEventListener("touchmove", e => {
   $("lvUpClose").onclick = () => $("lvUpModal").classList.remove("show");
   $("lvUpModal").onclick = (e) => { if (e.target === $("lvUpModal")) $("lvUpModal").classList.remove("show"); };
   $("xpRulesBtn").onclick = () => showInfo("xp");
+  $("headLv").onclick = () => tab("me");
+  $("headLv").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tab("me"); } };
 
   function histRows(hist) {
     return hist.map((h) => {
