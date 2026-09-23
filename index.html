@@ -146,31 +146,35 @@
 .tcard.past{opacity:.78}
 .tcard.past .tcBody::before{opacity:.5}
 
-/* «Джокер» — турнир с картинкой (card_art в tournaments, галочка в
-   tournaments.html). Слева на картинке тёмное поле под текст, справа джокер.
-   Градиент поверх — страховка: на узкой карточке картинка обрезается слева,
-   и джокер подъезжает под пилюли. Карточка тёмная и в списке, и на главной,
-   поэтому цвета текста и пилюль — общие для .dark. */
-.tcard.joker{
+/* Карточки с картинкой — «Джокер», «Нокаут», «Феникс» (card_art в
+   tournaments, выбирается в tournaments.html). Слева на картинке тёмное поле
+   под текст, справа сюжет. Градиент поверх — страховка: на узкой карточке
+   картинка обрезается слева, и сюжет подъезжает под пилюли. Карточка тёмная
+   и в списке, и на главной, поэтому цвета текста и пилюль — общие для .dark. */
+.tcard.art-joker{--art:url("assets/art/joker.webp");--art-shift:-74px}
+.tcard.art-knockout{--art:url("assets/art/knockout.webp");--art-shift:-30px}
+.tcard.art-phoenix{--art:url("assets/art/phoenix.webp");--art-shift:0px}
+.tcard.art{
   color:var(--surface);border:none;min-height:176px;
   background:
     linear-gradient(90deg, rgba(14,9,6,.9) 0%, rgba(14,9,6,.72) 36%, rgba(14,9,6,0) 66%),
-    #120C08 url("assets/art/joker.webp") right center/cover no-repeat;
+    #120C08 var(--art) right center/cover no-repeat;
   box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.22);
 }
-.tcard.joker::before,.tcard.joker::after,.tcard.joker .tcBody::before{display:none}
-.tcard.joker .tcBody{padding-right:38%}
-.tcard.joker .tcName{text-shadow:0 2px 12px rgba(0,0,0,.6)}
-.tcard.joker .pill{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+.tcard.art::before,.tcard.art::after,.tcard.art .tcBody::before{display:none}
+.tcard.art .tcBody{padding-right:38%}
+.tcard.art .tcName{text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.tcard.art .pill{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
 /* Прозрачность прошедших пропускала бы орнамент сквозь картинку — гасим
    фильтром. */
-.tcard.joker.past{opacity:1;filter:saturate(.55) brightness(.8)}
+.tcard.art.past{opacity:1;filter:saturate(.55) brightness(.8)}
 /* На телефоне карточка почти квадратнее картинки: cover обрезает тёмное поле
-   слева, и джокер уезжает под текст. Картинку прижимаем по высоте и выдвигаем
-   за правый край — фишки справа не жалко, а лицо остаётся справа от текста. */
+   слева, и сюжет уезжает под текст. Картинку прижимаем по высоте и выдвигаем
+   за правый край — насколько, зависит от того, где на картинке главное
+   (--art-shift): у феникса голова у самого края, его не двигаем. */
 @media(max-width:520px){
-  .tcard.joker{background-size:auto, auto 100%;background-position:0 0, right -74px center}
-  .tcard.joker .tcBody{padding-right:44%}
+  .tcard.art{background-size:auto, auto 100%;background-position:0 0, right var(--art-shift) center}
+  .tcard.art .tcBody{padding-right:44%}
 }
 
 .tcName{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.14}
@@ -1680,10 +1684,13 @@ body.navOn .tabbar{display:grid}
     return { text: "Записаться", cls: "" };
   }
 
+  // Оформления карточки с картинкой — те же значения, что в check миграции 017.
+  const CARD_ART = ["joker", "knockout", "phoenix"];
+
   function tcard(t, hero) {
     const cta = ctaFor(t);
-    const joker = t.card_art === "joker";
-    const cls = (hero && !joker ? " hero" : "") + (joker ? " joker" : "") + (hero || joker ? " dark" : "") + (isPast(t) ? " past" : "");
+    const art = CARD_ART.includes(t.card_art) ? t.card_art : "";
+    const cls = (hero && !art ? " hero" : "") + (art ? " art art-" + art : "") + (hero || art ? " dark" : "") + (isPast(t) ? " past" : "");
     return `<div class="tcard${cls}" data-open="${t.id}">
       <div class="tcBody">
         ${hero ? `<div class="eyebrow${hero ? " on-accent" : ""}" style="margin-bottom:6px">${isRunning(t) ? "Идёт сейчас" : "Ближайший турнир"}</div>` : ""}
