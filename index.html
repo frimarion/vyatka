@@ -47,7 +47,10 @@
    на её нижний край: наложение слоёв само по себе даёт глубину. */
 .apphead.compact{
   position:relative;overflow:hidden;
-  padding:18px 20px 38px;margin-bottom:16px;
+  /* Одна строка: аватар, приветствие с именем, марка. Шапка — фон под
+     геро-карточкой, а не отдельный экран: на телефоне место нужно турнирам. */
+  display:flex;flex-wrap:nowrap;align-items:center;gap:12px;
+  padding:14px 16px 36px;margin-bottom:16px;
   border-radius:var(--r-lg) var(--r-lg) 0 0;
   background:
     radial-gradient(120% 140% at 88% -10%, rgba(255,214,168,.38), transparent 60%),
@@ -57,13 +60,19 @@
 .apphead.compact::after{
   content:"\2660";
   position:absolute;right:-6px;bottom:-34px;
-  font:900 128px/1 serif;color:rgba(255,252,244,.09);pointer-events:none;
+  font:900 96px/1 serif;color:rgba(255,252,244,.09);pointer-events:none;
 }
-.apphead .hi{font-size:12px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:rgba(255,252,244,.72)}
-.apphead h1{text-shadow:0 2px 10px rgba(122,40,12,.35)}
-.apphead .headSide{position:relative;z-index:1}
+.apphead .headText{min-width:0;flex:1}
+.apphead .hi{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:rgba(255,252,244,.72)}
+.apphead h1{
+  font-size:21px;line-height:1.15;margin-top:1px;text-shadow:0 2px 10px rgba(122,40,12,.35);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.apphead .logoLink{margin-left:auto;flex:none;position:relative;z-index:1}
+.apphead .logoMark.on-accent{height:20px;margin:0}
 /* Марка — над водяным знаком масти, иначе ::after кладётся поверх */
 .apphead .logoMark{position:relative;z-index:1}
+.apphead .avatarPill{position:relative;z-index:1;flex:none;width:40px;height:40px}
 .avatarPill{
   box-shadow:0 4px 12px rgba(122,40,12,.3), inset 0 1px 0 rgba(255,255,255,.9);
   overflow:hidden;
@@ -72,7 +81,7 @@
 /* Наезжает на шапку только геро-карточка — пустое состояние (нет турниров)
    остаётся обычной светлой карточкой и на шапку не лезет. */
 #heroWrap{position:relative;z-index:2}
-#heroWrap .tcard.hero{margin-top:-40px}
+#heroWrap .tcard.hero{margin-top:-30px}
 
 /* ── Карточка турнира ───────────────────────────────────────── */
 .tcard{
@@ -836,14 +845,14 @@ body.navOn .tabbar{display:grid}
 <!-- ═══ Приложение ═════════════════════════════════════════════ -->
 <div id="scrApp" class="screen">
   <header class="apphead compact">
-    <div>
-      <a class="logoLink" href="index.html" title="На главную">
-        <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
-      </a>
+    <span class="avatarPill" id="meAvatar">ВП</span>
+    <div class="headText">
       <div class="hi" id="greet">Клуб «Вятка»</div>
-      <h1 id="meName" style="font-size:26px">Гость</h1>
+      <h1 id="meName">Гость</h1>
     </div>
-    <div class="headSide"><span class="avatarPill" id="meAvatar">ВП</span></div>
+    <a class="logoLink" href="index.html" title="На главную">
+      <img class="logoMark on-accent" src="assets/logo.svg" alt="Vyatka Poker Club"/>
+    </a>
   </header>
 
   <!-- ── Главная ─────────────────────────────────────────────── -->

@@ -69,12 +69,14 @@ body::before{
    iOS фиксированный фон игнорирует и растягивает его на всю высоту страницы.
    Остальные страницы (ТВ, CRM, документы) пока на песочном с вордмарком. */
 body.ornament{background:#FBEFE1}
+/* Узор — фон, а не содержимое: крупно и приглушённо, чтобы мелкие точки
+   и кольца между карточками не тянули на себя взгляд. */
 body.ornament::before{
-  background:url("../assets/bg-dymkovo.webp") 0 0/720px auto repeat;
-  opacity:1;
+  background:url("../assets/bg-dymkovo.webp") 0 0/1200px auto repeat;
+  opacity:.62;
 }
 @media(max-width:640px){
-  body.ornament::before{background-size:560px auto}
+  body.ornament::before{background-size:960px auto}
 }
 
 /* ── Типографика ─────────────────────────────────────────────── */
