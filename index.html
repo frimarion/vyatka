@@ -861,7 +861,6 @@ body.navOn .tabbar{display:grid}
 .rkMine .mVal{font-size:24px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
 .rkMine .mVal small{font-size:15px}
 .rkMine .mGo{font-size:26px;color:var(--muted);line-height:1}
-.rkMine.none{cursor:default;border-style:dashed;display:block}
 
 .rkSearch{margin-bottom:10px}
 .rkList{display:flex;flex-direction:column;gap:8px}
@@ -2323,11 +2322,9 @@ document.addEventListener("touchmove", e => {
     }
 
     const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
-    if (me?.player) $("ratingMine").innerHTML = mine
-      ? `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url)}
+    if (mine) $("ratingMine").innerHTML = `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url)}
           <div class="mTxt"><div class="mLbl">Твоё место</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
-          <span class="mGo">›</span></div>`
-      : '<div class="rkMine none"><strong>Твой результат ещё впереди</strong><div class="sub muted">Сыграй турнир — после сохранения итогов здесь появится твоё место.</div></div>';
+          <span class="mGo">›</span></div>`;
 
     const query = $("ratingSearch").value.trim().toLocaleLowerCase("ru");
     const rows = ratingRows.filter(r => r.name.toLocaleLowerCase("ru").includes(query));
