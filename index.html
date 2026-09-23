@@ -47,11 +47,12 @@
    на её нижний край: наложение слоёв само по себе даёт глубину. */
 .apphead.compact{
   position:relative;overflow:hidden;
-  /* Одна строка: аватар, приветствие с именем, марка. Шапка — фон под
-     геро-карточкой, а не отдельный экран: на телефоне место нужно турнирам. */
+  /* Одна строка: аватар, приветствие с именем, марка — на телефоне место
+     нужно турнирам. Карточки на шапку не заезжают: она самостоятельная
+     плашка со скруглёнными углами. */
   display:flex;flex-wrap:nowrap;align-items:center;gap:12px;
-  padding:14px 16px 36px;margin-bottom:16px;
-  border-radius:var(--r-lg) var(--r-lg) 0 0;
+  padding:14px 16px;margin-bottom:14px;
+  border-radius:var(--r-lg);
   background:
     radial-gradient(120% 140% at 88% -10%, rgba(255,214,168,.38), transparent 60%),
     linear-gradient(160deg,#F2622C 0%,#E9531F 46%,#C8420F 100%);
@@ -78,10 +79,7 @@
   overflow:hidden;
 }
 .avatarPill img{width:100%;height:100%;border-radius:999px;object-fit:cover}
-/* Наезжает на шапку только геро-карточка — пустое состояние (нет турниров)
-   остаётся обычной светлой карточкой и на шапку не лезет. */
 #heroWrap{position:relative;z-index:2}
-#heroWrap .tcard.hero{margin-top:-30px}
 
 /* ── Карточка турнира ───────────────────────────────────────── */
 .tcard{
@@ -111,8 +109,8 @@
   box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.18);
 }
 .tcard.hero .tcBody::before{content:"\2660";color:rgba(232,185,74,.06)}
-.tcard.hero .tcName{color:var(--surface);text-shadow:0 2px 12px rgba(0,0,0,.35)}
-.tcard.hero .eyebrow{color:rgba(255,252,244,.62)}
+.tcard.dark .tcName{color:var(--surface);text-shadow:0 2px 12px rgba(0,0,0,.35)}
+.tcard.dark .eyebrow{color:rgba(255,252,244,.62)}
 /* Фишка, уходящая за правый край. Насечки идут только по ободу: пущенные от
    центра, они превращают фишку в мишень — первый заход это и показал.
    Обод вырезается радиальной маской, поверх неё ложатся кольца и поле. */
@@ -148,9 +146,36 @@
 .tcard.past{opacity:.78}
 .tcard.past .tcBody::before{opacity:.5}
 
+/* «Джокер» — турнир с картинкой (card_art в tournaments, галочка в
+   tournaments.html). Слева на картинке тёмное поле под текст, справа джокер.
+   Градиент поверх — страховка: на узкой карточке картинка обрезается слева,
+   и джокер подъезжает под пилюли. Карточка тёмная и в списке, и на главной,
+   поэтому цвета текста и пилюль — общие для .dark. */
+.tcard.joker{
+  color:var(--surface);border:none;min-height:176px;
+  background:
+    linear-gradient(90deg, rgba(14,9,6,.9) 0%, rgba(14,9,6,.72) 36%, rgba(14,9,6,0) 66%),
+    #120C08 url("assets/art/joker.webp") right center/cover no-repeat;
+  box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.22);
+}
+.tcard.joker::before,.tcard.joker::after,.tcard.joker .tcBody::before{display:none}
+.tcard.joker .tcBody{padding-right:38%}
+.tcard.joker .tcName{text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.tcard.joker .pill{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+/* Прозрачность прошедших пропускала бы орнамент сквозь картинку — гасим
+   фильтром. */
+.tcard.joker.past{opacity:1;filter:saturate(.55) brightness(.8)}
+/* На телефоне карточка почти квадратнее картинки: cover обрезает тёмное поле
+   слева, и джокер уезжает под текст. Картинку прижимаем по высоте и выдвигаем
+   за правый край — фишки справа не жалко, а лицо остаётся справа от текста. */
+@media(max-width:520px){
+  .tcard.joker{background-size:auto, auto 100%;background-position:0 0, right -74px center}
+  .tcard.joker .tcBody{padding-right:44%}
+}
+
 .tcName{font-size:20px;font-weight:900;letter-spacing:-.025em;line-height:1.14}
 .tcFee{font-size:12.5px;font-weight:800;color:var(--accent-dark);margin-top:5px;letter-spacing:.01em}
-.tcard.hero .tcFee{color:var(--gold)}
+.tcard.dark .tcFee{color:var(--gold)}
 
 /* ── Пилюли ─────────────────────────────────────────────────── */
 .pills{display:flex;flex-wrap:wrap;gap:6px;margin-top:11px}
@@ -176,13 +201,13 @@
 @keyframes blink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.25;transform:scale(.7)}}
 /* На тёмном светлая пилюля тонет: своя заливка и свой цвет текста.
    Те же правила нужны шапке экрана турнира — она из того же сукна. */
-.tcard.hero .pill,.detailHead .pill{background:rgba(255,252,244,.11);color:rgba(255,252,244,.88);border-color:rgba(255,252,244,.13)}
-.tcard.hero .pill.hot,.detailHead .pill.hot{background:linear-gradient(160deg,#F3D585,#E8B94A);color:#3A2C21;border-color:transparent;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
-.tcard.hero .pill.ok,.detailHead .pill.ok{background:rgba(110,220,150,.16);color:#7FE3A6;border-color:rgba(110,220,150,.26)}
-.tcard.hero .pill.warn,.detailHead .pill.warn{background:rgba(232,185,74,.2);color:#F0CE7E;border-color:rgba(232,185,74,.3)}
+.tcard.dark .pill,.detailHead .pill{background:rgba(255,252,244,.11);color:rgba(255,252,244,.88);border-color:rgba(255,252,244,.13)}
+.tcard.dark .pill.hot,.detailHead .pill.hot{background:linear-gradient(160deg,#F3D585,#E8B94A);color:#3A2C21;border-color:transparent;box-shadow:inset 0 1px 0 rgba(255,255,255,.5)}
+.tcard.dark .pill.ok,.detailHead .pill.ok{background:rgba(110,220,150,.16);color:#7FE3A6;border-color:rgba(110,220,150,.26)}
+.tcard.dark .pill.warn,.detailHead .pill.warn{background:rgba(232,185,74,.2);color:#F0CE7E;border-color:rgba(232,185,74,.3)}
 /* «Идёт сейчас» должно кричать и на тёмном — иначе правило выше гасит его
    в ту же полупрозрачную плашку, что и дату. */
-.tcard.hero .pill.live,.detailHead .pill.live{
+.tcard.dark .pill.live,.detailHead .pill.live{
   background:linear-gradient(160deg,#F2622C,#C8420F);color:var(--surface);border-color:transparent;
   box-shadow:0 2px 10px rgba(233,83,31,.5), inset 0 1px 0 rgba(255,255,255,.22);
 }
@@ -212,8 +237,8 @@
   background:rgba(36,27,20,.05);color:var(--ink-2);
   box-shadow:inset 0 0 0 1px rgba(36,27,20,.08);
 }
-.tcard.hero .tcCta.done{background:rgba(110,220,150,.13);color:#8FE9B4;box-shadow:inset 0 0 0 1.5px rgba(110,220,150,.3)}
-.tcard.hero .tcCta.flat{background:rgba(255,252,244,.1);color:rgba(255,252,244,.8);box-shadow:inset 0 0 0 1px rgba(255,252,244,.16)}
+.tcard.dark .tcCta.done{background:rgba(110,220,150,.13);color:#8FE9B4;box-shadow:inset 0 0 0 1.5px rgba(110,220,150,.3)}
+.tcard.dark .tcCta.flat{background:rgba(255,252,244,.1);color:rgba(255,252,244,.8);box-shadow:inset 0 0 0 1px rgba(255,252,244,.16)}
 
 /* ── Баннер ─────────────────────────────────────────────────── */
 /* Широкая тёмная плашка между геро и плитками: без неё экран распадается на
@@ -1657,7 +1682,9 @@ body.navOn .tabbar{display:grid}
 
   function tcard(t, hero) {
     const cta = ctaFor(t);
-    return `<div class="tcard${hero ? " hero" : ""}${isPast(t) ? " past" : ""}" data-open="${t.id}">
+    const joker = t.card_art === "joker";
+    const cls = (hero && !joker ? " hero" : "") + (joker ? " joker" : "") + (hero || joker ? " dark" : "") + (isPast(t) ? " past" : "");
+    return `<div class="tcard${cls}" data-open="${t.id}">
       <div class="tcBody">
         ${hero ? `<div class="eyebrow${hero ? " on-accent" : ""}" style="margin-bottom:6px">${isRunning(t) ? "Идёт сейчас" : "Ближайший турнир"}</div>` : ""}
         <div class="tcName">${escHtml(t.name || "Турнир")}</div>
