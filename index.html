@@ -353,6 +353,22 @@
 }
 .detailHead h1{color:var(--surface);font-size:25px;margin-top:8px;letter-spacing:-.025em;position:relative;z-index:1}
 .detailHead .pills{position:relative;z-index:1}
+/* Шапка турнира с картинкой — та же, что на его карточке: тёмное поле под
+   название слева, сюжет справа. Выше обычной, чтобы картинку было видно. */
+.detailHead.art{
+  min-height:210px;
+  background:
+    linear-gradient(90deg, rgba(14,9,6,.92) 0%, rgba(14,9,6,.74) 36%, rgba(14,9,6,0) 66%),
+    #120C08 var(--art) right center/cover no-repeat;
+}
+.detailHead.art::after{display:none}
+.detailHead.art h1,.detailHead.art .pills{margin-right:38%}
+.detailHead.art h1{text-shadow:0 2px 12px rgba(0,0,0,.6)}
+.detailHead.art .pill{backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px)}
+@media(max-width:520px){
+  .detailHead.art{background-size:auto, auto 100%;background-position:0 0, right var(--art-shift) center}
+  .detailHead.art h1,.detailHead.art .pills{margin-right:44%}
+}
 /* Чужой профиль — шапка того же сукна, что у турнира, а внутри тот же
    жетон, имя и строка чисел, что в своём профиле. */
 .plHead .phTop{margin-top:14px;position:relative;z-index:1}
@@ -1019,7 +1035,7 @@ body.navOn .tabbar{display:grid}
 
 <!-- ═══ Турнир: подробно ═══════════════════════════════════════ -->
 <div id="scrTourney" class="screen">
-  <div class="detailHead">
+  <div class="detailHead" id="tdHead">
     <button class="backBtn" id="tdBack" type="button">← Назад</button>
     <h1 id="tdName">Турнир</h1>
     <div class="pills" id="tdTop"></div>
@@ -1947,6 +1963,8 @@ body.navOn .tabbar{display:grid}
     const t = tours.find((x) => x.id === Number(id));
     if (!t) return;
     openId = t.id;
+    const art = artOf(t);
+    $("tdHead").className = "detailHead" + (art ? " art art-" + art : "");
     $("tdName").textContent = t.name || "Турнир";
     $("tdTop").innerHTML = statusPills(t, false);
     $("tdBody").innerHTML = '<div class="muted">Загрузка состава…</div>';
