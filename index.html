@@ -891,6 +891,51 @@ body.navOn .tabbar{display:grid}
 .rkRow.isMe{border:2px solid rgba(233,83,31,.45);background:linear-gradient(168deg,#FFF8F0 0%,#FBE6D6 100%)}
 }
 #tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
+
+/* ── Уровни ─────────────────────────────────────────────────────
+   Рамки рангов и бейдж — в css/app.css (общие с админкой). Здесь —
+   профиль, карточка опыта и поздравление. */
+/* В тёмной шапке профиля между аватаркой и кольцом — тёмный зазор, иначе
+   латунная аватарка сливается с медной и золотой рамкой. */
+.phTop .lvWrap::before{inset:calc(-1 * var(--ring) - 2.5px)}
+.phTop .lvWrap>.phAvatar{box-shadow:0 0 0 2.5px #2A1F17, inset 0 1px 0 rgba(255,255,255,.8), inset 0 -2px 4px rgba(120,84,20,.38)}
+.phTop .lvWrap .lvBadge{min-width:21px;height:21px;font-size:11.5px;line-height:21px;box-shadow:0 0 0 2px #2A1F17}
+.phRank{margin-top:4px;font-size:12px;font-weight:900;letter-spacing:.02em;color:var(--gold)}
+.phRank:empty{display:none}
+.rkMine .lvWrap .lvBadge,.rkRow .lvWrap .lvBadge{box-shadow:0 0 0 2px #FFFCF4}
+.xpCard .xpTop{display:flex;align-items:center;gap:14px}
+.xpLv{
+  width:52px;height:52px;border-radius:14px;flex:none;display:grid;place-items:center;
+  font-size:22px;font-weight:900;color:var(--rk-ink,#fff);background:var(--rk,#8A7F73);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.35), 0 4px 10px rgba(36,27,20,.18);
+}
+.xpCard.rk-legend .xpLv{background:linear-gradient(155deg,#F7DFA8,#E8B94A 55%,#C7953B);color:#3E2A0C}
+.xpCard.rk-shark .xpLv{background:repeating-conic-gradient(from 6deg,#17626B 0 24deg,#1D7480 24deg 36deg)}
+.xpMain{flex:1;min-width:0}
+.xpRank{font-weight:900;font-size:16px}
+.xpNext{margin-top:3px;font-size:12px;color:var(--muted);font-weight:700}
+.xpCard .xpBar{margin-top:8px}
+.xpRules{margin-top:12px;background:none;box-shadow:none;padding:0;color:var(--accent);font-weight:800;font-size:13px}
+.xpEv{display:flex;align-items:center;gap:10px;padding:9px 2px}
+.xpEv+.xpEv{border-top:1px solid var(--line)}
+.xpEv .evMain{flex:1;min-width:0}
+.xpEv .evName{font-weight:800;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.xpEv .evParts{font-size:11.5px;color:var(--muted)}
+.xpEv .evXp{font-weight:900;color:var(--ok);font-variant-numeric:tabular-nums;white-space:nowrap}
+.rulesT{width:100%;border-collapse:collapse;font-size:14px}
+.rulesT td{padding:7px 0;border-top:1px solid var(--line);vertical-align:top}
+.rulesT td:last-child{text-align:right;font-weight:900;color:var(--ok);white-space:nowrap;padding-left:10px}
+.rulesT small{display:block;color:var(--muted);font-size:11.5px}
+.rankLadder{display:flex;flex-direction:column;gap:8px;margin-top:6px}
+.rankLadder div{display:flex;align-items:center;gap:10px;font-size:14px;font-weight:800}
+.rankLadder .avatar{width:30px;height:30px;font-size:10px}
+.rankLadder small{color:var(--muted);font-weight:700;margin-left:auto}
+.lvUp{text-align:center}
+.lvUp .lvWrap{margin:6px auto 12px}
+.lvUp .lvWrap .avatar{width:84px;height:84px;font-size:26px}
+.lvUp .lvWrap .lvBadge{min-width:26px;height:26px;line-height:26px;font-size:13px}
+.lvUp .lvKick{font-size:12px;font-weight:900;letter-spacing:.12em;text-transform:uppercase;color:var(--accent)}
+.lvUp h2{font-size:24px;margin:4px 0 6px}
 </style>
 </head>
 <body class="ornament">
@@ -1100,9 +1145,10 @@ document.addEventListener("touchmove", e => {
     <div id="meBox" style="display:none">
       <div class="profileHero">
         <div class="phTop">
-          <span class="phAvatar" id="profAvatar">ВП</span>
+          <span class="lvWrap" id="profAvWrap"><span class="phAvatar" id="profAvatar">ВП</span><b class="lvBadge" id="profLvBadge" hidden></b></span>
           <div class="phInfo">
             <div class="phName" id="profName">Игрок</div>
+            <div class="phRank" id="profRank"></div>
             <span class="phTag" id="meTg">—</span>
             <div class="phView" id="phView">
               <div class="phLine" id="phFullView"></div>
@@ -1136,6 +1182,19 @@ document.addEventListener("touchmove", e => {
       </div>
       <div id="lnkErr" class="err" style="margin:-6px 0 12px"></div>
 
+      <div class="card xpCard" id="xpCard" style="display:none">
+        <div class="xpTop">
+          <span class="xpLv num" id="xpLv">1</span>
+          <div class="xpMain">
+            <div class="xpRank" id="xpRank">Новичок</div>
+            <div class="xpNext" id="xpNext">—</div>
+            <div class="xpBar"><i id="xpFill" style="width:0"></i></div>
+          </div>
+        </div>
+        <div id="xpEvents"></div>
+        <button class="xpRules" id="xpRulesBtn" type="button">Как получить опыт →</button>
+      </div>
+
       <div class="card">
         <div class="cardHead"><h2>Я записан</h2><span class="tag" id="myRegsInfo">—</span></div>
         <div id="myRegs" class="list"></div>
@@ -1164,8 +1223,8 @@ document.addEventListener("touchmove", e => {
   <div class="detailHead plHead">
     <button class="backBtn" id="plBack" type="button">← Назад</button>
     <div class="phTop">
-      <span class="phAvatar" id="plAvatar">—</span>
-      <div class="phInfo"><div class="phName" id="plName">Игрок</div></div>
+      <span class="lvWrap" id="plAvWrap"><span class="phAvatar" id="plAvatar">—</span><b class="lvBadge" id="plLvBadge" hidden></b></span>
+      <div class="phInfo"><div class="phName" id="plName">Игрок</div><div class="phRank" id="plRank"></div></div>
     </div>
     <div class="phStats">
       <div class="phStat"><b class="num" id="plGames">—</b><span>Турниров</span></div>
@@ -1216,6 +1275,16 @@ document.addEventListener("touchmove", e => {
   </div>
 </div>
 
+<div class="modal" id="lvUpModal">
+  <div class="modalCard lvUp">
+    <div class="lvKick" id="lvUpKick">Новый уровень</div>
+    <div id="lvUpAv"></div>
+    <h2 id="lvUpTitle">—</h2>
+    <div id="lvUpBody" class="sub" style="font-size:14px;line-height:1.5"></div>
+    <div class="btnrow" style="margin-top:16px;justify-content:center"><button id="lvUpClose" type="button">Отлично</button></div>
+  </div>
+</div>
+
 <div id="toast"></div>
 
 <script src="js/config.js"></script>
@@ -1258,6 +1327,7 @@ document.addEventListener("touchmove", e => {
     escHtml, fmtInt, fmtTime, nowMs, initials, avatarHtml, clampInt, NF,
     normalizeState, curLevel, playLevelNum, remainingSec, breakRemainingSec,
     isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries,
+    RANKS, LEVEL_XP, XP_RULES, levelProgress,
   } = window.VP;
 
   const TBL = window.VP_TABLES;
@@ -1973,6 +2043,8 @@ document.addEventListener("touchmove", e => {
     $("profAvatar").innerHTML = p.photo_url
       ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
       : escHtml(initials(p.name || "Игрок"));
+    heroLevel("prof", me.level);
+    renderXp(me.level);
     $("meTg").textContent = p.vk_username ? "VK · " + p.vk_username
       : p.email ? p.email
       : "Профиль";
@@ -2010,7 +2082,95 @@ document.addEventListener("touchmove", e => {
     $("histList").innerHTML = hist.length
       ? histRows(hist)
       : `<div class="muted">Сыгранные турниры появятся после первого вечера.</div>`;
+    maybeLevelUp();
   }
+
+  // ── Уровень и опыт ─────────────────────────────────────────────────────────
+  // Опыт считает сервер (019_levels.sql); здесь только показ. Уровня может не
+  // быть — старый ответ сервера или ошибка: тогда блоки просто скрыты.
+  const rankOf = (lv) => (lv && RANKS[lv.rank_key]) ? lv.rank_key : "novice";
+  const rankOfLevel = (level) =>
+    Object.keys(RANKS).reduce((k, key) => (level >= RANKS[key].from ? key : k), "novice");
+
+  function heroLevel(prefix, lv) {
+    const has = !!lv?.level;
+    $(prefix + "AvWrap").className = "lvWrap" + (has ? " rk-" + rankOf(lv) : "");
+    $(prefix + "LvBadge").hidden = !has;
+    $(prefix + "LvBadge").textContent = has ? String(lv.level) : "";
+    $(prefix + "Rank").textContent = has ? `${RANKS[rankOf(lv)].name} · ${lv.level} уровень` : "";
+  }
+
+  const XP_PART = {
+    game: () => "турнир",
+    first: () => "первый турнир",
+    prereg: () => "запись заранее",
+    place: (n) => n >= 1 && n <= 3 ? `${n} место` : "призовое место",
+    ko: (n) => `${fmtInt(n)} ${plural(n, "нокаут", "нокаута", "нокаутов")}`,
+    month: (n) => `${n} турнира за месяц`,
+    profile: () => "ФИО и телефон",
+  };
+  function xpEventHtml(e) {
+    const grp = String(e.grp || "");
+    const name = grp === "profile" ? "Профиль заполнен"
+      : grp[0] === "m" ? `Регулярность: ${ratingMonthLabel(grp.slice(1)).toLocaleLowerCase("ru")}`
+      : (e.title || "Турнир");
+    const parts = (e.parts || []).map((x) => `${(XP_PART[x.kind] || (() => x.kind))(Number(x.n) || 0)} +${fmtInt(x.xp)}`);
+    const when = grp[0] === "r" && e.at
+      ? new Date(e.at).toLocaleDateString("ru-RU", { day: "2-digit", month: "2-digit" }) + " · " : "";
+    return `<div class="xpEv"><div class="evMain"><div class="evName">${escHtml(name)}</div>
+      <div class="evParts">${escHtml(when + parts.join(" · "))}</div></div>
+      <span class="evXp">+${fmtInt(e.xp)}</span></div>`;
+  }
+
+  let xpShowAll = false;
+  function renderXp(lv) {
+    $("xpCard").style.display = lv?.level ? "" : "none";
+    if (!lv?.level) return;
+    const rk = rankOf(lv);
+    $("xpCard").className = "card xpCard rk-" + rk;
+    $("xpLv").textContent = String(lv.level);
+    $("xpRank").textContent = `${RANKS[rk].name} · ${fmtInt(lv.xp)} XP`;
+    $("xpNext").textContent = lv.xp_next == null
+      ? "Максимальный уровень — выше уже некуда"
+      : `До ${lv.level + 1} уровня — ${fmtInt(lv.xp_next - lv.xp)} XP`;
+    $("xpFill").style.width = `${Math.round(levelProgress(lv) * 100)}%`;
+    const ev = lv.events || [];
+    const shown = xpShowAll ? ev : ev.slice(0, 4);
+    $("xpEvents").innerHTML = ev.length
+      ? `<div style="margin-top:12px">${shown.map(xpEventHtml).join("")}</div>`
+        + (ev.length > shown.length ? `<button class="xpRules" id="xpMore" type="button" style="margin-top:4px">Все начисления (${ev.length})</button>` : "")
+      : `<div class="muted" style="margin-top:12px">Опыт начисляется после каждого турнира — приходи на первый.</div>`;
+    const more = $("xpMore");
+    if (more) more.onclick = () => { xpShowAll = true; renderXp(me?.level); };
+  }
+
+  // Поздравление: последний показанный уровень помним на устройстве. Первый
+  // раз — знакомство с уровнями, дальше — только при росте.
+  const LV_SEEN_KEY = "vp_lv_seen";
+  function maybeLevelUp() {
+    const lv = me?.level, pid = me?.player?.id;
+    if (!lv?.level || !pid || document.querySelector(".screen.on")?.id !== "scrApp") return;
+    if ($("infoModal").classList.contains("show") || $("lvUpModal").classList.contains("show")) return;
+    let seen = null;
+    try { seen = JSON.parse(localStorage.getItem(LV_SEEN_KEY) || "null"); } catch (_) {}
+    const prev = seen && String(seen.pid) === String(pid) ? Number(seen.level) : null;
+    if (prev != null && prev >= lv.level) return;
+    try { localStorage.setItem(LV_SEEN_KEY, JSON.stringify({ pid, level: lv.level })); } catch (_) {}
+    const rk = rankOf(lv);
+    const newRank = prev != null && rk !== rankOfLevel(prev);
+    $("lvUpKick").textContent = prev == null ? "Уровни в клубе" : newRank ? "Новый ранг" : "Новый уровень";
+    $("lvUpAv").innerHTML = avatarHtml(me.player.name, me.player.photo_url, "avatar", lv);
+    $("lvUpTitle").textContent = prev == null || newRank
+      ? `${RANKS[rk].name} · ${lv.level} уровень` : `${lv.level} уровень`;
+    $("lvUpBody").textContent = prev == null
+      ? "За каждый турнир в клубе копится опыт, а с ним растёт уровень и рамка вокруг аватарки. Всё, что ты уже сыграл, засчитано."
+      : newRank ? `Новый ранг — «${RANKS[rk].name}». Его видно по рамке в рейтинге и в составах турниров.`
+      : lv.xp_next == null ? "Выше уже некуда." : `До следующего уровня — ${fmtInt(lv.xp_next - lv.xp)} XP.`;
+    $("lvUpModal").classList.add("show");
+  }
+  $("lvUpClose").onclick = () => $("lvUpModal").classList.remove("show");
+  $("lvUpModal").onclick = (e) => { if (e.target === $("lvUpModal")) $("lvUpModal").classList.remove("show"); };
+  $("xpRulesBtn").onclick = () => showInfo("xp");
 
   function histRows(hist) {
     return hist.map((h) => {
@@ -2049,6 +2209,7 @@ document.addEventListener("touchmove", e => {
     const req = ++plReq;
     $("plName").textContent = "Загрузка…";
     $("plAvatar").textContent = "…";
+    heroLevel("pl", null);
     ["plGames", "plWins", "plTop3", "plKo"].forEach((k) => { $(k).textContent = "—"; });
     $("plHistInfo").textContent = "—";
     $("plHist").innerHTML = '<div class="muted">Загрузка…</div>';
@@ -2063,6 +2224,7 @@ document.addEventListener("touchmove", e => {
       $("plAvatar").innerHTML = p.photo_url
         ? `<img src="${escHtml(p.photo_url)}" alt="" referrerpolicy="no-referrer"/>`
         : escHtml(initials(p.name || "Игрок"));
+      heroLevel("pl", d?.level);
       $("plGames").textContent = fmtInt(st.games || 0);
       $("plWins").textContent = fmtInt(st.wins || 0);
       $("plTop3").textContent = fmtInt(st.top3 || 0);
@@ -2148,7 +2310,7 @@ document.addEventListener("touchmove", e => {
             const mine = myName && String(r.name || "").toLowerCase() === myName;
             return `<div class="hRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}>
               <span class="place ${cls}">${pl || "—"}</span>
-              ${avatarHtml(r.name, r.photo_url)}
+              ${avatarHtml(r.name, r.photo_url, "avatar", r)}
               <span class="hMain"><span class="hName">${escHtml(r.name)}</span>
                 ${r.ko ? `<div class="muted">${fmtInt(r.ko)} нок.</div>` : ""}</span>
               ${mine ? '<span class="tag hot">это ты</span>' : ""}
@@ -2205,7 +2367,7 @@ document.addEventListener("touchmove", e => {
           : roster.length
             ? `<div class="list">${roster.map((r, i) => `<div class="listRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}>
                  <span class="idx">${i + 1}</span>
-                 ${avatarHtml(r.name, r.photo_url)}
+                 ${avatarHtml(r.name, r.photo_url, "avatar", r)}
                  <span class="nm">${escHtml(r.name)}</span>
                  ${Number(r.player_id) === Number(me?.player?.id) ? '<span class="tag hot">это ты</span>' : ""}
                </div>`).join("")}</div>`
@@ -2333,7 +2495,7 @@ document.addEventListener("touchmove", e => {
     }
 
     const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
-    if (mine) $("ratingMine").innerHTML = `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url)}
+    if (mine) $("ratingMine").innerHTML = `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url, "avatar", mine)}
           <div class="mTxt"><div class="mLbl">Твоё место</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
           <span class="mGo">›</span></div>`;
 
@@ -2344,7 +2506,7 @@ document.addEventListener("touchmove", e => {
     }
     $("ratingList").innerHTML = rows.length ? `<div class="rkList"><div class="rkLabels"><span>Игрок</span><span>Очки</span></div>${rows.map(r => {
       const rank = Number(r.rank);
-      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
+      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
     }).join('')}</div>` : '';
   }
   async function loadRating() {
@@ -2425,6 +2587,14 @@ document.addEventListener("touchmove", e => {
       + `<div class="eyebrow" style="margin:16px 0 4px">Бонусы</div>`
       + CLUB.bonuses.map((b) => `<div class="feat">${escHtml(b)}</div>`).join("") },
   };
+  INFO.xp = { title: "Как получить опыт", body: () =>
+    `<table class="rulesT">${XP_RULES.map(([what, xp, note]) =>
+      `<tr><td>${escHtml(what)}${note ? `<small>${escHtml(note)}</small>` : ""}</td><td>+${fmtInt(xp)}</td></tr>`).join("")}</table>
+     <div class="muted" style="margin-top:8px">Считаются турниры с подведёнными итогами. За ре-энтри и аддоны опыт не даётся.</div>
+     <div class="eyebrow" style="margin:16px 0 4px">Ранги</div>
+     <div class="rankLadder">${Object.entries(RANKS).map(([key, rk]) =>
+       `<div>${avatarHtml(rk.name, null, "avatar", { level: rk.from, rank_key: key }, false)}${escHtml(rk.name)}
+          <small>${rk.from}–${rk.from + 4} ур. · от ${fmtInt(LEVEL_XP[rk.from - 1])} XP</small></div>`).join("")}</div>` };
   function showInfo(kind) {
     const i = INFO[kind]; if (!i) return;
     $("infoTitle").textContent = i.title;

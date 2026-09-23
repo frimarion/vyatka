@@ -405,6 +405,79 @@
   }
 
   // Ответ vp_app_me целиком: профиль, свои записи и история из снимков CRM.
+  // ── Опыт и уровни — копия vp_xp_games / vp_xp_ledger из 019_levels.sql ──────
+  const mskMonth = (iso) => new Date(new Date(iso).getTime() + 3 * 3600000).toISOString().slice(0, 7);
+  function devXpGames(db) {
+    const now = new Date();
+    const all = db.tournament_result_players || [];
+    const out = new Map();
+    (db.tournament_results || []).forEach((h) => {
+      const rows = all.filter((r) => String(r.result_id) === String(h.id));
+      const ok = new Date(h.played_at) <= now
+        && (h.tournament_id == null || (db.tournaments || []).some((t) => String(t.id) === String(h.tournament_id) && t.status === "past"))
+        && rows.length && rows.every((r) => r.place != null && r.place >= 1);
+      if (!ok) return;
+      rows.forEach((r) => {
+        const p = r.player_id != null
+          ? (db.players || []).find((x) => String(x.id) === String(r.player_id))
+          : (db.players || []).find((x) => nkey(x.name) === nkey(r.name));
+        if (!p) return;
+        const key = `${p.id}:${h.id}`;
+        if (out.has(key) && r.player_id == null) return;
+        out.set(key, { player_id: p.id, result_id: h.id, tournament_id: h.tournament_id ?? null, title: h.name || "Турнир",
+          played_at: h.played_at, place: r.place, ko: r.ko || 0, points: r.points || 0 });
+      });
+    });
+    return [...out.values()].sort((a, b) => String(a.played_at).localeCompare(String(b.played_at)) || a.result_id - b.result_id);
+  }
+  function devXpLedger(db, pid) {
+    const games = devXpGames(db).filter((g) => String(g.player_id) === String(pid));
+    const rows = [], perMonth = {};
+    games.forEach((g, i) => {
+      const grp = "r" + g.result_id, at = g.played_at, title = g.title;
+      const add = (kind, xp, n = 1) => rows.push({ grp, at, kind, title, xp, n });
+      add("game", 100);
+      if (i === 0) add("first", 150);
+      const t = (db.tournaments || []).find((x) => g.tournament_id != null && String(x.id) === String(g.tournament_id));
+      const reg = t && (db.registrations || []).find((r) => String(r.tournament_id) === String(t.id)
+        && String(r.player_id) === String(pid) && r.status === "registered");
+      if (reg && String(reg.created_at) < String(t.date || at)) add("prereg", 20);
+      if (g.place >= 1 && g.place <= 3) add("place", [150, 100, 75][g.place - 1], g.place);
+      else if (g.points > 0) add("place", 40, g.place);
+      if (g.ko > 0) add("ko", 10 * g.ko, g.ko);
+      const m = mskMonth(at);
+      perMonth[m] = (perMonth[m] || 0) + 1;
+      if (perMonth[m] === 4) rows.push({ grp: "m" + m, at, kind: "month", title: m, xp: 200, n: 4 });
+    });
+    const p = (db.players || []).find((x) => String(x.id) === String(pid));
+    if (p && String(p.full_name || "").trim() && String(p.phone || "").trim())
+      rows.push({ grp: "profile", at: p.created_at || new Date(0).toISOString(), kind: "profile", title: null, xp: 100, n: 1 });
+    return rows;
+  }
+  function devLevel(db, pid, withEvents = false) {
+    if (pid == null) return null;
+    const rows = devXpLedger(db, pid);
+    const lv = window.VP.levelFromXp(rows.reduce((a, r) => a + r.xp, 0));
+    if (!withEvents) return lv;
+    const groups = new Map();
+    rows.forEach((r) => {
+      const g = groups.get(r.grp) || { grp: r.grp, at: r.at, title: r.title, xp: 0, parts: [] };
+      if (String(r.at) > String(g.at)) g.at = r.at;
+      g.xp += r.xp; g.parts.push({ kind: r.kind, xp: r.xp, n: r.n });
+      groups.set(r.grp, g);
+    });
+    lv.events = [...groups.values()].sort((a, b) => String(b.at).localeCompare(String(a.at))).slice(0, 20);
+    return lv;
+  }
+  // Списки (рейтинг, состав, итоги) получают level и rank_key, как в 019.
+  const LEVELED_RPC = new Set(["vp_app_rating", "vp_tournament_roster", "vp_tournament_results"]);
+  function withLevels(db, rows) {
+    return (rows || []).map((r) => {
+      const lv = devLevel(db, r.player_id);
+      return { ...r, level: lv?.level ?? null, rank_key: lv?.rank_key ?? null };
+    });
+  }
+
   function appMe(db, pid) {
     const heads = {};
     (db.tournament_results || []).forEach((r) => { heads[r.id] = r; });
@@ -426,6 +499,7 @@
         .filter((r) => String(r.player_id) === String(pid) && r.status !== "cancelled")
         .map((r) => Number(r.tournament_id)),
       history,
+      level: devLevel(db, pid, true),
     };
   }
 
@@ -574,6 +648,7 @@
           ko: history.reduce((a, h) => a + (h.ko || 0), 0),
         },
         history: history.slice(0, 30),
+        level: devLevel(db, p.id),
       }, error: null };
     },
     vp_app_me(db, args) {
@@ -708,6 +783,15 @@
         .sort((a, b) => (a.place == null) - (b.place == null) || (a.place || 0) - (b.place || 0));
       return { data: rows, error: null };
     },
+    vp_levels_for(db, args) {
+      const ids = (args?.p_ids || []).map(String);
+      const rows = (db.players || []).filter((p) => ids.includes(String(p.id))).map((p) => {
+        const lv = devLevel(db, p.id);
+        const games = devXpLedger(db, p.id).filter((r) => r.kind === "game").length;
+        return { player_id: p.id, xp: lv.xp, games, level: lv.level, rank_key: lv.rank_key };
+      });
+      return { data: rows, error: null };
+    },
     vp_unsync_registration(db, args) {
       (db.registrations || []).forEach((r) => {
         if (String(r.tournament_id) === String(args?.p_tournament_id) && String(r.player_id) === String(args?.p_player_id)) {
@@ -734,7 +818,10 @@
       if (APP_RPC[name]) {
         const db = readDb();
         let res;
-        try { res = APP_RPC[name](db, args) || { data: null, error: null }; }
+        try {
+          res = APP_RPC[name](db, args) || { data: null, error: null };
+          if (LEVELED_RPC.has(name) && !res.error) res = { ...res, data: withLevels(db, res.data) };
+        }
         catch (e) { return { data: null, error: { message: String(e?.message || e) } }; }
         if (!res.error) {
           writeDb(db);

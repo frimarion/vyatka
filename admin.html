@@ -519,6 +519,10 @@
   // фото, — поэтому недостающие добираем одним запросом и держим в памяти.
   const photoById = new Map();
   const photoAsked = new Set();
+  // Уровни игроков вечера (vp_levels_for, 019_levels.sql): крупье видит, кто
+  // пришёл впервые или ещё новичок, — им положен бесплатный ре-энтри.
+  const levelById = new Map();
+  const levelAsked = new Set();
   let paySearchQuery = "";
   let profile = null;                 // строка profiles: {id, email, role}
   let allowedRooms = null;            // для оператора — комнаты назначенных турниров; null = без ограничений
@@ -1624,6 +1628,7 @@
         addonEnabled && p.addon ? `<span class="tag gold">${ADDON_TAG[p.addon]}</span>` : "",
         p.ko ? `<span class="tag">KO ${p.ko}</span>` : "",
         p.present ? "" : '<span class="tag">не пришёл</span>',
+        newcomerTag(levelById.get(p.player_id)),
       ].filter(Boolean).join(" ");
       const addonBtns = addonEnabled
         ? `<button class="tiny ghost${p.addon === 1 ? " on" : ""}" onclick="_vp.setAddon(${j},1)">А</button>
@@ -1649,6 +1654,30 @@
       </div>`;
     }).join("");
     loadMissingPhotos(players);
+    loadMissingLevels(players);
+  }
+
+  function newcomerTag(lv) {
+    if (!lv) return "";
+    if (!Number(lv.games)) return '<span class="lvChip">1-й визит</span>';
+    return Number(lv.level) <= 2 ? `<span class="lvChip">новичок · ${withPlural(lv.games, "турнир", "турнира", "турниров")}</span>` : "";
+  }
+
+  async function loadMissingLevels(players) {
+    const ids = [...new Set(players
+      .filter((p) => p.player_id && !levelAsked.has(p.player_id))
+      .map((p) => p.player_id))];
+    if (!ids.length) return;
+    ids.forEach((id) => levelAsked.add(id));
+    try {
+      const { data, error } = await sb.rpc("vp_levels_for", { p_ids: ids });
+      if (error) throw error;
+      (data || []).forEach((r) => levelById.set(r.player_id, r));
+      if ((data || []).length) renderPlayers();
+    } catch (e) {
+      // Миграции 019 ещё нет или сеть моргнула — без чипа админка работает как раньше.
+      console.warn("vp_levels_for", e);
+    }
   }
 
   async function loadMissingPhotos(players) {

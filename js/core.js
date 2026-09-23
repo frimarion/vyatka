@@ -46,11 +46,77 @@
     return (parts[0][0] + parts[1][0]).toUpperCase();
   }
 
+  // ── Уровни игроков ────────────────────────────────────────────────────────
+  // Опыт считает сервер (migrations/019_levels.sql) и отдаёт готовые level и
+  // rank_key. Здесь — подписи рангов и копия порогов для песочницы и тестов:
+  // меняешь vp_levels — поменяй и LEVEL_XP.
+  const RANKS = {
+    novice:  { name: "Новичок",       from: 1 },
+    habitue: { name: "Завсегдатай",   from: 6 },
+    regular: { name: "Регуляр",       from: 11 },
+    shark:   { name: "Акула",         from: 16 },
+    legend:  { name: "Легенда клуба", from: 21 },
+  };
+  const RANK_KEYS = Object.keys(RANKS);
+  const LEVEL_XP = [
+    0, 200, 450, 750, 1100,
+    1500, 2000, 2600, 3300, 4100,
+    5000, 6000, 7100, 8300, 9600,
+    11000, 12500, 14100, 15800, 17600,
+    19500, 21500, 23600, 25800, 28000,
+  ];
+  // Правила для листа «Как получить опыт» — те же числа, что в vp_xp_ledger.
+  const XP_RULES = [
+    ["Сыграть турнир", 100],
+    ["Первый турнир в клубе", 150],
+    ["Записаться заранее в приложении и прийти", 20],
+    ["Нокаут", 10, "за каждый"],
+    ["Победа", 150],
+    ["2-е место", 100],
+    ["3-е место", 75],
+    ["Другое призовое место", 40],
+    ["4-й турнир за месяц", 200, "раз в месяц"],
+    ["Заполнить ФИО и телефон в профиле", 100, "один раз"],
+  ];
+  const rankKeyOfLevel = (level) =>
+    RANK_KEYS.reduce((k, key) => (level >= RANKS[key].from ? key : k), "novice");
+
+  // Та же форма, что vp_level_json на сервере.
+  function levelFromXp(xp) {
+    xp = Math.max(0, Math.floor(Number(xp) || 0));
+    let i = 0;
+    while (i + 1 < LEVEL_XP.length && LEVEL_XP[i + 1] <= xp) i++;
+    const rank_key = rankKeyOfLevel(i + 1);
+    return { xp, level: i + 1, rank_key, rank_name: RANKS[rank_key].name,
+      xp_from: LEVEL_XP[i], xp_next: LEVEL_XP[i + 1] ?? null };
+  }
+
+  // Доля пути до следующего уровня, 0…1; на последнем — 1.
+  function levelProgress(lv) {
+    if (!lv || lv.xp_next == null) return 1;
+    const span = lv.xp_next - lv.xp_from;
+    return span > 0 ? Math.min(1, Math.max(0, (lv.xp - lv.xp_from) / span)) : 1;
+  }
+
+  // «Регуляр · 12 ур.» — подпись под именем в списках.
+  function levelLine(lv) {
+    if (!lv || !lv.level) return "";
+    const rk = RANKS[lv.rank_key] || RANKS[rankKeyOfLevel(lv.level)];
+    return `${rk.name} · ${lv.level} ур.`;
+  }
+
   // Аватарка игрока: фото из TG/VK, если есть, иначе инициалы — как раньше.
-  function avatarHtml(name, photoUrl, cls = "avatar") {
-    return photoUrl
+  // С уровнем (lv = { level, rank_key }) аватарка заворачивается в рамку ранга
+  // и получает бейдж с номером уровня; без него — прежняя разметка.
+  function avatarHtml(name, photoUrl, cls = "avatar", lv = null, badge = true) {
+    const inner = photoUrl
       ? `<span class="${cls}"><img src="${escHtml(photoUrl)}" alt="" loading="lazy" referrerpolicy="no-referrer"/></span>`
       : `<span class="${cls}">${escHtml(initials(name))}</span>`;
+    const level = clampInt(lv?.level, 0);
+    if (!level) return inner;
+    const rank = RANKS[lv.rank_key] ? lv.rank_key : rankKeyOfLevel(level);
+    return `<span class="lvWrap rk-${rank}" title="${escHtml(RANKS[rank].name)} · ${level} уровень">${inner}${
+      badge ? `<b class="lvBadge">${level}</b>` : ""}</span>`;
   }
 
   // ── Структура блайндов ────────────────────────────────────────────────────
@@ -816,6 +882,7 @@
     NF, BRANCH, BREAK_MINUTES, PRESETS, DEFAULT_BONUS_HAND, DEFAULT_BONUS_COMMENT,
     clampInt, fmtInt, fmtTime, fmtDuration, nowMs, escHtml, normName, keyName, initials, avatarHtml,
     plural, withPlural,
+    RANKS, LEVEL_XP, XP_RULES, levelFromXp, levelProgress, levelLine,
     defaultLevels, normalizeLevels, initialState, normalizeState,
     ensurePlayers, recomputePlaces, computeStatsFromPlayers, nextBustOrder, rollbackBustKo,
     buildTelegramPost, parseResultsPost, applyResults, mergePlayers,
