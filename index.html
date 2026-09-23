@@ -766,18 +766,139 @@ body.navOn .tabbar{display:grid}
   .tcName{font-size:18px}
   .tcard.hero::after{width:168px;right:-56px}
 }
-.ratingTable{padding:0;overflow:hidden}
-.ratingRow{display:grid;grid-template-columns:48px 32px minmax(0,1fr) auto;gap:12px;align-items:center;padding:15px 16px;border-bottom:1px solid var(--line)}
-.ratingRow:last-child{border-bottom:0}
-.ratingLabels{font-size:11px;color:var(--ink-2);text-transform:uppercase;letter-spacing:.06em;background:var(--surface-2)}
-.ratingPlace{font-weight:900;text-align:center;font-variant-numeric:tabular-nums}
-.ratingPlace.medal{background:var(--gold);border-radius:50%;width:34px;height:34px;display:grid;place-items:center;margin:auto}
-.ratingPlayer{min-width:0;overflow-wrap:anywhere}
-.ratingPlayer .sub{color:var(--ink-2);font-size:11px}
-.ratingRow.isMe{background:var(--accent-soft);box-shadow:inset 3px 0 var(--accent)}
-.ratingOwn{border:1px solid var(--accent)}
-.ratingPersonal{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px}
-.ratingPersonal strong{font-size:30px;color:var(--accent)}
+/* ── Рейтинг ────────────────────────────────────────────────── */
+.rkHead,.rkListHead{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:12px}
+.rkHead h2{font-size:30px;letter-spacing:-.03em}
+.rkListHead{margin:20px 0 10px}
+.rkListHead h2{font-size:22px;letter-spacing:-.02em}
+.rkRefresh{
+  width:38px;height:38px;padding:0;border-radius:50%;font-size:18px;
+  background:rgba(255,252,244,.7);color:var(--muted);
+  box-shadow:inset 0 0 0 1px rgba(36,27,20,.08), var(--sh-sm);
+}
+/* Переключатель периода — одна кремовая плашка, активный сегмент оранжевый,
+   как шапка. */
+.rkSeg{
+  display:flex;gap:4px;padding:4px;margin-bottom:10px;border-radius:16px;
+  background:rgba(255,252,244,.75);border:var(--hair);box-shadow:var(--sh-sm), var(--edge);
+}
+.rkSeg button{
+  flex:1;padding:10px 6px;border-radius:12px;background:transparent;box-shadow:none;
+  color:var(--muted);font-weight:800;
+}
+.rkSeg button.on{
+  color:var(--surface);
+  background:linear-gradient(160deg,#F2622C 0%,#E9531F 46%,#C8420F 100%);
+  box-shadow:0 4px 12px rgba(172,61,23,.3), inset 0 1px 0 rgba(255,255,255,.26);
+}
+.rkMonth{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:12px}
+.rkMonth span{min-width:150px;text-align:center;font-weight:900;font-size:15px}
+.rkMonth button{
+  width:34px;height:34px;padding:0;border-radius:50%;font-size:20px;line-height:1;
+  background:rgba(255,252,244,.7);color:var(--ink-2);box-shadow:inset 0 0 0 1px rgba(36,27,20,.08);
+}
+.rkMonth button:disabled{opacity:.35}
+
+/* Пьедестал — тёмное сукно, как у геро-карточки, по краям вятские веточки,
+   у первого места — два дымковских коня. */
+.podium{
+  position:relative;overflow:hidden;border-radius:var(--r-lg);margin-bottom:12px;
+  padding:26px 34px 20px;color:var(--surface);
+  background:
+    radial-gradient(90% 80% at 50% 0%, rgba(233,83,31,.3), transparent 64%),
+    linear-gradient(160deg,#3A2A1E 0%,#271C14 56%,#1B130C 100%);
+  box-shadow:var(--sh-hero), var(--edge-dark), inset 0 0 0 1px rgba(232,185,74,.16);
+}
+.podSprig{position:absolute;top:50%;width:22px;height:150px;transform:translateY(-50%);pointer-events:none}
+.podSprig.l{left:8px}
+.podSprig.r{right:8px;transform:translateY(-50%) scaleX(-1)}
+.podGrid{position:relative;display:grid;grid-template-columns:1fr 1.15fr 1fr;align-items:end;gap:4px}
+.podCol{position:relative;display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0;cursor:pointer}
+.podCol.p1{padding-bottom:6px}
+.podCol.p2,.podCol.p3{padding-top:30px}
+.podHorse{position:absolute;top:22px;width:56px;height:auto;z-index:0;pointer-events:none;
+  filter:drop-shadow(0 6px 10px rgba(0,0,0,.45))}
+.podHorse.l{left:-30px}
+.podHorse.r{right:-30px;transform:scaleX(-1)}
+.podAv{position:relative;z-index:1}
+.podAv .avatar{
+  width:64px;height:64px;font-size:18px;
+  border:3px solid #C9CDD3;box-shadow:0 6px 16px rgba(0,0,0,.45);
+}
+.podCol.r1 .podAv .avatar{border-color:var(--gold)}
+.podCol.r3 .podAv .avatar{border-color:#D08A5C}
+.p1 .podAv .avatar{width:84px;height:84px;font-size:24px}
+.podAv .medal{position:absolute;left:50%;top:-15px;transform:translateX(-50%)}
+.podName{
+  position:relative;z-index:1;margin-top:8px;max-width:100%;
+  font-weight:900;font-size:13.5px;line-height:1.2;overflow-wrap:anywhere;
+  display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+}
+.podPts{position:relative;z-index:1;color:var(--gold);font-weight:900;font-size:16px;font-variant-numeric:tabular-nums}
+.podPts small{font-size:11px;font-weight:800}
+.p1 .podName{font-size:15px}
+.p1 .podPts{font-size:18px}
+
+/* Жетон места: золото, серебро, бронза — из той же латуни, что .coin. */
+.medal{
+  width:30px;height:30px;border-radius:50%;display:grid;place-items:center;flex:none;
+  font-weight:900;font-size:15px;color:#3A2C21;font-variant-numeric:tabular-nums;
+  background:
+    radial-gradient(circle at 34% 24%, rgba(255,255,255,.9) 0 9%, transparent 10%),
+    linear-gradient(155deg,#F7DFA8 0%,#E8B94A 42%,#C7953B 76%,#A87A2B 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8), inset 0 -2px 3px rgba(120,84,20,.38), 0 2px 6px rgba(36,27,20,.25);
+}
+.medal.m2{background:
+    radial-gradient(circle at 34% 24%, rgba(255,255,255,.95) 0 9%, transparent 10%),
+    linear-gradient(155deg,#F4F5F7 0%,#C9CDD3 44%,#A2A7AF 78%,#868B93 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.9), inset 0 -2px 3px rgba(60,64,72,.35), 0 2px 6px rgba(36,27,20,.25)}
+.medal.m3{color:#FFF6EC;background:
+    radial-gradient(circle at 34% 24%, rgba(255,240,225,.85) 0 9%, transparent 10%),
+    linear-gradient(155deg,#EBB38B 0%,#C97A48 44%,#A55E33 78%,#874A26 100%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55), inset 0 -2px 3px rgba(90,45,15,.4), 0 2px 6px rgba(36,27,20,.25)}
+.podAv .medal{width:34px;height:34px;font-size:17px}
+
+/* Твоё место */
+.rkMine{
+  display:flex;align-items:center;gap:14px;padding:14px 16px;margin-bottom:4px;cursor:pointer;
+  border-radius:var(--r-lg);
+  background:linear-gradient(168deg,#FFFEF9 0%,#FDF0E2 100%);
+  border:2px solid rgba(233,83,31,.45);box-shadow:var(--sh-card), var(--edge);
+}
+.rkMine .avatar{width:52px;height:52px;font-size:16px;box-shadow:0 3px 8px rgba(36,27,20,.2)}
+.rkMine .mTxt{flex:1;min-width:0}
+.rkMine .mLbl{color:var(--accent);font-weight:800;font-size:13px}
+.rkMine .mVal{font-size:24px;font-weight:900;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+.rkMine .mVal small{font-size:15px}
+.rkMine .mGo{font-size:26px;color:var(--muted);line-height:1}
+.rkMine.none{cursor:default;border-style:dashed;display:block}
+
+.rkSearch{margin-bottom:10px}
+.rkList{display:flex;flex-direction:column;gap:8px}
+.rkLabels{display:flex;justify-content:space-between;padding:0 18px;font-size:12px;font-weight:800;color:var(--muted)}
+.rkRow{
+  display:grid;grid-template-columns:34px 44px minmax(0,1fr) auto;gap:12px;align-items:center;
+  padding:10px 18px 10px 12px;border-radius:16px;cursor:pointer;
+  background:linear-gradient(168deg,#FFFEF9 0%,#FAF3E5 100%);
+  border:var(--hair);box-shadow:var(--sh-sm), var(--edge);
+}
+.rkRow:not([data-player]){cursor:default}
+.rkRow .rkPlace{text-align:center;font-weight:900;font-size:16px;color:var(--ink-2);font-variant-numeric:tabular-nums}
+.rkRow .medal{margin:auto}
+.rkRow .avatar{width:44px;height:44px;font-size:14px}
+.rkRow .rkName{min-width:0}
+.rkRow .rkName strong{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rkRow .sub{color:var(--muted);font-size:11px}
+.rkRow .rkPts{font-weight:900;font-size:17px;font-variant-numeric:tabular-nums}
+.rkRow.isMe{border:2px solid rgba(233,83,31,.45);background:linear-gradient(168deg,#FFF8F0 0%,#FBE6D6 100%)}
+@media(max-width:400px){
+  .podium{padding:24px 28px 18px}
+  .podAv .avatar{width:56px;height:56px}
+  .p1 .podAv .avatar{width:74px;height:74px}
+  .podHorse{width:46px;left:auto}
+  .podHorse.l{left:-24px}
+  .podHorse.r{right:-24px}
+}
 #tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
 </style>
 </head>
@@ -953,18 +1074,21 @@ body.navOn .tabbar{display:grid}
   </section>
 
   <section id="tabRating" class="tab" style="display:none">
-    <div class="cardHead" style="margin-bottom:12px"><h2>Рейтинг</h2><button id="ratingRefresh" class="ghost" type="button" aria-label="Обновить рейтинг">↻ Обновить</button></div>
-    <div class="chips" id="ratingPeriods" aria-label="Период рейтинга">
-      <button class="on" data-period="month" type="button" aria-pressed="true">По месяцам</button>
+    <div class="rkHead"><h2>Рейтинг</h2><button id="ratingRefresh" class="rkRefresh" type="button" aria-label="Обновить рейтинг">↻</button></div>
+    <div class="rkSeg" id="ratingPeriods" aria-label="Период рейтинга">
+      <button class="on" data-period="month" type="button" aria-pressed="true">Месяц</button>
       <button data-period="year" type="button" aria-pressed="false">Этот год</button>
       <button data-period="all" type="button" aria-pressed="false">Всё время</button>
     </div>
-    <div class="field" id="ratingMonthField">
-      <label for="ratingMonth">Месяц рейтинга</label>
-      <input id="ratingMonth" type="month" required/>
+    <div class="rkMonth" id="ratingMonthField">
+      <button id="ratingPrev" type="button" aria-label="Предыдущий месяц">‹</button>
+      <span id="ratingMonthLabel" aria-live="polite">—</span>
+      <button id="ratingNext" type="button" aria-label="Следующий месяц">›</button>
     </div>
+    <div id="ratingPodium"></div>
     <div id="ratingMine"></div>
-    <div class="field"><label for="ratingSearch">Найти игрока</label><input id="ratingSearch" type="search" placeholder="Имя за столом" maxlength="60"/></div>
+    <div class="rkListHead"><h2>Все игроки</h2><span class="tag" id="ratingCount"></span></div>
+    <div class="field rkSearch"><input id="ratingSearch" type="search" placeholder="Найти игрока" maxlength="60" aria-label="Найти игрока"/></div>
     <div id="ratingStatus" role="status" class="muted" style="margin:12px 0"></div>
     <div id="ratingList"></div>
   </section>
@@ -1169,8 +1293,6 @@ body.navOn .tabbar{display:grid}
   let filter = "open";
   const ratingCurrentMonth = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit" }).format(new Date());
   let ratingMonth = ratingCurrentMonth;
-  $("ratingMonth").value = ratingMonth;
-  $("ratingMonth").max = ratingCurrentMonth;
   let ratingPeriod = "month", ratingRows = [], ratingRequest = 0;
   let ratingLoading = false, ratingError = false, ratingLoaded = false;
   let openId = null;          // турнир на экране деталей
@@ -2173,23 +2295,69 @@ body.navOn .tabbar{display:grid}
     liveTimer = pollTimer = null;
   }
 
+  // Вятская веточка по краям пьедестала: стебель, листья-капли и горох.
+  const RK_SPRIG = `<svg viewBox="0 0 22 150" aria-hidden="true"><path d="M11 6v140" stroke="#C7953B" stroke-width="1.4" opacity=".5"/>
+    <circle cx="11" cy="8" r="4.5" fill="#E9531F"/><circle cx="11" cy="21" r="3" fill="#E8B94A"/>
+    <ellipse cx="6" cy="40" rx="4" ry="10" transform="rotate(-28 6 40)" fill="#E9531F"/><ellipse cx="16" cy="58" rx="4" ry="10" transform="rotate(28 16 58)" fill="#E8B94A"/>
+    <circle cx="11" cy="75" r="3.5" fill="#F3E3C3"/>
+    <ellipse cx="6" cy="92" rx="4" ry="10" transform="rotate(-28 6 92)" fill="#E8B94A"/><ellipse cx="16" cy="110" rx="4" ry="10" transform="rotate(28 16 110)" fill="#E9531F"/>
+    <circle cx="11" cy="128" r="3" fill="#E8B94A"/><circle cx="11" cy="141" r="4.5" fill="#E9531F"/></svg>`;
+  const medalHtml = rank => `<span class="medal${rank === 2 ? ' m2' : rank === 3 ? ' m3' : ''}">${fmtInt(rank)}</span>`;
+  const playerAttr = r => r.player_id ? ` data-player="${Number(r.player_id)}"` : "";
+  function ratingMonthLabel(ym) {
+    const [y, m] = ym.split("-").map(Number);
+    const name = new Date(y, m - 1, 1).toLocaleDateString("ru-RU", { month: "long" });
+    return `${name[0].toUpperCase()}${name.slice(1)} ${y}`;
+  }
+  function shiftMonth(ym, delta) {
+    const [y, m] = ym.split("-").map(Number);
+    const d = new Date(y, m - 1 + delta, 1);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  }
   function renderRating() {
+    $("ratingMonthLabel").textContent = ratingMonthLabel(ratingMonth);
+    $("ratingNext").disabled = ratingMonth >= ratingCurrentMonth;
+    $("ratingPodium").innerHTML = "";
     $("ratingMine").innerHTML = "";
     $("ratingList").innerHTML = "";
+    $("ratingCount").textContent = ratingLoaded && ratingRows.length ? `${ratingRows.length} ${plural(ratingRows.length, "игрок", "игрока", "игроков")}` : "";
+    $("ratingCount").style.display = $("ratingCount").textContent ? "" : "none";
     $("ratingStatus").textContent = ratingLoading ? "Загружаем рейтинг…" : ratingError
-      ? "Не удалось загрузить рейтинг. Нажми «Обновить», чтобы попробовать ещё раз."
-      : !ratingLoaded ? "" : !ratingRows.length ? "За этот период пока нет завершённых турниров с результатами." : `${ratingRows.length} ${plural(ratingRows.length, "игрок", "игрока", "игроков")} в рейтинге`;
+      ? "Не удалось загрузить рейтинг. Нажми ↻, чтобы попробовать ещё раз."
+      : !ratingLoaded ? "" : !ratingRows.length ? "За этот период пока нет завершённых турниров с результатами." : "";
+    $("ratingStatus").style.display = $("ratingStatus").textContent ? "" : "none";
     if (ratingLoading || ratingError || !ratingLoaded) return;
+
+    // Пьедестал: первые трое по порядку, место — как пришло (при равенстве очков оно общее).
+    const top = ratingRows.slice(0, 3);
+    if (top.length) {
+      const col = (r, pos) => r ? `<div class="podCol p${pos} r${Math.min(Number(r.rank), 4)}"${playerAttr(r)}>
+          ${pos === 1 ? '<img class="podHorse l" src="assets/horse.webp" alt=""/><img class="podHorse r" src="assets/horse.webp" alt=""/>' : ''}
+          <div class="podAv">${avatarHtml(r.name, r.photo_url)}${medalHtml(Number(r.rank))}</div>
+          <div class="podName">${escHtml(r.name)}</div>
+          <div class="podPts">${fmtInt(r.points)} <small>${plural(r.points, 'очко', 'очка', 'очков')}</small></div>
+        </div>` : '<div class="podCol"></div>';
+      $("ratingPodium").innerHTML = `<div class="podium">
+        <span class="podSprig l">${RK_SPRIG}</span><span class="podSprig r">${RK_SPRIG}</span>
+        <div class="podGrid">${col(top[1], 2)}${col(top[0], 1)}${col(top[2], 3)}</div></div>`;
+    }
+
     const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
-    if (me?.player) $("ratingMine").innerHTML = `<div class="card ratingOwn">${mine
-      ? `<div class="eyebrow">Твоё место</div><div class="ratingPersonal"><strong>№ ${fmtInt(mine.rank)}</strong><span>${fmtInt(mine.points)} очков</span></div>`
-      : '<strong>Твой результат ещё впереди</strong><div class="sub">Сыграй турнир — после сохранения итогов здесь появится твоё место.</div>'}</div>`;
+    if (me?.player) $("ratingMine").innerHTML = mine
+      ? `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url)}
+          <div class="mTxt"><div class="mLbl">Твоё место</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
+          <span class="mGo">›</span></div>`
+      : '<div class="rkMine none"><strong>Твой результат ещё впереди</strong><div class="sub muted">Сыграй турнир — после сохранения итогов здесь появится твоё место.</div></div>';
+
     const query = $("ratingSearch").value.trim().toLocaleLowerCase("ru");
     const rows = ratingRows.filter(r => r.name.toLocaleLowerCase("ru").includes(query));
     if (!rows.length && ratingRows.length) {
       $("ratingList").innerHTML = '<div class="empty"><div class="eT">Игрок не найден</div><div class="eS">Попробуй другое имя.</div></div>'; return;
     }
-    $("ratingList").innerHTML = rows.length ? `<div class="card ratingTable"><div class="ratingRow ratingLabels"><span>Место</span><span></span><span>Игрок</span><span>Очки</span></div>${rows.map(r => `<div class="ratingRow${mine === r ? ' isMe' : ''}"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ''}><span class="ratingPlace${Number(r.rank) <= 3 ? ' medal' : ''}">${fmtInt(r.rank)}</span>${avatarHtml(r.name, r.photo_url)}<div class="ratingPlayer"><strong>${escHtml(r.name)}${mine === r ? ' <small>· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><strong class="num">${fmtInt(r.points)}</strong></div>`).join('')}</div>` : '';
+    $("ratingList").innerHTML = rows.length ? `<div class="rkList"><div class="rkLabels"><span>Игрок</span><span>Очки</span></div>${rows.map(r => {
+      const rank = Number(r.rank);
+      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
+    }).join('')}</div>` : '';
   }
   async function loadRating() {
     const request = ++ratingRequest;
@@ -2211,12 +2379,14 @@ body.navOn .tabbar{display:grid}
     });
     haptic(); loadRating();
   };
-  $("ratingMonth").onchange = () => {
-    const input = $("ratingMonth");
-    if (!input.value || !input.checkValidity()) { input.reportValidity(); return; }
-    ratingMonth = input.value;
+  const stepMonth = delta => {
+    const next = shiftMonth(ratingMonth, delta);
+    if (next > ratingCurrentMonth) return;
+    ratingMonth = next;
     haptic(); loadRating();
   };
+  $("ratingPrev").onclick = () => stepMonth(-1);
+  $("ratingNext").onclick = () => stepMonth(1);
   $("ratingSearch").oninput = renderRating;
   $("ratingRefresh").onclick = loadRating;
   function renderAll() { renderHome(); renderTours(); renderMe(); renderRating(); }
@@ -2242,7 +2412,7 @@ body.navOn .tabbar{display:grid}
       tab(b.dataset.tab);
     };
   });
-  document.querySelectorAll(".chips button").forEach((b) => {
+  document.querySelectorAll("#tabTours .chips button").forEach((b) => {
     b.onclick = () => {
       filter = b.dataset.filter;
       document.querySelectorAll(".chips button").forEach((x) => x.classList.toggle("on", x === b));
