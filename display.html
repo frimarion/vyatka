@@ -21,8 +21,10 @@ html,body{height:100%;overflow:hidden}
 body{margin:0;background:var(--bg);color:var(--d-fg);font-family:var(--sans)}
 
 /* Фон — вятский орнамент из css/app.css (body.ornament), как в приложении
-   и админке. Слой ::before поднят на z-index:0 под .dwrap (z-index:1). */
+   и админке. Слой ::before поднят на z-index:0 под .dwrap (z-index:1).
+   На ТВ карточек нет, цифры лежат прямо на узоре — поэтому он бледнее. */
 body::before{z-index:0}
+body.ornament::before{opacity:.3}
 
 .dwrap{position:relative;z-index:1;width:100vw;height:100vh;
   padding:clamp(20px,3vh,58px) clamp(24px,3.75vw,74px) clamp(24px,3.2vh,60px);
