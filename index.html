@@ -1860,7 +1860,7 @@ body{
 
     $("tdTop").innerHTML = statusPills(t, false);
     $("tdBody").innerHTML = `
-      ${liveBlock(t)}
+      <div id="tdLiveBlock">${liveBlock(t)}</div>
       <div class="card">
         <div class="specs">
           <div class="spec"><div class="sl">Взнос</div><div class="sv">${escHtml(money(t.entry_fee))}</div></div>
@@ -1895,6 +1895,16 @@ body{
     // Вход из карточки турнира: человек шёл записываться, а не «в профиль», —
     // после входа он должен вернуться сюда же, к той же кнопке.
     $("btnLogin")?.addEventListener("click", () => startAuth("scrTourney"));
+  }
+
+  // Секундный тик обновляет только таймер, не весь экран: полный renderTourney()
+  // пересобирал бы список участников каждую секунду, а вместе с ним и <img>
+  // аватарки — браузер перезапрашивал/перерисовывал их, и они моргали.
+  function renderTourneyLive() {
+    const t = tours.find((x) => x.id === openId);
+    const box = $("tdLiveBlock");
+    if (!t || !box) return;
+    box.innerHTML = liveBlock(t);
   }
 
   // ── Запись / отмена ────────────────────────────────────────────────────────
@@ -1944,7 +1954,7 @@ body{
       // профиля теряло бы курсор на ровном месте.
       if (!$("scrTourney").classList.contains("on")) return;
       const t = tours.find((x) => x.id === openId);
-      if (t && isRunning(t) && roomOf(t)) renderTourney();
+      if (t && isRunning(t) && roomOf(t)) renderTourneyLive();
     }, 1000);
     pollTimer = setInterval(async () => {
       if (document.hidden) return;
