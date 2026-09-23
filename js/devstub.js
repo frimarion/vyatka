@@ -384,11 +384,8 @@
   // Подписи Telegram в песочнице нет: «initData» — это просто JSON пользователя,
   // и vp_app_login читает из него id, ничего не проверяя. На бою так нельзя
   // (см. 005_player_app.sql), и именно поэтому стаб живёт только на localhost.
-  // ?dev=1&tg=0 — песочница без телеграма: приложение не входит само и
-  // показывает экран выбора способа, то есть VK и почту можно посмотреть
-  // ровно так, как их увидит человек с телефона на сайте.
-  const DEV_NO_TG = new URLSearchParams(location.search).get("tg") === "0";
-  if (!DEV_NO_TG) window.VP_DEV_INIT_DATA = "dev:" + JSON.stringify(DEV_TG);
+  // Само приложение телеграмом больше не входит — в песочнице входим почтой
+  // (любой адрес, код 000000).
 
   const playerJson = (p) => (p ? {
     id: p.id, name: p.name, full_name: p.full_name ?? null, phone: p.phone ?? null,

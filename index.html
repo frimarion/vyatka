@@ -426,7 +426,7 @@ body{
    сукне он читается как заглавный экран, а не ещё одна настройка. */
 .profileHero{
   position:relative;overflow:hidden;
-  padding:22px 20px 20px;
+  padding:18px 16px 14px;
   border-radius:var(--r-lg);margin-bottom:14px;
   color:var(--surface);
   background:
@@ -440,7 +440,7 @@ body{
   font:900 132px/1 serif;color:rgba(232,185,74,.06);pointer-events:none;
 }
 .profileHero>*{position:relative;z-index:1}
-.phTop{display:flex;align-items:center;gap:14px;margin-bottom:16px}
+.phTop{display:flex;align-items:center;gap:14px}
 /* Тот же жетон, что у плиток клуба: латунный градиент с бликом — своя
    рамка вместо чужой фотографии, когда её ещё нет. */
 .phAvatar{
@@ -463,14 +463,18 @@ body{
   background:rgba(255,252,244,.13);color:rgba(255,252,244,.85);
   font-size:11.5px;font-weight:800;box-shadow:inset 0 0 0 1px rgba(255,252,244,.14);
 }
-.profileHero .kpis{margin-top:16px}
-.profileHero .kpi{
-  background:rgba(255,252,244,.07);border:1px solid rgba(255,252,244,.1);
-  box-shadow:inset 0 1px 0 rgba(255,252,244,.08);
+/* Статистика — одна строка из четырёх чисел, а не плитки KPI: чисел мало,
+   и сетка 2×2 на телефоне съедала пол-экрана ради четырёх цифр. */
+.phStats{
+  display:grid;grid-template-columns:repeat(4,1fr);
+  margin-top:14px;padding:9px 0;
+  border-top:1px solid rgba(255,252,244,.1);border-bottom:1px solid rgba(255,252,244,.1);
 }
-.profileHero .kpi .kpiLabel{color:rgba(255,252,244,.52)}
-.profileHero .kpi .kpiValue{color:var(--surface)}
-.profileHero .kpi.hot .kpiValue{color:var(--gold)}
+.phStat{text-align:center;min-width:0}
+.phStat+.phStat{border-left:1px solid rgba(255,252,244,.1)}
+.phStat b{display:block;font-size:18px;font-weight:900;letter-spacing:-.02em;line-height:1.15;color:var(--surface)}
+.phStat span{display:block;margin-top:2px;font-size:9.5px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:rgba(255,252,244,.5)}
+.phStat.hot b{color:var(--gold)}
 
 /* Полное имя и телефон — прямо под ником, без отдельной карточки настроек.
    Пустая строка схлопывается (display:none из JS), а не показывает тире:
@@ -502,8 +506,23 @@ body{
 .profileHero input:focus{outline-color:rgba(232,185,74,.35);border-color:var(--gold)}
 .profileHero button.ghost{background:rgba(255,252,244,.1);color:var(--surface);box-shadow:inset 0 0 0 1px rgba(255,252,244,.16)}
 .profileHero button.ghost:hover{background:rgba(255,252,244,.16)}
-.phFoot{margin-top:14px;text-align:right}
+.phFoot{margin-top:12px;display:flex;align-items:center;gap:6px}
+.phFootLbl{font-size:11px;font-weight:800;color:rgba(255,252,244,.46);margin-right:2px}
+/* Способы входа — значки в подвале карточки, а не отдельная карточка со
+   списком: привязанный горит золотом, непривязанный пунктиром зовёт «+». */
+.phAuth{
+  display:inline-flex;align-items:center;gap:4px;height:28px;padding:0 10px;
+  border-radius:999px;font-size:12px;font-weight:900;line-height:1;
+  background:rgba(232,185,74,.16);color:var(--gold);
+  box-shadow:inset 0 0 0 1px rgba(232,185,74,.34);
+}
+.phAuth svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.phAuth .ok{font-size:11px}
+.phAuth.off{background:none;color:rgba(255,252,244,.62);box-shadow:none;border:1px dashed rgba(255,252,244,.3)}
+.phAuth:hover{filter:none;background:rgba(232,185,74,.24)}
+.phAuth.off:hover{background:rgba(255,252,244,.08)}
 .phLogout{
+  margin-left:auto;
   background:none;box-shadow:none;padding:4px 2px;
   color:rgba(255,252,244,.46);font-size:12px;font-weight:800;
 }
@@ -554,12 +573,6 @@ body{
    поломкой. */
 .vkBox{margin-bottom:10px}
 .vkBox:empty{display:none}
-/* Строка способа входа в профиле: слева название, справа — статус или кнопка. */
-.authRow{display:flex;align-items:center;gap:10px;padding:11px 0}
-.authRow+.authRow{border-top:1px solid var(--line)}
-.authRow .nm{flex:1;min-width:0;font-weight:800}
-.authRow .nm .muted{font-weight:600}
-.authRow button{padding:8px 14px;font-size:13px}
 .spin{display:inline-block;animation:sp 1s linear infinite}
 @keyframes sp{to{transform:rotate(360deg)}}
 
@@ -673,7 +686,7 @@ body{
   </div>
 </div>
 
-<!-- ═══ Вход: VK, почта, Telegram ══════════════════════════════ -->
+<!-- ═══ Вход: VK или почта ══════════════════════════════════════ -->
 <div id="scrAuth" class="screen">
   <div class="gate">
     <div style="width:100%">
@@ -685,7 +698,6 @@ body{
              своё «продолжить как…» для тех, кто уже залогинен в VK. -->
         <div id="vkBox" class="vkBox"></div>
         <button id="authEmail" type="button" style="width:100%">Войти по почте</button>
-        <button id="authTg" class="ghost" type="button" style="width:100%;margin-top:8px;display:none">Войти через Telegram</button>
         <div id="authErr" class="err"></div>
         <div class="muted" style="margin-top:10px">Входы можно связать: войди любым, а остальные привяжешь в профиле — турниры и статистика останутся на одном аккаунте.</div>
       </div>
@@ -834,8 +846,8 @@ body{
   <!-- ── Профиль ─────────────────────────────────────────────── -->
   <section id="tabMe" class="tab" style="display:none">
     <div id="meGuest" class="empty" style="display:none">
-      <div class="eT" id="guestHead">Профиль — в Telegram</div>
-      <div class="eS" id="guestText">Расписание видно и так, а записаться можно из приложения клуба в Telegram.</div>
+      <div class="eT" id="guestHead">Ты не вошёл</div>
+      <div class="eS" id="guestText">Расписание видно и так, а чтобы записаться — войди через VK или по почте.</div>
       <a id="guestTgLink" class="badge gold" style="margin-top:14px;text-decoration:none" href="javascript:void(0)">Войти</a>
     </div>
 
@@ -863,22 +875,20 @@ body{
           <div id="pfErr" class="err"></div>
         </div>
 
-        <div class="kpis">
-          <div class="kpi"><div class="kpiLabel">Турниров</div><div class="kpiValue num" id="stGames">0</div></div>
-          <div class="kpi"><div class="kpiLabel">Победы</div><div class="kpiValue num" id="stWins">0</div></div>
-          <div class="kpi"><div class="kpiLabel">Топ-3</div><div class="kpiValue num" id="stTop3">0</div></div>
-          <div class="kpi hot"><div class="kpiLabel">Ноки</div><div class="kpiValue num" id="stKo">0</div></div>
+        <div class="phStats">
+          <div class="phStat"><b class="num" id="stGames">0</b><span>Турниров</span></div>
+          <div class="phStat"><b class="num" id="stWins">0</b><span>Победы</span></div>
+          <div class="phStat"><b class="num" id="stTop3">0</b><span>Топ-3</span></div>
+          <div class="phStat hot"><b class="num" id="stKo">0</b><span>Ноки</span></div>
         </div>
 
-        <div class="phFoot"><button id="pfLogout" class="phLogout" type="button">Выйти из профиля</button></div>
+        <div class="phFoot">
+          <span class="phFootLbl">Вход</span>
+          <span id="authList" style="display:contents"></span>
+          <button id="pfLogout" class="phLogout" type="button">Выйти</button>
+        </div>
       </div>
-
-      <div class="card">
-        <div class="cardHead"><h2>Способы входа</h2></div>
-        <div id="authList"></div>
-        <div class="muted" style="margin-top:10px">Привязанным способом можно войти с любого телефона — попадёшь в этот же профиль.</div>
-        <div id="lnkErr" class="err"></div>
-      </div>
+      <div id="lnkErr" class="err" style="margin:-6px 0 12px"></div>
 
       <div class="card">
         <div class="cardHead"><h2>Я записан</h2><span class="tag" id="myRegsInfo">—</span></div>
@@ -938,7 +948,6 @@ body{
   // ── Про клуб ───────────────────────────────────────────────────────────────
   // Всё, что правится без программиста, — здесь, а не разбросано по разметке.
   const CLUB = {
-    tgApp:   "https://t.me/vyatkapoker_bot/app",
     support: "https://t.me/maks9228",
     address: "Бар «Готика», Киров",
     addressNote: "Сбор за полчаса до старта.",
@@ -966,8 +975,6 @@ body{
     try { tg.ready(); tg.expand(); } catch (_) {}
     try { tg.setHeaderColor("#E9531F"); tg.setBackgroundColor("#EADFC8"); } catch (_) {}
   }
-  // Песочница подсовывает свою initData — иначе приложение локально не открыть.
-  const initData = tg?.initData || window.VP_DEV_INIT_DATA || "";
   const haptic = (kind) => { try { tg?.HapticFeedback?.impactOccurred(kind || "light"); } catch (_) {} };
 
   const TOKEN_KEY = "vp_app_token";
@@ -977,13 +984,12 @@ body{
   let token = "";
   try { token = localStorage.getItem(TOKEN_KEY) || ""; } catch (_) {}
 
-  // Чем человек доказал, что он — это он: { kind, proof }. Для телеграма
-  // доказательство есть сразу (initData подписан ботовым токеном), для VK и
-  // почты появляется после кнопки входа. Дальше все три идут одной дорогой:
-  // сервер проверяет доказательство и выдаёт сессию, а приложение знает только
-  // про token. Поэтому экран «как тебя звать» один на всех — он повторяет вход
-  // с тем же доказательством, добавив имя.
-  let pendingAuth = initData ? { kind: "tg", proof: initData } : null;
+  // Чем человек доказал, что он — это он: { kind, proof }. Появляется после
+  // кнопки входа VK или почты. Дальше оба идут одной дорогой: сервер проверяет
+  // доказательство и выдаёт сессию, а приложение знает только про token.
+  // Поэтому экран «как тебя звать» один на всех — он повторяет вход с тем же
+  // доказательством, добавив имя. Вход через Telegram упразднён.
+  let pendingAuth = null;
 
   let me = null;              // { player, registrations:[id], history:[] }
   let tours = [];             // расписание: только публичные статусы
@@ -1163,10 +1169,8 @@ body{
       if (String(e?.message || "").includes("not_authorized")) {
         token = ""; try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
         me = null;
-        // Сессия протухла — входим заново молча, но только телеграмом: его
-        // доказательство приходит с каждым запуском. Токены VK и почты
-        // одноразовые, повторить их без человека нечем — он увидит «Войти».
-        if (pendingAuth?.kind === "tg") await login();
+        // Сессия протухла. Токены VK и почты одноразовые, повторить вход без
+        // человека нечем — он увидит «Войти».
         return;
       }
       throw e;
@@ -1174,7 +1178,6 @@ body{
   }
 
   const LOGIN_RPC = {
-    tg:    (proof, name) => ["vp_app_login",       { p_init_data: proof,    p_name: name }],
     vk:    (proof, name) => ["vp_app_login_vk",    { p_access_token: proof, p_name: name }],
     email: (proof, name) => ["vp_app_login_email", { p_jwt: proof,          p_name: name }],
   };
@@ -1205,8 +1208,8 @@ body{
       return true;
     } catch (e) {
       const raw = String(e?.message || "");
-      // Имени может не быть вовсе (в почте его взять негде, телеграм иногда не
-      // отдаёт ни имени, ни username) или оно может быть занято тёзкой —
+      // Имени может не быть вовсе (в почте его взять негде) или оно может
+      // быть занято тёзкой —
       // и то и другое чинится одним экраном, а не ошибкой.
       if (!name && raw.includes("invalid_name")) { askName(""); return false; }
       if (!name && raw.includes("name_taken")) { askName(ERRORS.name_taken); return false; }
@@ -1287,21 +1290,9 @@ body{
   // вернётся к ней, а не на главную, где ещё надо заново её найти.
   let authReturn = "scrApp";
 
-  // Вход снаружи телеграма: в Telegram доказательство уже на руках, показывать
-  // выбор способа незачем — просто входим.
   async function startAuth(back) {
     authReturn = back || "scrApp";
-    if (pendingAuth?.kind === "tg") {
-      authBusy = true; renderAll();
-      try { await login(); } catch (e) { toast(errText(e), "bad"); }
-      authBusy = false; renderAll();
-      return;
-    }
     $("authErr").textContent = "";
-    // Телеграмная кнопка — только внутри Mini App. В обычном браузере входа
-    // через Telegram нет вовсе: виджет логина требует открытых данных
-    // пользователя, и для сайта клуба в РФ этот путь закрыт.
-    $("authTg").style.display = initData ? "" : "none";
     screen("scrAuth");
     initVk();
   }
@@ -1498,28 +1489,12 @@ body{
     $("lnkErr").textContent = "";
     linkMode = true;
     if (kind === "email") { showEmail(); return; }
-    if (kind === "tg") {
-      if (!initData) { linkMode = false; $("lnkErr").textContent = "Привязать телеграм можно только из приложения в Telegram."; return; }
-      try {
-        // Телеграмной привязки отдельной функцией нет и не нужно: initData уже
-        // на руках, а vp_app_login по нему сам приклеит tg_id к найденному
-        // игроку. Сессия при этом выдаётся новая — забираем её.
-        const res = await rpc("vp_app_login", { p_init_data: initData, p_name: null });
-        token = res?.token || token;
-        try { localStorage.setItem(TOKEN_KEY, token); } catch (_) {}
-        await loadMe(); renderAll();
-        toast("Привязали", "good");
-      } catch (e) { $("lnkErr").textContent = errText(e); }
-      finally { linkMode = false; }
-      return;
-    }
     if (!Number(window.VP_VKID_APP || 0) || !window.VKIDSDK) {
       linkMode = false; $("lnkErr").textContent = "Вход через VK пока не настроен."; return;
     }
     // Кнопку VK рисует SDK, нажать её за игрока нельзя — показываем экран
     // входа: та же кнопка, но результат уедет в привязку.
     $("authErr").textContent = "Нажми «Войти через VK» — аккаунт привяжется к твоему профилю.";
-    $("authTg").style.display = "none";
     screen("scrAuth");
     initVk();
   }
@@ -1611,7 +1586,6 @@ body{
     renderBanner();
     $("tileAddr").textContent = CLUB.address;
     $("tileSupport").href = CLUB.support;
-    $("guestTgLink").href = CLUB.tgApp;
   }
 
   // Широкая плашка между геро и плитками. У Дойла на этом месте таблица
@@ -1666,24 +1640,23 @@ body{
            <div class="eS">${filter === "past" ? "История появится после первого вечера." : "Следи за расписанием."}</div></div>`;
   }
 
-  // Способы входа: что привязано и что можно привязать. Отвязки нет намеренно —
-  // отвязав последний способ, человек запер бы себя снаружи собственного
-  // профиля, а вернуть его мог бы только администратор.
+  // Способы входа: значок на каждый — привязан (✓) или можно привязать (+).
+  // Отвязки нет намеренно — отвязав последний способ, человек запер бы себя
+  // снаружи собственного профиля, а вернуть его мог бы только администратор.
+  const MAIL_ICO = '<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="14" rx="2.5"/><path d="m4 7 8 6 8-6"/></svg>';
   function renderAuthList(p) {
     const rows = [
-      { kind: "vk",    name: "VK",       has: !!p.vk_id, note: p.vk_username ? "@" + p.vk_username : "аккаунт VK" },
-      { kind: "email", name: "Почта",    has: !!p.email, note: p.email || "код в письме" },
-      { kind: "tg",    name: "Telegram", has: !!p.tg_id, note: p.tg_username ? "@" + p.tg_username : "приложение клуба" },
+      { kind: "vk",    ico: "VK",     has: !!p.vk_id, note: p.vk_username ? "VK: @" + p.vk_username : "VK привязан", add: "Привязать VK" },
+      { kind: "email", ico: MAIL_ICO, has: !!p.email, note: p.email ? "Почта: " + p.email : "Почта привязана", add: "Привязать почту" },
     ];
-    $("authList").innerHTML = rows.map((r) => `
-      <div class="authRow">
-        <span class="nm">${escHtml(r.name)}<div class="muted">${escHtml(r.has ? r.note : "не привязан")}</div></span>
-        ${r.has
-          ? `<span class="badge light">есть</span>`
-          : `<button class="ghost" type="button" data-link="${r.kind}">Привязать</button>`}
-      </div>`).join("");
-    $("authList").querySelectorAll("button[data-link]").forEach((b) => {
-      b.onclick = () => startLink(b.dataset.link);
+    $("authList").innerHTML = rows.map((r) => {
+      const label = escHtml(r.has ? r.note : r.add);
+      return `<button class="phAuth${r.has ? "" : " off"}" type="button" data-kind="${r.kind}" title="${label}" aria-label="${label}">`
+        + `${r.ico}<span class="ok">${r.has ? "✓" : "+"}</span></button>`;
+    }).join("");
+    $("authList").querySelectorAll("button[data-kind]").forEach((b) => {
+      const r = rows.find((x) => x.kind === b.dataset.kind);
+      b.onclick = () => (r.has ? toast(r.note) : startLink(r.kind));
     });
   }
 
@@ -1693,12 +1666,6 @@ body{
     $("meGuest").style.display = p ? "none" : "";
     $("meBox").style.display = p ? "" : "none";
     if (!p) {
-      // Вход теперь есть везде, а не только в телеграме: снаружи это VK и
-      // почта, внутри — initData, который уже на руках.
-      $("guestHead").textContent = "Ты не вошёл";
-      $("guestText").textContent = "Расписание видно и так, а чтобы записаться — войди: через VK, по почте или телеграмом.";
-      $("guestTgLink").textContent = "Войти";
-      $("guestTgLink").href = "javascript:void(0)";
       $("guestTgLink").onclick = (e) => { e.preventDefault(); startAuth(); };
       return;
     }
@@ -1708,7 +1675,6 @@ body{
       ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
       : escHtml(initials(p.name || "Игрок"));
     $("meTg").textContent = p.vk_username ? "VK · " + p.vk_username
-      : p.tg_username ? "@" + p.tg_username
       : p.email ? p.email
       : "Профиль";
     const fullView = $("phFullView"), phoneView = $("phPhoneView");
@@ -2110,13 +2076,6 @@ body{
 
   // ── Кнопки входа ───────────────────────────────────────────────────────────
   $("authEmail").onclick = () => showEmail();
-  $("authTg").onclick    = async () => {
-    if (!initData) { $("authErr").textContent = "Телеграмный вход работает только в приложении клуба в Telegram."; return; }
-    pendingAuth = { kind: "tg", proof: initData };
-    authBusy = true; renderAll();
-    try { await login(); } catch (e) { $("authErr").textContent = errText(e); }
-    finally { authBusy = false; renderAll(); }
-  };
   $("authBack").onclick = () => { linkMode = false; screen(authReturn === "scrTourney" ? "scrTourney" : "scrApp"); };
 
   $("emSend").onclick   = () => sendCode(false);
@@ -2178,9 +2137,8 @@ body{
     token = ""; me = null;
     // Доказательство VK или почты после выхода не должно оставаться в памяти:
     // иначе следующий же «Войти» молча вернёт в тот же профиль, из которого
-    // человек только что вышел. Телеграмное оставляем — оно и так приезжает
-    // с каждым запуском Mini App.
-    if (pendingAuth?.kind !== "tg") pendingAuth = null;
+    // человек только что вышел.
+    pendingAuth = null;
     try { localStorage.removeItem(TOKEN_KEY); } catch (_) {}
     sb.auth.signOut().catch(() => {});
     renderAll(); tab("home");
@@ -2206,8 +2164,8 @@ body{
           <button type="button" onclick="location.reload()">Повторить</button></div></div></div>`;
       return;
     }
-    // Расписание уже есть — показываем его, не дожидаясь входа: в Telegram
-    // логин иногда идёт секунду, и пустой экран за неё выглядит поломкой.
+    // Расписание уже есть — показываем его, не дожидаясь входа: профиль
+    // иногда грузится секунду, и пустой экран за неё выглядит поломкой.
     renderAll();
     screen("scrApp");
     startLive();
@@ -2215,11 +2173,10 @@ body{
     // Возврат из VK редиректом — это уже начатый вход, и ждать он не должен.
     const fromVk = vkFromRedirect();
 
-    authBusy = !!(token || pendingAuth?.kind === "tg" || fromVk);
+    authBusy = !!(token || fromVk);
     renderAll();
     try {
       if (token) await loadMe();
-      else if (pendingAuth?.kind === "tg") await login();
       // Вход по сохранённому токену минует login(), поэтому согласие проверяем
       // и здесь: иначе у давнего игрока экран не покажется никогда.
       if (token && needsConsent(me?.player)) askConsent();
