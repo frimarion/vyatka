@@ -697,9 +697,21 @@
   // опоздавший тик растягивает уровень и дисплей расходится с админкой.
   function advanceExpiredLevels(st) {
     const ti = st?.timer;
-    if (!ti?.isRunning || ti.isPaused || ti.breakUntil || !ti.levelEndAt) return false;
-    const levels = st.structure.levels;
+    if (!ti?.isRunning) return false;
     let changed = false;
+    // Ручной перерыв (кнопка «☕ Перерыв») истёк, а запись T.breakFinish из
+    // админки ещё не доехала (или админку вовсе никто не держит открытой) —
+    // дисплей иначе навсегда замирал на 00:00. Досчитываем локально, как и
+    // обычные уровни: снимаем брейк и возвращаем уровню его замороженный остаток.
+    if (ti.breakUntil && nowMs() >= Number(ti.breakUntil)) {
+      const rem = clampInt(ti.savedRemainingSec ?? ti.pauseRemainingSec ?? 0, 0);
+      ti.breakUntil = null; ti.savedRemainingSec = null;
+      ti.isPaused = false; ti.pauseRemainingSec = null;
+      ti.levelEndAt = nowMs() + rem * 1000;
+      changed = true;
+    }
+    if (ti.isPaused || ti.breakUntil || !ti.levelEndAt) return changed;
+    const levels = st.structure.levels;
     let end = Number(ti.levelEndAt);
     while (nowMs() >= end) {
       const nextIdx = (ti.levelIndex ?? 0) + 1;
