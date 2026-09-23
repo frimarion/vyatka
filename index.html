@@ -146,14 +146,15 @@
 .tcard.past{opacity:.78}
 .tcard.past .tcBody::before{opacity:.5}
 
-/* Карточки с картинкой — «Джокер», «Нокаут», «Феникс» (card_art в
+/* Карточки с картинкой — «Джокер», «Нокаут», «Феникс», «Double Life» (card_art в
    tournaments, выбирается в tournaments.html). Слева на картинке тёмное поле
    под текст, справа сюжет. Градиент поверх — страховка: на узкой карточке
    картинка обрезается слева, и сюжет подъезжает под пилюли. Карточка тёмная
    и в списке, и на главной, поэтому цвета текста и пилюль — общие для .dark. */
-.tcard.art-joker{--art:url("assets/art/joker.webp");--art-shift:-74px}
-.tcard.art-knockout{--art:url("assets/art/knockout.webp");--art-shift:-30px}
-.tcard.art-phoenix{--art:url("assets/art/phoenix.webp");--art-shift:0px}
+.art-joker{--art:url("assets/art/joker.webp");--art-shift:-74px}
+.art-knockout{--art:url("assets/art/knockout.webp");--art-shift:-30px}
+.art-phoenix{--art:url("assets/art/phoenix.webp");--art-shift:0px}
+.art-doublelife{--art:url("assets/art/doublelife.webp");--art-shift:-20px}
 .tcard.art{
   color:var(--surface);border:none;min-height:176px;
   background:
@@ -443,6 +444,23 @@
 .hRow .hMain{flex:1;min-width:0}
 .hRow .hName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .listRow{background:transparent}
+
+/* Строка профиля (записан / сыгранное) для турнира с картинкой — та же
+   карточка, что в расписании, только полоской: тёмное поле под текст слева,
+   сюжет справа, картинка по высоте строки. */
+.hRow.art{
+  position:relative;overflow:hidden;min-height:76px;margin:6px 0;
+  border-radius:var(--r-md);color:var(--surface);cursor:pointer;
+  background:
+    linear-gradient(90deg, rgba(14,9,6,.94) 0%, rgba(14,9,6,.8) 42%, rgba(14,9,6,0) 78%),
+    #120C08 var(--art) right center/auto 100% no-repeat;
+  box-shadow:var(--sh-sm), inset 0 0 0 1px rgba(232,185,74,.2);
+}
+.hRow.art+.hRow,.hRow+.hRow.art{border-top:0}
+.hRow.art .hMain{padding-right:34%}
+.hRow.art .hName{color:var(--surface);text-shadow:0 1px 8px rgba(0,0,0,.6)}
+.hRow.art .muted{color:rgba(255,252,244,.66)}
+.hRow.art .place:not(.p1):not(.p2){background:rgba(255,252,244,.12);color:rgba(255,252,244,.85);box-shadow:none}
 
 /* ── Профиль ────────────────────────────────────────────────── */
 .kpi{
@@ -1684,12 +1702,13 @@ body.navOn .tabbar{display:grid}
     return { text: "Записаться", cls: "" };
   }
 
-  // Оформления карточки с картинкой — те же значения, что в check миграции 017.
-  const CARD_ART = ["joker", "knockout", "phoenix"];
+  // Оформления карточки с картинкой — те же значения, что в check миграций 017/018.
+  const CARD_ART = ["joker", "knockout", "phoenix", "doublelife"];
+  const artOf = (t) => (CARD_ART.includes(t?.card_art) ? t.card_art : "");
 
   function tcard(t, hero) {
     const cta = ctaFor(t);
-    const art = CARD_ART.includes(t.card_art) ? t.card_art : "";
+    const art = artOf(t);
     const cls = (hero && !art ? " hero" : "") + (art ? " art art-" + art : "") + (hero || art ? " dark" : "") + (isPast(t) ? " past" : "");
     return `<div class="tcard${cls}" data-open="${t.id}">
       <div class="tcBody">
@@ -1842,7 +1861,10 @@ body.navOn .tabbar{display:grid}
       .sort((a, b) => new Date(a.date || 0) - new Date(b.date || 0));
     $("myRegsInfo").textContent = regs.length ? String(regs.length) : "нет записей";
     $("myRegs").innerHTML = regs.length
-      ? regs.map((t) => `<div class="listRow" data-open="${t.id}" style="cursor:pointer">
+      ? regs.map((t) => artOf(t) ? `<div class="hRow art art-${artOf(t)}" data-open="${t.id}">
+          <span class="hMain"><span class="hName">${escHtml(t.name)}</span>
+            <div class="muted">${escHtml(dateLabel(t.date))}</div></span></div>`
+        : `<div class="listRow" data-open="${t.id}" style="cursor:pointer">
           <span class="avatar">♦</span>
           <span class="nm">${escHtml(t.name)}<div class="muted">${escHtml(dateLabel(t.date))}</div></span>
           <span class="tag ok">записан</span></div>`).join("")
@@ -1862,11 +1884,18 @@ body.navOn .tabbar{display:grid}
       const extra = [];
       if (h.ko) extra.push(`${h.ko} нок.`);
       if (h.entries > 1) extra.push(`входов ${h.entries}`);
-      return `<div class="hRow">
+      // На полоске с картинкой справа сюжет — очки уходят во вторую строку.
+      const art = artOf(h);
+      if (art && h.points) extra.push(`${fmtInt(h.points)} оч.`);
+      // Турнир с картинкой — полоской с картинкой; открыть можно, если он
+      // есть в загруженном расписании.
+      const open = art && h.tournament_id && tours.some((t) => Number(t.id) === Number(h.tournament_id))
+        ? ` data-open="${Number(h.tournament_id)}"` : "";
+      return `<div class="hRow${art ? " art art-" + art : ""}"${open}>
         <span class="place ${cls}">${pl ? pl : "—"}</span>
         <span class="hMain"><span class="hName">${escHtml(h.name || "Турнир")}</span>
           <div class="muted">${when}${extra.length ? " · " + escHtml(extra.join(" · ")) : ""}</div></span>
-        ${h.points ? `<span class="tag gold">${fmtInt(h.points)} оч.</span>` : ""}</div>`;
+        ${h.points && !art ? `<span class="tag gold">${fmtInt(h.points)} оч.</span>` : ""}</div>`;
     }).join("");
   }
 

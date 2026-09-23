@@ -414,7 +414,10 @@
       .filter((r) => String(r.player_id) === String(pid) || (r.player_id == null && nkey(r.name) === key))
       .map((r) => {
         const h = heads[r.result_id] || {};
-        return { name: h.name || "Турнир", played_at: h.played_at || null, place: r.place ?? null, ko: r.ko || 0, points: r.points || 0, entries: r.entries || 1 };
+        // Как left join в migrations/018: оформление берём у турнира итога.
+        const t = (db.tournaments || []).find((x) => h.tournament_id != null && String(x.id) === String(h.tournament_id));
+        return { name: h.name || "Турнир", played_at: h.played_at || null, place: r.place ?? null, ko: r.ko || 0, points: r.points || 0, entries: r.entries || 1,
+          tournament_id: h.tournament_id ?? null, card_art: t?.card_art ?? null };
       })
       .sort((a, b) => String(b.played_at || "").localeCompare(String(a.played_at || "")));
     return {
