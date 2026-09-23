@@ -290,11 +290,12 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
 .tile{
   position:relative;overflow:hidden;cursor:pointer;
-  background:linear-gradient(166deg,#FFFEF9 0%,#F7EFDE 100%);
-  border:var(--hair);border-radius:18px;padding:14px;
-  box-shadow:var(--sh-sm), var(--edge);
+  /* Тёплый крем, заметно светлее бежевого фона страницы, с чёткой кромкой. */
+  background:linear-gradient(166deg,#F9EDD5 0%,#ECD7AF 100%);
+  border:1px solid rgba(120,84,20,.2);border-radius:18px;padding:14px;
+  box-shadow:0 1px 2px rgba(36,27,20,.1), 0 6px 16px rgba(36,27,20,.12), var(--edge);
   text-align:left;color:var(--ink);text-decoration:none;
-  display:flex;flex-direction:column;gap:8px;min-height:104px;
+  display:flex;flex-direction:column;gap:6px;min-height:118px;
   /* Плитки — это <button>, а кнопкам в дизайн-системе задан nowrap: без
      возврата к normal длинные подписи обрезаются по краю. */
   white-space:normal;
@@ -303,8 +304,16 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
   content:"";position:absolute;inset:0;pointer-events:none;
   background:radial-gradient(circle at 16% 10%, rgba(232,185,74,.18), transparent 56%);
 }
-.tile .tt{font-size:14px;font-weight:900;letter-spacing:-.01em;position:relative;z-index:1}
-.tile .muted{position:relative;z-index:1;font-size:11.5px;line-height:1.35}
+.tile .tt{font-size:16.5px;font-weight:900;letter-spacing:-.015em;position:relative;z-index:1;margin-top:4px}
+.tile .muted{position:relative;z-index:1;font-size:12.5px;font-weight:600;line-height:1.35;color:#6B5A45}
+.tile .coin{width:48px;height:48px}
+.tile .coin svg{width:24px;height:24px}
+.tile .coin b{font-size:15px;font-weight:900;letter-spacing:-.02em}
+/* Своя краска на каждое действие: адрес — терракота, ВК — синий,
+   о клубе — латунь, поддержка — зелень. Блик и подрезка — как у .coin. */
+.coin.c-map{color:#fff;background:radial-gradient(circle at 34% 24%, rgba(255,240,228,.7) 0 9%, transparent 10%),linear-gradient(155deg,#F59A6E 0%,#E0622E 45%,#B8461B 100%)}
+.coin.c-vk{color:#fff;background:radial-gradient(circle at 34% 24%, rgba(230,240,255,.7) 0 9%, transparent 10%),linear-gradient(155deg,#6FA3F0 0%,#2F74D9 45%,#1E57AE 100%)}
+.coin.c-chat{color:#fff;background:radial-gradient(circle at 34% 24%, rgba(230,255,238,.7) 0 9%, transparent 10%),linear-gradient(155deg,#6CCB8E 0%,#2E9E5B 45%,#1F7843 100%)}
 
 /* Жетон вместо эмодзи. Эмодзи рисует система — и на каждом телефоне по-своему,
    в чужом стиле и без тени. Жетон сделан из градиентов: латунь, блик сверху,
@@ -1036,17 +1045,17 @@ document.addEventListener("touchmove", e => {
     <div class="cardHead" style="margin:18px 0 10px"><h2>Клуб</h2></div>
     <div class="tiles">
       <button class="tile" type="button" data-info="address">
-        <span class="coin"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
+        <span class="coin c-map"><svg viewBox="0 0 24 24"><path d="M12 21s7-6.2 7-11a7 7 0 1 0-14 0c0 4.8 7 11 7 11Z"/><circle cx="12" cy="10" r="2.6"/></svg></span>
         <span class="tt">Адрес</span><span class="muted" id="tileAddr">—</span></button>
       <a class="tile" href="https://vk.ru/poker_kirov43" target="_blank" rel="noopener">
-        <span class="coin"><svg viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H19v15H6.5A2.5 2.5 0 0 0 4 20.5Z"/><path d="M8 7.5h7M8 11h5"/></svg></span>
-        <span class="tt">Группа ВК</span><span class="muted">Новости и фото клуба</span></a>
+        <span class="coin c-vk"><b>VK</b></span>
+        <span class="tt">Группа ВК</span><span class="muted">Анонсы турниров, фото и итоги</span></a>
       <button class="tile" type="button" data-info="about">
-        <span class="coin"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 11v5.5M12 7.6v.1"/></svg></span>
-        <span class="tt">О клубе</span><span class="muted">Как всё устроено</span></button>
+        <span class="coin"><svg viewBox="0 0 24 24"><path d="M12 3.5c-3 3.4-7 6-7 9.6A3.6 3.6 0 0 0 11 15.8l-1 4.7h4l-1-4.7a3.6 3.6 0 0 0 6-2.7c0-3.6-4-6.2-7-9.6Z"/></svg></span>
+        <span class="tt">О клубе</span><span class="muted">Правила, бонусы и как попасть на турнир</span></button>
       <a class="tile" id="tileSupport" href="#" target="_blank" rel="noopener">
-        <span class="coin"><svg viewBox="0 0 24 24"><path d="M20 12.5c0 3.9-3.6 7-8 7a9.6 9.6 0 0 1-2.6-.35L4.5 21l1.2-3.6A6.6 6.6 0 0 1 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"/></svg></span>
-        <span class="tt">Поддержка</span><span class="muted">Написать организатору</span></a>
+        <span class="coin c-chat"><svg viewBox="0 0 24 24"><path d="M20 12.5c0 3.9-3.6 7-8 7a9.6 9.6 0 0 1-2.6-.35L4.5 21l1.2-3.6A6.6 6.6 0 0 1 4 12.5c0-3.9 3.6-7 8-7s8 3.1 8 7Z"/><path d="M9 11.2h.01M12 11.2h.01M15 11.2h.01"/></svg></span>
+        <span class="tt">Поддержка</span><span class="muted">Есть вопрос? Напиши нам</span></a>
     </div>
   </section>
 
@@ -1227,6 +1236,7 @@ document.addEventListener("touchmove", e => {
   const CLUB = {
     support: "https://t.me/maks9228",
     address: "Бар «Готика», Киров",
+    street:  "",   // улица и дом для плитки на главной, например «ул. Московская, 4»
     addressNote: "Сбор за полчаса до старта.",
     mapUrl:  "https://yandex.ru/maps/org/gotika/25340841013/",
     about: [
@@ -1872,7 +1882,7 @@ document.addEventListener("touchmove", e => {
            <div class="eS">Расписание появится здесь — заглядывай.</div></div>`;
 
     renderBanner();
-    $("tileAddr").textContent = CLUB.address;
+    $("tileAddr").textContent = CLUB.street ? `«Готика», ${CLUB.street}` : CLUB.address;
     $("tileSupport").href = CLUB.support;
   }
 
