@@ -992,7 +992,7 @@ body.navOn .tabbar{display:grid}
 .rankLadder small{color:var(--muted);font-weight:700;margin-left:auto}
 .lvUp{text-align:center}
 .lvUp .lvWrap{margin:6px auto 12px}
-/* Ачивки: сетка 3×2, картинка — assets/ach/<id>.webp. Пока картинки нет,
+/* Достижения: сетка 3×2, картинка — assets/ach/<id>.webp. Пока картинки нет,
    на её месте значок-заглушка. Закрытая — серая и приглушённая, с прогрессом. */
 .achGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 8px}
 .ach{display:flex;flex-direction:column;align-items:center;text-align:center;min-width:0}
@@ -1277,7 +1277,7 @@ document.addEventListener("touchmove", e => {
       </div>
 
       <div class="card achCard">
-        <div class="cardHead"><h2>Ачивки</h2><span class="tag" id="meAchInfo">—</span></div>
+        <div class="cardHead"><h2>Достижения</h2><span class="tag" id="meAchInfo">—</span></div>
         <div class="achGrid" id="meAch"></div>
       </div>
 
@@ -1320,7 +1320,7 @@ document.addEventListener("touchmove", e => {
     </div>
   </div>
   <div class="card achCard">
-    <div class="cardHead"><h2>Ачивки</h2><span class="tag" id="plAchInfo">—</span></div>
+    <div class="cardHead"><h2>Достижения</h2><span class="tag" id="plAchInfo">—</span></div>
     <div class="achGrid" id="plAch"></div>
   </div>
   <div class="card">
@@ -2290,7 +2290,7 @@ document.addEventListener("touchmove", e => {
   $("headLv").onclick = () => tab("me");
   $("headLv").onkeydown = (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); tab("me"); } };
 
-  // ── Ачивки ─────────────────────────────────────────────────────────────────
+  // ── Достижения ─────────────────────────────────────────────────────────────────
   // Картинки кладутся в assets/ach/<id>.webp; пока файла нет — значок-заглушка.
   // Считаем по тому, что уже приходит: статистике и истории (в истории
   // последние 30 турниров — для «10 ноков за игру» этого пока хватает).
