@@ -2721,10 +2721,28 @@ document.addEventListener("touchmove", e => {
   });
 
   $("tdBack").onclick = () => { openId = null; screen("scrApp"); };
+  // VK отдаёт аватарку миниатюрой: размер зашит в ссылку (cs=50x50 у VK ID,
+  // size=200x200 у старых photo_200). Для просмотра просим крупную — VK сам
+  // ужмёт до размера исходной обрезки, если она меньше.
+  function bigPhoto(url) {
+    try {
+      // Меняем строкой, а не через URLSearchParams: тот перекодирует запятые
+      // в crop=…, и подписанная ссылка VK может перестать открываться.
+      if (!/(^|\.)(userapi\.com|vk\.com|vk\.me|vkuserphoto\.ru)$/.test(new URL(url).hostname)) return url;
+      // Размер берём наибольший из списка as=…, который VK сам перечисляет в ссылке.
+      const as = (url.match(/[?&]as=([^&]+)/) || [])[1];
+      const sizes = as ? decodeURIComponent(as).split(",").filter((x) => /^\d+x\d+$/.test(x)) : [];
+      const big = sizes.length ? sizes.sort((a, b) => parseInt(b) - parseInt(a))[0] : "800x800";
+      return url.replace(/([?&](?:cs|size)=)\d+x\d+/g, "$1" + big);
+    } catch (_) { return url; }
+  }
   $("plAvWrap").onclick = () => {
     if (!plPhoto) return;
     haptic();
-    $("photoImg").src = plPhoto;
+    const img = $("photoImg"), orig = plPhoto;
+    // Не открылась крупная — показываем ту же миниатюру, что в профиле.
+    img.onerror = () => { img.onerror = null; img.src = orig; };
+    img.src = bigPhoto(orig);
     $("photoModal").classList.add("show");
   };
   $("photoModal").onclick = () => $("photoModal").classList.remove("show");
