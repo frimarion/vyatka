@@ -4,8 +4,8 @@
     {
       "name": "vyatka",
       "runtimeExecutable": "python",
-      "runtimeArgs": ["-m", "http.server", "4173"],
-      "port": 4173
+      "runtimeArgs": ["-m", "http.server", "4190"],
+      "port": 4190
     }
   ]
 }

@@ -1001,11 +1001,14 @@ body.navOn .tabbar{display:grid}
   background:radial-gradient(circle at 50% 35%,#FFF6DF,#EBD6A6);font-size:28px;
   box-shadow:inset 0 0 0 2px rgba(199,149,59,.55), 0 3px 10px rgba(36,27,20,.14);overflow:hidden;
 }
-.achPic img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.achPic img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain}
+/* Картинки — отдельные значки на прозрачном фоне, круг-подложка им не нужен. */
+.achPic.img{width:84px;height:84px;background:none;box-shadow:none;overflow:visible;font-size:0}
+.achPic.img img{filter:drop-shadow(0 3px 6px rgba(36,27,20,.22))}
 .achName{margin-top:6px;font-size:11.5px;font-weight:800;line-height:1.25}
 .achProg{margin-top:2px;font-size:10.5px;font-weight:800;color:var(--muted);font-variant-numeric:tabular-nums}
 .ach.done .achProg{color:var(--ok)}
-.ach:not(.done) .achPic{filter:grayscale(1);opacity:.45}
+.ach:not(.done) .achPic{filter:grayscale(1);opacity:.4}
 .ach:not(.done) .achName{color:var(--muted)}
 .lvUp .lvWrap .avatar{width:84px;height:84px;font-size:26px}
 .lvUp .lvWrap .lvBadge{min-width:26px;height:26px;line-height:26px;font-size:13px}
@@ -2312,7 +2315,7 @@ document.addEventListener("touchmove", e => {
         const v = a.of(s), ok = v >= a.goal;
         if (ok) done++;
         const prog = ok ? "Получено" : a.prog ? a.prog(s) : a.goal > 1 ? `${fmtInt(v)}/${fmtInt(a.goal)}` : "Не получено";
-        return `<div class="ach${ok ? " done" : ""}"><span class="achPic">${a.icon}<img src="assets/ach/${a.id}.webp" alt="" loading="lazy" onerror="this.remove()"/></span>
+        return `<div class="ach${ok ? " done" : ""}"><span class="achPic">${a.icon}<img src="assets/ach/${a.id}.webp" alt="" loading="lazy" onload="this.parentNode.classList.add('img')" onerror="this.remove()"/></span>
           <span class="achName">${escHtml(a.name)}</span><span class="achProg">${prog}</span></div>`;
       }).join("");
       $(pre + "AchInfo").textContent = `${done} из ${ACH.length}`;
