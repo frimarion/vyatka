@@ -992,6 +992,12 @@ body.navOn .tabbar{display:grid}
 .rankLadder small{color:var(--muted);font-weight:700;margin-left:auto}
 .lvUp{text-align:center}
 .lvUp .lvWrap{margin:6px auto 12px}
+#plAvWrap.zoom{cursor:zoom-in}
+.photoModal{background:rgba(20,14,10,.82);cursor:zoom-out}
+.photoModal img{
+  width:min(420px,100%);max-height:86vh;object-fit:contain;border-radius:var(--r-lg);
+  box-shadow:0 12px 40px rgba(0,0,0,.45);
+}
 /* Достижения: сетка 3×2, картинка — assets/ach/<id>.webp. Пока картинки нет,
    на её месте значок-заглушка. Закрытая — серая и приглушённая, с прогрессом. */
 .achGrid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px 8px}
@@ -1373,6 +1379,11 @@ document.addEventListener("touchmove", e => {
     <div id="lvUpBody" class="sub" style="font-size:14px;line-height:1.5"></div>
     <div class="btnrow" style="margin-top:16px;justify-content:center"><button id="lvUpClose" type="button">Отлично</button></div>
   </div>
+</div>
+
+<!-- Аватарка игрока крупно: открывается тапом по фото в чужом профиле. -->
+<div class="modal photoModal" id="photoModal" role="dialog" aria-label="Фото игрока">
+  <img id="photoImg" alt="" referrerpolicy="no-referrer"/>
 </div>
 
 <div id="toast"></div>
@@ -2352,6 +2363,7 @@ document.addEventListener("touchmove", e => {
   // ник, фото, числа и сыгранное — телефона и почты тут нет и быть не должно.
   let plReturn = "scrApp";
   let plReq = 0;
+  let plPhoto = null;
   async function openPlayer(id) {
     id = Number(id);
     if (!id) return;
@@ -2362,6 +2374,7 @@ document.addEventListener("touchmove", e => {
     $("plName").textContent = "Загрузка…";
     $("plAvatar").textContent = "…";
     heroLevel("pl", null);
+    plPhoto = null; $("plAvWrap").classList.remove("zoom");
     ["plGames", "plWins", "plTop3", "plKo"].forEach((k) => { $(k).textContent = "—"; });
     $("plHistInfo").textContent = "—";
     $("plAch").innerHTML = ""; $("plAchInfo").textContent = "—";
@@ -2378,6 +2391,8 @@ document.addEventListener("touchmove", e => {
         ? `<img src="${escHtml(p.photo_url)}" alt="" referrerpolicy="no-referrer"/>`
         : escHtml(initials(p.name || "Игрок"));
       heroLevel("pl", d?.level);
+      plPhoto = p.photo_url || null;
+      $("plAvWrap").classList.toggle("zoom", !!plPhoto);
       $("plGames").textContent = fmtInt(st.games || 0);
       $("plWins").textContent = fmtInt(st.wins || 0);
       $("plTop3").textContent = fmtInt(st.top3 || 0);
@@ -2706,6 +2721,13 @@ document.addEventListener("touchmove", e => {
   });
 
   $("tdBack").onclick = () => { openId = null; screen("scrApp"); };
+  $("plAvWrap").onclick = () => {
+    if (!plPhoto) return;
+    haptic();
+    $("photoImg").src = plPhoto;
+    $("photoModal").classList.add("show");
+  };
+  $("photoModal").onclick = () => $("photoModal").classList.remove("show");
   $("plBack").onclick = () => { plReq++; screen(plReturn); };
   document.querySelectorAll("#tabbar button").forEach((b) => {
     b.onclick = () => {
