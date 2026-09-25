@@ -35,6 +35,7 @@ jobs:
         with:
           node-version: '20'
       - run: node tests/core.test.js
+      - run: node tests/tournament-timer.test.js
 
   deploy:
     needs: test

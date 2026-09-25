@@ -1427,7 +1427,7 @@ document.addEventListener("touchmove", e => {
   const {
     escHtml, fmtInt, fmtTime, nowMs, initials, avatarHtml, clampInt, NF,
     normalizeState, curLevel, playLevelNum, remainingSec, breakRemainingSec,
-    isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries,
+    isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries, advanceExpiredLevels,
     RANKS, LEVEL_XP, XP_RULES, levelProgress,
   } = window.VP;
 
@@ -2452,8 +2452,11 @@ document.addEventListener("touchmove", e => {
   function liveBlock(t) {
     const st = roomOf(t);
     if (!st || !isRunning(t)) return "";
+    // Как на ТВ: не ждём записи админки после границы уровня/перерыва.
+    advanceExpiredLevels(st);
+    if (!st.timer.isRunning) return "";
     const lv = curLevel(st);
-    const onBreak = breakRemainingSec(st) !== null || isOnBreak(st);
+    const onBreak = lv.isBreak || breakRemainingSec(st) !== null || isOnBreak(st);
     const sec = onBreak ? (breakRemainingSec(st) ?? levelRemainingSec(st) ?? 0) : (remainingSec(st) ?? 0);
     const num = playLevelNum(st.structure.levels, st.timer.levelIndex);
     const blinds = lv.isBreak ? "Перерыв" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? " + ante" : ""}`;

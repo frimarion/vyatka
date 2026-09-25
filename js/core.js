@@ -770,10 +770,11 @@
     // дисплей иначе навсегда замирал на 00:00. Досчитываем локально, как и
     // обычные уровни: снимаем брейк и возвращаем уровню его замороженный остаток.
     if (ti.breakUntil && nowMs() >= Number(ti.breakUntil)) {
+      const breakEnd = Number(ti.breakUntil);
       const rem = clampInt(ti.savedRemainingSec ?? ti.pauseRemainingSec ?? 0, 0);
       ti.breakUntil = null; ti.savedRemainingSec = null;
       ti.isPaused = false; ti.pauseRemainingSec = null;
-      ti.levelEndAt = nowMs() + rem * 1000;
+      ti.levelEndAt = breakEnd + rem * 1000;
       changed = true;
     }
     if (ti.isPaused || ti.breakUntil || !ti.levelEndAt) return changed;
