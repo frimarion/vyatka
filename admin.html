@@ -100,6 +100,10 @@
       <button id="reset" class="danger" type="button" style="background:rgba(255,252,244,.06)">Сброс</button>
     </div>
     <div class="mono" id="tinfo" style="margin-top:10px;color:rgba(255,252,244,.55)"></div>
+    <div class="controlRow" style="margin-top:14px">
+      <button id="btnFinishTournament" type="button">✓ Завершить турнир</button>
+    </div>
+    <div id="finishTournamentInfo" class="sub" role="status" style="color:rgba(255,252,244,.75)"></div>
   </section>
 
   <!-- ── Ссылки ────────────────────────────────────────────────────────── -->
@@ -961,8 +965,9 @@
   // ── Регистрации из Telegram Mini App ─────────────────────────────────────
   async function findLinkedTournament() {
     if (!roomId) return null;
-    const { data } = await sb.from(TBL.tournaments)
+    const { data, error } = await sb.from(TBL.tournaments)
       .select("id, name, date, entry_fee, registered_count").eq("room_id", roomId).maybeSingle();
+    if (error) throw error;
     return data || null;
   }
 
@@ -1888,7 +1893,7 @@
     const present = (st.players || []).filter((p) => p.present);
     if (!present.length) throw new Error("Нет пришедших игроков для отчёта");
 
-    const linked = await findLinkedTournament().catch(() => null);
+    const linked = await findLinkedTournament();
     const snap = window.VPCrm.snapshotFromState(st, { roomId, tournamentId: linked?.id ?? null });
     const { data: { user } } = await sb.auth.getUser();
 
@@ -1913,6 +1918,7 @@
   }
 
   $("btnPaymentsReport").onclick = async () => {
+    if (finishingTournament) return;
     const btn = $("btnPaymentsReport"), info = $("paymentsReportInfo");
     // Отчёт уезжает в CRM и оттуда в долги игроков. Незакрытый долг чаще всего
     // значит «ещё не успел отметить оплату», а не «вечер отыграли бесплатно».
@@ -1923,7 +1929,8 @@
         + "В CRM это уедет как есть. Отчёт перезаписывается — можно закрыть оплату и сохранить снова.");
       if (!ok) return;
     }
-    btn.disabled = true; info.textContent = "Сохранение…"; setErr(null);
+    btn.disabled = true; $("btnFinishTournament").disabled = true;
+    info.textContent = "Сохранение…"; setErr(null);
     try {
       const snap = await saveReportSnapshot();
       const t = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
@@ -1937,14 +1944,56 @@
       setErr(/relation|does not exist|schema cache|404/i.test(msg)
         ? new Error("Таблицы отчётов нет в базе — примени migrations/004_results.sql")
         : e);
-    } finally { btn.disabled = false; }
+    } finally { btn.disabled = false; $("btnFinishTournament").disabled = false; }
+  };
+
+  // Завершение использует ту же очередь, что таймер и правки игроков.
+  let finishingTournament = false;
+  $("btnFinishTournament").onclick = async () => {
+    if (finishingTournament) return;
+    finishingTournament = true;
+    const btn = $("btnFinishTournament"), info = $("finishTournamentInfo");
+    btn.disabled = true; $("btnPaymentsReport").disabled = true;
+    info.textContent = "Проверяю результаты…"; setErr(null);
+    const run = saveQueue.then(async () => {
+      saveInFlight = true;
+      try {
+        const linked = await findLinkedTournament();
+        if (!linked) throw new Error("Сначала привяжи комнату к турниру в расписании — кнопка 🔗 в списке комнат.");
+        const { data: room, error: readError } = await sb.from(TBL.rooms).select("state").eq("room_id", roomId).single();
+        if (readError) throw readError;
+        const fresh = normalizeState(structuredClone(room.state));
+        const snap = window.VPCrm.completionSnapshot(fresh, { roomId, tournamentId: linked.id });
+        const ok = await confirm2(fresh.tournament?.finishedAt ? "Пересохранить итоги?" : "Завершить турнир?",
+          `«${linked.name}» · игроков: ${snap.players.length}. Оплачено: ${fmtInt(snap.result.paid)} ₽. Долг: ${fmtInt(snap.result.debt)} ₽. `
+          + "Отчёт по оплатам сохранится в CRM, результаты появятся в приложении, запись закроется и таймер остановится."
+          + (snap.result.debt ? " Долг останется в отчёте; оплату можно исправить и пересохранить позже." : ""));
+        if (!ok) { info.textContent = ""; return; }
+        info.textContent = "Сохраняю отчёт и завершаю турнир…";
+        const { data, error } = await sb.rpc("vp_finish_tournament", {
+          p_room_id: roomId, p_tournament_id: linked.id,
+          p_expected_state: room.state, p_snapshot: snap,
+        });
+        if (error) throw error;
+        state = normalizeState(data.state);
+        realtimeChannel?.send({ type: "broadcast", event: "timer_state", payload: { state } });
+        renderAll(); setSync("saved");
+        info.textContent = "Турнир завершён. Отчёт сохранён в CRM, результаты опубликованы, таймер остановлен.";
+      } finally { saveInFlight = false; }
+    });
+    saveQueue = run.catch(() => {});
+    try { await run; }
+    catch (e) {
+      const message = String(e?.message || e);
+      info.textContent = /vp_finish_tournament.*schema cache|function.*vp_finish_tournament.*does not exist/i.test(message)
+        ? "Завершение пока недоступно: необходимо применить миграцию 020_finish_tournament.sql."
+        : `Не удалось подтвердить завершение: ${message.replace(/[.\s]+$/, "")}.`;
+      setErr(new Error(info.textContent));
+    } finally { finishingTournament = false; btn.disabled = false; $("btnPaymentsReport").disabled = false; }
   };
 
   // ── Структура ────────────────────────────────────────────────────────────
-  // Таблица уровней живёт в двух местах — структура комнаты и редактор макета,
-  // поэтому контейнер приходит контекстом. Отметку «правится вручную» ставит
-  // только структура: она борется с перерисовкой по приходящему состоянию,
-  // а модалка макета от состояния не зависит.
+  // Таблица уровней общая для комнаты и редактора макета.
   const STRUCT_CTX = { box: "levelsBox", info: "structInfo", tracksEdits: true };
   const BP_CTX = { box: "bpLevelsBox", info: "bpLevelsInfo", tracksEdits: false };
 
@@ -2338,8 +2387,13 @@
     $("bigTime").textContent = ti.isRunning ? fmtTime(sec) : "--:--";
     $("bigLevel").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${playLevelNum(levels, ti.levelIndex)}`;
     $("bigBlinds").textContent = lv.isBreak ? "—" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? ` · анте ${fmtInt(lv.bb)}` : ""}`;
-    const status = !ti.isRunning ? "STOPPED" : (onBreak ? "BREAK" : (ti.isPaused ? "PAUSED" : "RUNNING"));
+    const finished = !!state.tournament?.finishedAt;
+    const status = finished ? "ЗАВЕРШЁН" : !ti.isRunning ? "STOPPED" : (onBreak ? "BREAK" : (ti.isPaused ? "PAUSED" : "RUNNING"));
     $("bigStatus").textContent = status;
+    for (const id of ["start", "pauseResumeBtn", "prev", "next", "minus60", "plus60", "breakToggleBtn", "finalTableToggleBtn", "reset"]) {
+      $(id).disabled = finished;
+    }
+    $("btnFinishTournament").textContent = finished ? "✓ Пересохранить итоги" : "✓ Завершить турнир";
 
     $("pauseResumeBtn").textContent = ti.isPaused ? "▶ Продолжить" : "⏸ Пауза";
     $("breakToggleBtn").textContent = onBreak ? "▶ Закончить перерыв" : "☕ Перерыв";

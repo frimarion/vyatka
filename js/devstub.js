@@ -580,6 +580,38 @@
   }
 
   const APP_RPC = {
+    vp_finish_tournament(db, args) {
+      const { p_room_id, p_tournament_id, p_expected_state, p_snapshot } = args;
+      const t = db.tournaments.find((t) => String(t.id) === String(p_tournament_id));
+      const room = db.rooms.find((r) => r.room_id === p_room_id);
+      const profile = getProfileId();
+      if (profile !== 'dev-admin' && !(db.tournament_operators || []).some((o) =>
+        o.profile_id === profile && String(o.tournament_id) === String(p_tournament_id))) {
+        throw new Error('Нет доступа к завершению турнира');
+      }
+      if (!t || t.room_id !== p_room_id || !room) throw new Error('Привязка турнира изменилась. Обнови страницу');
+      if (t.status === 'cancelled') throw new Error('Отменённый турнир нельзя завершить');
+      if (JSON.stringify(room.state) !== JSON.stringify(p_expected_state)) {
+        throw new Error('Данные турнира изменились. Проверь оплаты и места заново');
+      }
+      const snap = window.VPCrm.completionSnapshot(window.VP.normalizeState(structuredClone(room.state)),
+        { roomId: p_room_id, tournamentId: p_tournament_id });
+      if (JSON.stringify(snap.players) !== JSON.stringify(p_snapshot.players)) throw new Error('Данные отчёта изменились');
+      const existing = db.tournament_results.find((r) => r.report_key === snap.result.report_key);
+      const id = existing?.id ?? Math.max(0, ...db.tournament_results.map((r) => r.id)) + 1;
+      if (existing) Object.assign(existing, snap.result);
+      else db.tournament_results.push({ ...snap.result, id, created_by: profile });
+      let rowId = Math.max(0, ...db.tournament_result_players.map((p) => p.id || 0));
+      db.tournament_result_players = db.tournament_result_players.filter((p) => p.result_id !== id);
+      db.tournament_result_players.push(...snap.players.map((p) => ({ ...p, id: ++rowId, result_id: id, name_key: nkey(p.name) })));
+      Object.assign(room.state.timer, { isRunning: false, isPaused: false, levelEndAt: null,
+        pauseRemainingSec: null, breakUntil: null, savedRemainingSec: null, finalTableActive: false });
+      room.state.tournament.finishedAt ||= new Date().toISOString();
+      room.state._savedAt = Math.max(Date.now(), (room.state._savedAt || 0) + 1);
+      t.status = 'past';
+      bus?.postMessage({ kind: 'pg', table: 'tournaments', new: JSON.parse(JSON.stringify(t)) });
+      return { data: { result_id: id, state: structuredClone(room.state) }, error: null };
+    },
     vp_app_login(db, args) {
       const raw = String(args?.p_init_data || "");
       if (!raw.startsWith("dev:")) return fail("init_data_invalid");

@@ -328,8 +328,17 @@
     return `Вятка — отчёт за всё время.xlsx`;
   }
 
+  function completionSnapshot(state, opts = {}) {
+    const snap = snapshotFromState(state, opts);
+    const rows = snap.players.slice().sort((a, b) => a.place - b.place);
+    if (rows.length < 2 || rows.some((p, i) => p.place !== i + 1)) {
+      throw new Error("Сначала укажи итоговые места всех пришедших игроков. Последнему оставшемуся игроку первое место назначится автоматически.");
+    }
+    return snap;
+  }
+
   global.VPCrm = {
-    nameKey, reportKey, snapshotFromState, playerSnapshot, pointsForPlace, finishedWinner,
+    nameKey, reportKey, snapshotFromState, completionSnapshot, playerSnapshot, pointsForPlace, finishedWinner,
     aggregatePlayers, sortPlayers, SORTS,
     periodPreset, periodTotals, dateKey, fmtDate, dayStart, dayEnd,
     buildWorkbook, reportFileName,

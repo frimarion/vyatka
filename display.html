@@ -437,7 +437,7 @@ body.ornament::before{opacity:.3}
 
     // Уровень и статус
     $("levelName").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${Math.max(1, playLevelNum(levels, ti.levelIndex))}`;
-    $("statusPill").textContent = !ti.isRunning ? "STOPPED" : showBreak ? "BREAK" : ti.isPaused ? "PAUSED" : "RUNNING";
+    $("statusPill").textContent = state.tournament?.finishedAt ? "ЗАВЕРШЁН" : !ti.isRunning ? "STOPPED" : showBreak ? "BREAK" : ti.isPaused ? "PAUSED" : "RUNNING";
 
     // Блайнды
     if (lv.isBreak) {

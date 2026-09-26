@@ -1396,6 +1396,7 @@ document.addEventListener("touchmove", e => {
      файл устареет вместе с протоколом VK. -->
 <script src="lib/vkid-sdk.js" onerror="this.onerror=null;this.src='https://unpkg.com/@vkid/sdk@%3C3.0.0/dist-sdk/umd/index.js'"></script>
 <script src="js/core.js"></script>
+<script src="js/crm.js"></script>
 <script src="js/devstub.js"></script>
 <script>
 (() => {
@@ -1612,11 +1613,10 @@ document.addEventListener("touchmove", e => {
     await loadRooms();
   }
 
-  // Комнаты нужны только для тех турниров, что могут идти прямо сейчас:
-  // тянуть состояние всех прошедших вечеров — трафик впустую.
+  // Читаем активные комнаты и открытый вечер: он может ждать снимка CRM.
   async function loadRooms() {
     const ids = tours
-      .filter((t) => t.room_id && t.status !== "past" && t.status !== "cancelled")
+      .filter((t) => t.room_id && (t.id === openId || (t.status !== "past" && t.status !== "cancelled")))
       .map((t) => t.room_id);
     if (!ids.length) { roomStates = {}; return; }
     try {
@@ -2427,6 +2427,7 @@ document.addEventListener("touchmove", e => {
     // Состояние комнаты для деталей перечитываем: на главной оно могло
     // приехать минуту назад, а тут показывается таймер.
     if (t.room_id) {
+      delete roomStates[t.room_id];
       try {
         const { data } = await sb.from(TBL.rooms).select("state").eq("room_id", t.room_id).maybeSingle();
         const st = normalizeState(data?.state);
@@ -2469,16 +2470,35 @@ document.addEventListener("touchmove", e => {
     </div>`;
   }
 
-  // Итоги вечера. Пустой список — не ошибка: отчёт кладёт админка отдельной
-  // кнопкой, и между «турнир завершён» и «отчёт сохранён» есть зазор.
+  // До сохранения отчёта места уже есть в комнате. Берём только доигранный
+  // вечер той же московской даты: комнату могли сбросить для следующей игры.
+  function resultsFromRoom(t) {
+    const st = roomOf(t);
+    if (t.status !== "past" || !st) return [];
+    const day = (value) => {
+      const ms = Date.parse(value);
+      return Number.isFinite(ms) ? Math.floor((ms + 3 * 3600000) / 86400000) : null;
+    };
+    const date = day(t.date);
+    if (date === null || date !== day(st.tournament?.createdAt)) return [];
+    const rows = window.VPCrm.snapshotFromState(st).players;
+    if (rows.length < 2 || rows.some((r) => !Number.isInteger(r.place) || r.place < 1)) return [];
+    rows.sort((a, b) => a.place - b.place);
+    if (rows.some((r, i) => r.place !== i + 1)) return [];
+    return rows;
+  }
+
   function resultsCard(t) {
-    const rows = resultCache[t.id];
+    const saved = resultCache[t.id];
+    const rows = saved?.length ? saved : resultsFromRoom(t);
     const myName = (me?.player?.name || "").toLowerCase();
     return `<div class="card">
       <div class="cardHead"><h2>Как закончилось</h2>
         <span class="tag">${rows && rows.length ? rows.length + " игроков" : "—"}</span></div>
       ${!rows || !rows.length
-        ? '<div class="muted">Итоги этого вечера ещё не выложили.</div>'
+        ? `<div class="muted">${saved === null
+            ? "Не удалось загрузить итоги. Откройте турнир ещё раз."
+            : "Итоги этого вечера ещё не выложили."}</div>`
         : `<div class="list">${rows.map((r) => {
             const pl = r.place || null;
             const cls = pl === 1 ? "p1" : (pl && pl <= 3 ? "p2" : "");
@@ -2620,7 +2640,15 @@ document.addEventListener("touchmove", e => {
     }, 1000);
     pollTimer = setInterval(async () => {
       if (document.hidden) return;
-      await loadRooms();
+      try {
+        // Завершение меняет и статус расписания, и отчёт: одной комнаты мало.
+        await loadTours();
+        const t = tours.find((x) => x.id === openId);
+        if (t && isPast(t) && $("scrTourney").classList.contains("on")) {
+          try { resultCache[t.id] = await rpc("vp_tournament_results", { p_tournament_id: t.id }) || []; }
+          catch (_) { resultCache[t.id] = null; }
+        }
+      } catch (e) { console.warn("refresh tournaments", e); }
       if ($("scrTourney").classList.contains("on")) renderTourney(); else renderAll();
     }, 20000);
   }

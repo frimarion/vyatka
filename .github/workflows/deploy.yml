@@ -36,6 +36,11 @@ jobs:
           node-version: '20'
       - run: node tests/core.test.js
       - run: node tests/tournament-timer.test.js
+      - run: node tests/tournament-results.test.js
+      - run: npm install --prefix "$RUNNER_TEMP/vyatka-sql-check" --ignore-scripts --no-audit --no-fund @electric-sql/pglite@0.5.8
+      - run: node tests/finish-tournament.test.js
+        env:
+          VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite
 
   deploy:
     needs: test

@@ -661,10 +661,10 @@ body.tournamentsPage #screenForm{margin-top:16px}
       if (act === "edit") { const t = tours.find((x) => x.id === id); if (t) fillForm(t); return; }
 
       if (act === "finish") {
-        if (!confirm("Отметить турнир завершённым? Из приложения он уедет в «Прошедшие».\n\nПоказатели игроков живут в отчёте — его кладёт админка таймера, вкладка «Оплата» → «Сохранить отчёт».")) return;
-        const { error } = await sb.from(TBL.tournaments).update({ status: "past" }).eq("id", id);
-        if (error) throw error;
-        await loadTours(); return;
+        const t = tours.find((x) => x.id === id);
+        if (!t?.room_id) throw new Error("Для завершения с отчётом сначала привяжи комнату таймера к турниру.");
+        location.href = `admin.html?room=${encodeURIComponent(t.room_id)}`;
+        return;
       }
       if (act === "reopen") {
         const { error } = await sb.from(TBL.tournaments).update({ status: "open" }).eq("id", id);
