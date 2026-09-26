@@ -73,7 +73,7 @@ window.VP_CONSENT_VERSION = "1.0";
 // ТВ/мини-ПК напрямую искажают таймер уровня. Оцениваем offset (server − local)
 // через RPC server_time_ms с поправкой на RTT/2 и отдаём скорректированное время.
 window.__serverClockOffsetMs = 0;
-window.serverNowMs = function(){ return Date.now() + window.__serverClockOffsetMs; };
+window.serverNowMs = function(){ return Math.round(Date.now() + window.__serverClockOffsetMs); };
 window.syncServerClock = async function(){
   try{
     const t0 = Date.now();

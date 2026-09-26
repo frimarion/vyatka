@@ -37,6 +37,8 @@ const sql = (name) => fs.readFileSync(path.join(__dirname, '../migrations', name
     // Reapplying a migration must be safe.
     await db.exec(sql('020_finish_tournament.sql'));
     const state = {
+      // Clock synchronization can produce fractional milliseconds (production regression).
+      _savedAt: 1790379576169.5,
       tournament: { name: 'Final', createdAt: '2026-09-25T11:00:00Z', defaultBuyIn: 700 },
       players: [
         { player_id: 1, name: 'Winner', present: true, status: 'active', payments: [{ method: 'cash', amount: 700 }] },
@@ -89,6 +91,8 @@ const sql = (name) => fs.readFileSync(path.join(__dirname, '../migrations', name
     for (const key of ['isRunning', 'isPaused', 'finalTableActive']) A.equal(result.state.timer[key], false);
     for (const key of ['levelEndAt', 'breakUntil', 'savedRemainingSec', 'pauseRemainingSec']) A.equal(result.state.timer[key], null);
     A.ok(result.state.tournament.finishedAt);
+    A.ok(Number.isInteger(result.state._savedAt));
+    A.ok(result.state._savedAt > state._savedAt);
     const again = await call(result.state);
     A.equal(again.result_id, result.result_id);
     saved = await all();

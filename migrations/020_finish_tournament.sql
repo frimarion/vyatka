@@ -108,7 +108,7 @@ begin
     to_jsonb(coalesce(v_state#>>'{tournament,finishedAt}', v_finished)));
   v_state := jsonb_set(v_state, '{_savedAt}', to_jsonb(greatest(
     floor(extract(epoch from clock_timestamp()) * 1000)::bigint,
-    coalesce((v_state->>'_savedAt')::bigint, 0) + 1)));
+    coalesce(ceil((v_state->>'_savedAt')::numeric)::bigint, 0) + 1)));
   update public.rooms set state = v_state where room_id = p_room_id;
   update public.tournaments set status = 'past' where id = p_tournament_id;
   return jsonb_build_object('result_id', v_result_id, 'state', v_state);
