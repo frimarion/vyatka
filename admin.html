@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/admin-icon-192.png"/>
 <meta name="apple-mobile-web-app-title" content="Вятка админка"/>
 <link rel="stylesheet" href="css/app.css"/>
+<script src="js/admin-nav.js?v=1"></script>
 </head>
 <body class="adminPage ornament">
 
@@ -648,7 +649,9 @@
   // Комнату целиком показываем там, где она помещается: на ПК таббар из пяти
   // кнопок — лишний клик между карточками, которые все нужны одновременно.
   // Порог по ширине, а не по «устройству»: узкое окно на ПК ведёт себя как телефон.
-  const ONEPAGE = window.matchMedia("(min-width: 768px)");
+  // От 900px слева сайдбар (js/admin-nav.js) с этими же вкладками — там снова
+  // по вкладке за раз, как в админке Дойла: колонка под рукой, клик дешёвый.
+  const ONEPAGE = window.matchMedia("(min-width: 768px) and (max-width: 899px)");
   const ROOM_SCREENS = ALL_SCREENS.filter((id) => id !== "screenCreate");
   let currentTab = "timer";
 
