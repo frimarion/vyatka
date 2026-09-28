@@ -597,13 +597,25 @@
   // Вятка: вход = 100 очков, гарантии по умолчанию нет — банк растёт только от
   // входов. Ноки в рейтинге не участвуют: весь банк идёт в призовую зону, а
   // головы остаются личным счётом игрока (ko) вне очков.
+  //
+  // Мест в зоне — 15% входов, но не меньше десяти: на обычном вечере в 20–40
+  // входов иначе очки забирали бы 3–6 человек и рейтинг месяца держался бы на
+  // горстке. Больше, чем пришло людей, мест не бывает — лишнее место осталось
+  // бы без владельца, и его очки пропали бы из банка. Реентри людей не
+  // добавляют, поэтому потолок — пришедшие, а не входы.
   const PT_ENTRY = 100;
   const DEFAULT_GUARANTEE = 0;
-  function calcPayouts(entries, r = 0.8, guarantee = DEFAULT_GUARANTEE) {
+  const MIN_ITM_PLACES = 10;
+  function calcItmPlaces(entries, players) {
+    const E = clampInt(entries, 1);
+    const cap = clampInt(players, 0) || E;
+    return Math.max(1, Math.min(cap, Math.max(MIN_ITM_PLACES, Math.floor(0.15 * E))));
+  }
+  function calcPayouts(entries, r = 0.8, guarantee = DEFAULT_GUARANTEE, players = 0) {
     const E = clampInt(entries, 1), rr = Number(r);
     if (!Number.isFinite(rr) || rr <= 0 || rr >= 1) throw new Error("r должен быть между 0 и 1");
     const guar = Math.max(0, Math.floor(Number(guarantee) || 0));
-    const P = Math.max(3, Math.floor(0.15 * E));
+    const P = calcItmPlaces(E, players);
     const TOTAL = Math.max(guar, PT_ENTRY * E);
     const KO_POOL = 0;
     const ITM_POOL = TOTAL;
@@ -615,12 +627,16 @@
     return { P, TOTAL, KO_POOL, ITM_POOL, r: rr, payouts };
   }
 
+  function calcPresent(st) {
+    return (Array.isArray(st?.players) ? st.players : []).filter((p) => p && p.present).length;
+  }
+
   function recalcRating(st) {
     if (!st?.rating?.isActive) return st;
     const ent = calcEntries(st) || 1;
     const rr = Number.isFinite(Number(st?.rating?.r)) ? Number(st.rating.r) : 0.8;
     const guar = clampInt(st?.rating?.guarantee ?? DEFAULT_GUARANTEE, 0);
-    const res = calcPayouts(ent, rr, guar);
+    const res = calcPayouts(ent, rr, guar, calcPresent(st));
     st.rating = { ...st.rating, entries: ent, r: rr, guarantee: guar, P: res.P,
       TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL,
       payouts: res.payouts, calculatedAt: new Date().toISOString() };
@@ -807,10 +823,10 @@
       if (aAlive !== bAlive) return aAlive ? -1 : 1;
       return (Number(b.bustOrder) || 0) - (Number(a.bustOrder) || 0);
     });
-    // Граница призовой зоны: считанная зона, иначе те же 15% входов.
+    // Граница призовой зоны: считанная зона, иначе то же правило, что в calcPayouts.
     const itmCount = (st.rating?.isActive && st.rating?.payouts?.length)
       ? st.rating.payouts.length
-      : Math.max(3, Math.floor(0.15 * entries));
+      : calcItmPlaces(entries, present.length);
     const fmtPlace = (n) => (n === 1 ? "1\u20e3" : n === 2 ? "2\u20e3" : n === 3 ? "3\u20e3" : `${n}.`)
       .replace(/^(\d)\u20e3$/, "$1\ufe0f\u20e3");
     const lines = sorted.map((p, i) => {
@@ -892,8 +908,8 @@
     normalizePayments, getPayments, totalPaid, entriesOf, effectiveBuyIn, effectiveReentryCost, entryPrices, effectiveFreeEntries,
     addonStackFor, addonCostFor, calcExpected, remainingAmount, payStatus, tariffOf, buyInForTariff, calcPayTotals,
     calcEntries, calcAddonChips, calcTotalChips, calcAvg,
-    curLevel, playLevelNum, playLevelIdx, calcPayouts, recalcRating,
-    PT_ENTRY, DEFAULT_GUARANTEE,
+    curLevel, playLevelNum, playLevelIdx, calcPayouts, calcItmPlaces, calcPresent, recalcRating,
+    PT_ENTRY, DEFAULT_GUARANTEE, MIN_ITM_PLACES,
     T, isOnBreak, breakRemainingSec, remainingSec, levelRemainingSec,
     lateRegRemainingSec, nextBreakInSec, advanceExpiredLevels, genRoomId,
   };

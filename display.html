@@ -575,7 +575,7 @@ body.ornament::before{opacity:.3}
     if (mode === "break") window.VP.T.breakStart(st);
     if (mode === "pause") window.VP.T.pause(st);
     if (mode === "final") st.timer.finalTableActive = true;
-    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 0);
+    const res = window.VP.calcPayouts(window.VP.calcEntries(st) || 1, 0.8, 0, window.VP.calcPresent(st));
     st.rating = { isActive: true, entries: window.VP.calcEntries(st), r: 0.8, guarantee: 0,
       P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL, payouts: res.payouts };
     return st;

@@ -57,6 +57,15 @@ A.equal(r.payouts.reduce((a,b)=>a+b,0),10000);
 A.equal(VP.calcPayouts(10,0.8,5000).TOTAL,5000);
 A.equal(VP.calcPayouts(10,0.8,0).TOTAL,1000);
 
+// мест в зоне не меньше десяти, но не больше пришедших
+A.equal(VP.calcPayouts(20,0.8).P,10,'20 входов → 10 мест, а не 3');
+A.equal(VP.calcPayouts(40,0.8,0,30).P,10);
+A.equal(VP.calcPayouts(100,0.8,0,80).P,15,'выше десяти — по-прежнему 15% входов');
+A.equal(VP.calcPayouts(9,0.8,0,6).P,6,'6 человек → очки всем шестерым');
+A.equal(VP.calcPayouts(14,0.8,0,8).P,8,'реентри людей не добавляют');
+{ const z=VP.calcPayouts(20,0.8,0,20); A.equal(z.payouts.reduce((a,b)=>a+b,0),2000);
+  A.ok(z.payouts.every((x,i)=>x>0&&(!i||x<=z.payouts[i-1])),'очки убывают и все больше нуля'); }
+
 // поздняя регистрация: остаток = текущий уровень + следующие до ПР
 st.tournament.lateRegUntilLevel=6; st.timer.levelIndex=0; st.timer.isRunning=true; st.timer.isPaused=false;
 st.timer.levelEndAt=Date.now()+60000;
@@ -80,7 +89,15 @@ console.log('все проверки прошли');
   A.ok(lines[0].endsWith('Аня'), 'первым идёт оставшийся в игре');
   A.ok(post.includes('6. Женя (1 ko)'), 'ноки в строке: ' + post);
   A.ok(post.endsWith('7. Зина'), 'первый вылетевший — последним');
-  A.ok(post.includes('\n\n'), 'призовая зона отбита пустой строкой');
+  A.ok(!post.includes('\n\n'), 'семеро пришли — в зоне все, отбивать нечего');
+}
+{
+  const s3 = VP.normalizeState(VP.initialState());
+  s3.players = Array.from({length:12},(_,i)=>({name:'Игрок'+(i+1),present:true,status:'busted',bustOrder:12-i}));
+  s3.players[0].status='registered'; delete s3.players[0].bustOrder;
+  VP.computeStatsFromPlayers(s3);
+  const lines = VP.buildTelegramPost(s3).split('\n');
+  A.equal(lines[10], '', 'зона из 12 пришедших — 10 мест, отбивка после десятого');
 }
 
 // ── Склонение после числа ──────────────────────────────────────────────────

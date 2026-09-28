@@ -490,7 +490,7 @@
     withPlural,
     normalizeState, initialState, computeStatsFromPlayers, recomputePlaces,
     nextBustOrder, rollbackBustKo, calcEntries, calcAvg, calcTotalChips,
-    curLevel, playLevelNum, calcPayouts, recalcRating,
+    curLevel, playLevelNum, calcPayouts, calcPresent, recalcRating,
     T, isOnBreak, breakRemainingSec, remainingSec, advanceExpiredLevels,
     genRoomId, PRESETS, buildTelegramPost, parseResultsPost, applyResults, mergePlayers, NF,
     searchVariants,
@@ -1237,7 +1237,7 @@
     try {
       await saveWithReload((st) => {
         const ent = calcEntries(st) || 1;
-        const res = calcPayouts(ent, 0.8, guar);
+        const res = calcPayouts(ent, 0.8, guar, calcPresent(st));
         st.rating = { isActive: true, entries: ent, r: 0.8, guarantee: guar,
           P: res.P, TOTAL: res.TOTAL, KO_POOL: res.KO_POOL, ITM_POOL: res.ITM_POOL,
           payouts: res.payouts, calculatedAt: new Date().toISOString(), autoShown: true };
