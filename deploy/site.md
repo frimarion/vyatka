@@ -109,6 +109,9 @@ git push origin main
 
 `.htaccess` заодно даёт короткие адреса: `/admin` и `/display` работают без
 `.html`. Ссылка на ТВ выглядит как `https://vyatkapoker.ru/display?room=ABC123`.
+Старые адреса с `.html` сервер уводит на чистые (302, query сохраняется),
+поэтому в коде ссылки остаются с `.html` — так их понимает и локальный
+`python -m http.server`, которому `.htaccess` неведом.
 
 Про редирект на https: внутри `.htaccess` смотрим на `X-Forwarded-Proto`, а не
 на `%{HTTPS}`. TLS терминирует nginx перед Apache, поэтому для Apache соединение

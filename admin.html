@@ -1061,8 +1061,11 @@
 
   function setLinks(id) {
     const base = location.origin + location.pathname.replace(/\/[^/]*$/, "/");
-    $("adminLink").value = `${base}admin.html?room=${id}`;
-    $("displayLink").value = `${base}display.html?room=${id}`;
+    // На сайте ссылки для копирования — без .html (их вбивают на ТВ руками);
+    // локальный http.server чистых адресов не знает, там оставляем как есть.
+    const ext = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname) ? ".html" : "";
+    $("adminLink").value = `${base}admin${ext}?room=${id}`;
+    $("displayLink").value = `${base}display${ext}?room=${id}`;
     // «Дисплей ↗» в полоске ведёт на ТВ этой комнаты, а не на демо: без комнаты
     // он не нужен, поэтому и появляется только внутри неё.
     $("navDisplay").href = `display.html?room=${encodeURIComponent(id)}`;

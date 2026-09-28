@@ -27,7 +27,19 @@ Options -Indexes
   RewriteCond %{HTTP_HOST} !^vyatkapoker\.ru$ [NC]
   RewriteRule ^ https://vyatkapoker.ru%{REQUEST_URI} [L,R=301]
 
-  # Ссылки вида /admin и /display — без .html.
+  # Адреса без .html: /admin, /crm, /tournaments, /display, /start, /legal.
+  # В коде ссылки остаются с .html — локальный python -m http.server без
+  # .htaccess на чистый адрес отдал бы 404, — а адресную строку чистит сервер:
+  # старый адрес уводим на чистый, query (?room=…) сохраняется сам.
+  # THE_REQUEST — исходная строка запроса, а не результат rewrite ниже, иначе
+  # /admin → admin.html → /admin зациклилось бы. 302, а не 301: постоянный
+  # редирект браузер кэширует намертво — поменять, когда схема обкатается.
+  RewriteCond %{THE_REQUEST} \s/+index\.html[?\s] [NC]
+  RewriteRule ^ / [R=302,L]
+  RewriteCond %{THE_REQUEST} \s/+([a-z0-9_-]+)\.html[?\s] [NC]
+  RewriteRule ^ /%1 [R=302,L]
+
+  # /admin → admin.html, если такой файл есть.
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME}.html -f
   RewriteRule ^(.+)$ $1.html [L]
