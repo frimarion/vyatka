@@ -2462,12 +2462,53 @@ document.addEventListener("touchmove", e => {
     const num = playLevelNum(st.structure.levels, st.timer.levelIndex);
     const blinds = lv.isBreak ? "Перерыв" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? " + ante" : ""}`;
     const late = lateRegRemainingSec(st);
+    const nextLv = st.structure.levels[st.timer.levelIndex + 1];
+    const next = !nextLv ? "" : nextLv.isBreak ? (nextLv.label || "перерыв") : `${fmtInt(nextLv.sb)} / ${fmtInt(nextLv.bb)}`;
     return `<div class="liveBox">
       <div class="eyebrow on-accent">${onBreak ? "Перерыв" : st.timer.isPaused ? "Пауза" : `Уровень ${num}`}</div>
       <div class="lvTime" data-live="1">${escHtml(fmtTime(sec))}</div>
       <div class="lvMeta">${escHtml(blinds)} · в игре ${fmtInt(st.stats.alive)} из ${fmtInt(calcEntries(st))}</div>
+      ${next ? `<div class="lvMeta">Дальше: ${escHtml(next)}</div>` : ""}
       ${late > 0 ? `<div class="lvMeta">Поздняя регистрация ещё ${escHtml(coarse(late))}</div>` : ""}
     </div>`;
+  }
+
+  // Кто пришёл на идущий турнир — из комнаты, а не из записей: записался не
+  // значит сел, а вылеты знает только таймер. Аватарки в state не хранятся,
+  // их берём из состава записавшихся.
+  function livePlayers(t) {
+    const st = roomOf(t);
+    if (!st || !isRunning(t)) return null;
+    const present = (st.players || []).filter((p) => p.present);
+    return present.length ? present : null;
+  }
+
+  function livePlayersCard(t, players) {
+    const byId = new Map((rosterCache[t.id] || []).map((r) => [Number(r.player_id), r]));
+    const myId = Number(me?.player?.id) || null;
+    const myName = (me?.player?.name || "").toLowerCase();
+    const isMe = (p) => (myId && Number(p.player_id) === myId) || (!p.player_id && myName && p.name.toLowerCase() === myName);
+    const row = (p, lead) => `<div class="hRow"${p.player_id ? ` data-player="${Number(p.player_id)}"` : ""}>
+        ${lead}
+        ${avatarHtml(p.name, byId.get(Number(p.player_id))?.photo_url || null, "avatar", byId.get(Number(p.player_id)))}
+        <span class="hMain"><span class="hName">${escHtml(p.name)}</span>
+          ${p.ko ? `<div class="muted">${fmtInt(p.ko)} нок.</div>` : ""}</span>
+        ${isMe(p) ? '<span class="tag hot">это ты</span>' : ""}
+      </div>`;
+    const alive = players.filter((p) => p.status !== "busted")
+      .sort((a, b) => (b.ko || 0) - (a.ko || 0) || a.name.localeCompare(b.name, "ru"));
+    // Свежий вылет сверху: место у него лучшее из вылетевших.
+    const busted = players.filter((p) => p.status === "busted")
+      .sort((a, b) => (a.place || 1e9) - (b.place || 1e9));
+    return `<div class="card">
+        <div class="cardHead"><h2>В игре</h2><span class="tag hot">${fmtInt(alive.length)} из ${fmtInt(players.length)}</span></div>
+        ${alive.length ? `<div class="list">${alive.map((p) => row(p, "")).join("")}</div>`
+          : '<div class="muted">За столом никого не осталось.</div>'}
+      </div>
+      ${busted.length ? `<div class="card">
+        <div class="cardHead"><h2>Вылетели</h2><span class="tag">${fmtInt(busted.length)}</span></div>
+        <div class="list">${busted.map((p) => row(p, `<span class="place">${p.place || "—"}</span>`)).join("")}</div>
+      </div>` : ""}`;
   }
 
   // До сохранения отчёта места уже есть в комнате. Берём только доигранный
@@ -2554,7 +2595,7 @@ document.addEventListener("touchmove", e => {
         ${feats.length ? `<div style="margin-top:10px">${feats.map((f) => `<div class="feat">${escHtml(String(f))}</div>`).join("")}</div>` : ""}
       </div>
 
-      ${isPast(t) ? resultsCard(t) : `<div class="card">
+      ${isPast(t) ? resultsCard(t) : livePlayers(t) ? livePlayersCard(t, livePlayers(t)) : `<div class="card">
         <div class="cardHead"><h2>Участники</h2>
           <span class="tag">${roster === null ? "—" : roster.length + (t.slots ? " / " + t.slots : "")}</span></div>
         ${roster === null
