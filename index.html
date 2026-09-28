@@ -1512,6 +1512,7 @@ document.addEventListener("touchmove", e => {
     name_taken: "Такое имя в клубе уже занято — добавь фамилию.",
     tournament_not_found: "Турнир не найден.",
     registration_closed: "Запись на этот турнир закрыта.",
+    final_invite_only: "На финал месяца записывает организатор.",
     tournament_full: "Мест больше нет.",
     vk_not_configured: "Вход через VK пока не настроен. Напиши организатору.",
     email_auth_not_configured: "Вход по почте пока не настроен. Напиши организатору.",
@@ -1592,6 +1593,8 @@ document.addEventListener("touchmove", e => {
   // регистрации из комнаты: она единственная знает, какой сейчас уровень.
   function regOpen(t) {
     if (t.status === "cancelled" || t.status === "past") return false;
+    // Финал месяца: состав собирает админ, самому записаться нельзя.
+    if (t.is_monthly_final) return false;
     if (isPast(t)) return false;
     const left = seatsLeft(t);
     if (left === 0 && !isReg(t.id)) return false;
@@ -1995,6 +1998,11 @@ document.addEventListener("touchmove", e => {
       const lvl = st ? playLevelNum(st.structure.levels, st.timer.levelIndex) : 0;
       out.push(`<span class="pill live">Идёт${lvl ? ` · ур. ${lvl}` : ""}</span>`);
       if (st) out.push(`<span class="pill">${ICO.users} в игре ${fmtInt(st.stats.alive)}/${fmtInt(calcEntries(st))}</span>`);
+    } else if (t.is_monthly_final) {
+      // Места на финале не продаются — счётчик «осталось N» тут только путает.
+      out.push(`<span class="pill hot">Финал месяца</span>`);
+      const cnt = t.registered_count || 0;
+      if (cnt) out.push(`<span class="pill">${ICO.users} ${fmtInt(cnt)} ${plural(cnt, "финалист", "финалиста", "финалистов")}</span>`);
     } else {
       const left = seatsLeft(t);
       const cnt = t.registered_count || 0;
@@ -2577,6 +2585,8 @@ document.addEventListener("touchmove", e => {
       cta = `<button class="danger" type="button" id="btnCancel">Снять запись</button>`;
     } else if (open) {
       cta = `<button type="button" id="btnReg">Записаться${left != null && left <= 5 ? ` · осталось ${left}` : ""}</button>`;
+    } else if (t.is_monthly_final) {
+      cta = `<button class="ghost" type="button" disabled>Финал месяца · запись через организатора</button>`;
     } else {
       cta = `<button class="ghost" type="button" disabled>${left === 0 ? "Мест нет" : "Запись закрыта"}</button>`;
     }

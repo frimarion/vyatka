@@ -124,6 +124,13 @@ body.tournamentsPage #screenForm{margin-top:16px}
         <option value="phoenix">Феникс</option>
         <option value="doublelife">Double Life</option>
       </select></div>
+    <!-- Финал месяца: в приложении виден, но кнопки «Записаться» нет —
+         состав набирает админ через «+ Игрок». Запрет держит и vp_app_register
+         (миграция 022), так что старая вкладка приложения мимо не проскочит. -->
+    <label class="checkRow" style="margin-top:4px;font-size:14px">
+      <input id="fMonthlyFinal" type="checkbox"/>
+      <span><b>🏆 Финал месяца</b> — игроки сами не записываются, состав добавляет админ</span>
+    </label>
 
     <div class="btnrow"><button id="btnSave" type="button">Создать турнир</button>
       <button id="btnCancelEdit" class="ghost" type="button">Закрыть</button></div>
@@ -328,6 +335,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
         <span class="tag${t.slots && t.registered_count >= t.slots ? " hot" : ""}">👥 ${fmtInt(t.registered_count || 0)}${seats}</span>
         ${t.room_id ? `<span class="tag gold mono">🎮 ${escHtml(t.room_id)}</span>` : '<span class="tag">без комнаты</span>'}
         ${t.start_stack ? `<span class="tag">стек ${fmtInt(t.start_stack)}</span>` : ""}
+        ${t.is_monthly_final ? '<span class="tag gold">🏆 финал месяца · запись через админа</span>' : ""}
       </div>
       <div class="tBtns">
         <button class="ghost" type="button" data-act="regs" data-id="${t.id}">👥 Записались</button>
@@ -558,6 +566,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
     const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(19, 0, 0, 0);
     $("fDate").value = toLocalInput(d.toISOString());
     $("fCardArt").value = "";
+    $("fMonthlyFinal").checked = false;
     $("fBlueprint").value = blueprints[0]?.id || "";
     applyBlueprint($("fBlueprint").value);
     $("formTitle").textContent = "Новый турнир";
@@ -582,6 +591,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
     $("fDesc").value = t.description || "";
     $("fFeatures").value = (Array.isArray(t.features) ? t.features : []).join("\n");
     $("fCardArt").value = t.card_art || "";
+    $("fMonthlyFinal").checked = !!t.is_monthly_final;
     $("formTitle").textContent = "Правка турнира";
     $("btnSave").textContent = "Сохранить";
     $("btnCancelEdit").textContent = "Отменить правку";
@@ -611,6 +621,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
       description: $("fDesc").value.trim() || null,
       features: $("fFeatures").value.split("\n").map((s) => s.trim()).filter(Boolean),
       card_art: $("fCardArt").value || null,
+      is_monthly_final: $("fMonthlyFinal").checked,
     };
 
     const btn = $("btnSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
@@ -631,7 +642,9 @@ body.tournamentsPage #screenForm{margin-top:16px}
       // разных вечеров и список за столом стал бы мешаниной.
       $("formErr").textContent = /tournaments_room_uidx|duplicate key/i.test(msg)
         ? "Эта комната уже привязана к другому турниру."
-        : msg;
+        : /is_monthly_final/i.test(msg)
+          ? "В базе нет поля финала месяца — примени migrations/022_monthly_final.sql."
+          : msg;
     } finally { btn.disabled = false; btn.textContent = editId ? "Сохранить" : "Создать турнир"; }
   }
 
