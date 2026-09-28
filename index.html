@@ -215,6 +215,8 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .art-knockout{--art:url("assets/art/knockout.webp");--art-shift:-30px}
 .art-phoenix{--art:url("assets/art/phoenix.webp");--art-shift:0px}
 .art-doublelife{--art:url("assets/art/doublelife.webp");--art-shift:-64px}
+/* Финал месяца — не card_art, а флаг is_monthly_final: картинка идёт сама. */
+.art-final{--art:url("assets/art/final.webp");--art-shift:-40px}
 .tcard.art{
   color:var(--surface);border:none;min-height:176px;
   background:
@@ -2024,7 +2026,11 @@ document.addEventListener("touchmove", e => {
 
   // Оформления карточки с картинкой — те же значения, что в check миграций 017/018.
   const CARD_ART = ["joker", "knockout", "phoenix", "doublelife"];
-  const artOf = (t) => (CARD_ART.includes(t?.card_art) ? t.card_art : "");
+  // Финал месяца оформляется всегда своей картинкой — поверх выбранной.
+  // В строке истории флага нет, поэтому финал узнаём по турниру из расписания.
+  const isFinal = (t) => !!(t?.is_monthly_final
+    || (t?.tournament_id && tours.some((x) => x.id === Number(t.tournament_id) && x.is_monthly_final)));
+  const artOf = (t) => (isFinal(t) ? "final" : CARD_ART.includes(t?.card_art) ? t.card_art : "");
 
   function tcard(t, hero) {
     const cta = ctaFor(t);
