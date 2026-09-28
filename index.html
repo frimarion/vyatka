@@ -1365,6 +1365,21 @@ document.addEventListener("touchmove", e => {
   </button>
 </nav>
 
+<!-- Помощник записи (players.can_register_others, миграция 023) ищет игрока
+     в базе и записывает его на турнир — как «+ Игрок» в tournaments.html. -->
+<div class="modal" id="pickModal">
+  <div class="modalCard">
+    <h2>Записать игрока</h2>
+    <div class="sub" style="margin-bottom:10px">Имя или фамилия — можно латиницей.</div>
+    <input id="pickInput" type="search" placeholder="Имя или фамилия" autocomplete="off"/>
+    <div id="pickResults" class="pickResults"></div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="pickAdd" type="button" disabled>Записать</button>
+      <button id="pickCancel" class="ghost" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <div class="modal" id="infoModal">
   <div class="modalCard" style="max-height:86vh;overflow:auto">
     <h2 id="infoTitle">—</h2>
@@ -1431,7 +1446,7 @@ document.addEventListener("touchmove", e => {
     escHtml, fmtInt, fmtTime, nowMs, initials, avatarHtml, clampInt, NF,
     normalizeState, curLevel, playLevelNum, remainingSec, breakRemainingSec,
     isOnBreak, levelRemainingSec, lateRegRemainingSec, calcEntries, advanceExpiredLevels,
-    RANKS, LEVEL_XP, XP_RULES, levelProgress,
+    RANKS, LEVEL_XP, XP_RULES, levelProgress, searchVariants,
   } = window.VP;
 
   const TBL = window.VP_TABLES;
@@ -1524,6 +1539,7 @@ document.addEventListener("touchmove", e => {
     vk_id_taken: "Этот VK уже привязан к другому профилю.",
     email_taken: "Эта почта уже привязана к другому профилю.",
     player_not_found: "Профиль не найден.",
+    not_allowed: "Записывать других тебе не разрешено.",
     same_player: "Это один и тот же профиль.",
     consent_not_saved: "Согласие не сохранилось. Попробуй ещё раз.",
   };
@@ -2578,6 +2594,8 @@ document.addEventListener("touchmove", e => {
     const left = seatsLeft(t);
     const reg = isReg(t.id);
     const open = regOpen(t);
+    // Помощник записи правит состав, пока турнир открыт или идёт.
+    const helper = !!me?.player?.can_register_others && (t.status === "open" || t.status === "running");
 
     let cta;
     if (!me?.player) {
@@ -2613,7 +2631,8 @@ document.addEventListener("touchmove", e => {
 
       ${isPast(t) ? resultsCard(t) : livePlayers(t) ? livePlayersCard(t, livePlayers(t)) : `<div class="card">
         <div class="cardHead"><h2>Участники</h2>
-          <span class="tag">${roster === null ? "—" : roster.length + (t.slots ? " / " + t.slots : "")}</span></div>
+          <span class="tag">${roster === null ? "—" : roster.length + (t.slots ? " / " + t.slots : "")}</span>
+          ${helper ? '<button class="ghost tiny" type="button" id="btnHelperAdd">+ Игрок</button>' : ""}</div>
         ${roster === null
           ? '<div class="muted">Список участников сейчас недоступен.</div>'
           : roster.length
@@ -2622,6 +2641,7 @@ document.addEventListener("touchmove", e => {
                  ${avatarHtml(r.name, r.photo_url, "avatar", r)}
                  <span class="nm">${escHtml(r.name)}</span>
                  ${Number(r.player_id) === Number(me?.player?.id) ? '<span class="tag hot">это ты</span>' : ""}
+                 ${helper && r.player_id ? `<button class="ghost tiny" type="button" data-unreg="${Number(r.player_id)}" data-name="${escHtml(r.name)}">✕</button>` : ""}
                </div>`).join("")}</div>`
             : '<div class="muted">Пока никто не записался — будь первым.</div>'}
       </div>`}
@@ -2631,6 +2651,11 @@ document.addEventListener("touchmove", e => {
 
     $("btnReg")?.addEventListener("click", () => doRegister(t.id, true));
     $("btnCancel")?.addEventListener("click", () => doRegister(t.id, false));
+    $("btnHelperAdd")?.addEventListener("click", () => helperAdd(t.id));
+    $("tdBody").querySelectorAll("[data-unreg]").forEach((b) => b.addEventListener("click", (ev) => {
+      ev.stopPropagation();   // строка сама открывает профиль игрока
+      helperSet(t.id, Number(b.dataset.unreg), false, b.dataset.name);
+    }));
     // Вход из карточки турнира: человек шёл записываться, а не «в профиль», —
     // после входа он должен вернуться сюда же, к той же кнопке.
     $("btnLogin")?.addEventListener("click", () => startAuth("scrTourney"));
@@ -2680,6 +2705,90 @@ document.addEventListener("touchmove", e => {
     } finally {
       regBusy = false;
     }
+  }
+
+  // ── Помощник записи ────────────────────────────────────────────────────────
+  // Запись за другого — в ту же registrations, что и своя: состав один.
+  async function helperSet(tid, playerId, on, name) {
+    if (regBusy) return;
+    if (!on && !confirm(`Снять запись: ${name || "игрок"}?`)) return;
+    regBusy = true;
+    try {
+      const res = await rpc("vp_app_helper_set_reg", {
+        p_token: token, p_tournament_id: tid, p_player_id: playerId, p_on: on,
+      });
+      const t = tours.find((x) => x.id === tid);
+      if (t && res?.registered_count != null) t.registered_count = Number(res.registered_count);
+      // Помощник мог записать или снять самого себя.
+      if (Number(playerId) === Number(me?.player?.id)) {
+        const set = myRegs();
+        if (on) set.add(tid); else set.delete(tid);
+        me.registrations = [...set];
+      }
+      rosterCache[tid] = await rpc("vp_tournament_roster", { p_tournament_id: tid }) || [];
+      haptic(on ? "medium" : "light");
+      toast(on ? `${name || "Игрок"} записан ✓` : "Запись снята", on ? "good" : "");
+      renderAll();
+      if (openId === tid) renderTourney();
+    } catch (e) {
+      toast(errText(e), "bad");
+    } finally {
+      regBusy = false;
+    }
+  }
+
+  let pickSeq = 0;
+  function helperAdd(tid) {
+    const modal = $("pickModal"), input = $("pickInput"), box = $("pickResults"), add = $("pickAdd");
+    let selected = null, timer = null;
+    input.value = ""; box.innerHTML = '<div class="pickNote">Введи минимум 2 символа</div>';
+    add.disabled = true;
+    modal.classList.add("show");
+    setTimeout(() => input.focus(), 50);
+
+    const close = () => {
+      modal.classList.remove("show");
+      clearTimeout(timer);
+      input.oninput = null; input.onkeydown = null; box.onclick = null;
+      add.onclick = null; $("pickCancel").onclick = null; modal.onclick = null;
+    };
+    const inRoster = new Set((rosterCache[tid] || []).map((r) => Number(r.player_id)));
+
+    async function search(q) {
+      const seq = ++pickSeq;
+      try {
+        const rows = await rpc("vp_app_helper_search", { p_token: token, p_patterns: searchVariants(q) }) || [];
+        if (seq !== pickSeq) return;
+        if (!rows.length) { box.innerHTML = '<div class="pickNote">В базе не нашлось</div>'; return; }
+        box.innerHTML = rows.map((p) => {
+          const already = inRoster.has(Number(p.id));
+          return `<div class="pickItem"${already ? ' style="opacity:.5;cursor:default"' : ""} data-id="${Number(p.id)}" data-name="${escHtml(p.name)}"${already ? ' data-already="1"' : ""}>${escHtml(p.name)}${
+            p.full_name && p.full_name !== p.name ? `<span class="full">${escHtml(p.full_name)}</span>` : ""}${already ? '<span class="full">уже записан</span>' : ""}</div>`;
+        }).join("");
+      } catch (e) {
+        if (seq !== pickSeq) return;
+        box.innerHTML = `<div class="pickNote">${escHtml(errText(e))}</div>`;
+      }
+    }
+
+    input.oninput = () => {
+      clearTimeout(timer); selected = null; add.disabled = true;
+      const q = input.value.trim();
+      if (q.length < 2) { box.innerHTML = '<div class="pickNote">Введи минимум 2 символа</div>'; return; }
+      timer = setTimeout(() => search(q), 300);
+    };
+    box.onclick = (e) => {
+      const item = e.target.closest(".pickItem");
+      if (!item || item.dataset.already) return;
+      box.querySelectorAll(".pickItem").forEach((el) => el.classList.remove("sel"));
+      item.classList.add("sel");
+      selected = { id: Number(item.dataset.id), name: item.dataset.name };
+      add.disabled = false;
+    };
+    add.onclick = () => { const p = selected; close(); if (p) helperSet(tid, p.id, true, p.name); };
+    $("pickCancel").onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+    input.onkeydown = (e) => { if (e.key === "Escape") close(); };
   }
 
   // ── Живой таймер ───────────────────────────────────────────────────────────
