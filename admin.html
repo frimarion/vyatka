@@ -557,7 +557,7 @@
   const photoById = new Map();
   const photoAsked = new Set();
   // Уровни игроков вечера (vp_levels_for, 019_levels.sql): крупье видит, кто
-  // пришёл впервые или ещё новичок, — им положен бесплатный ре-энтри.
+  // пришёл впервые, — ему положен бесплатный ре-энтри.
   const levelById = new Map();
   const levelAsked = new Set();
   let paySearchQuery = "";
@@ -1739,10 +1739,10 @@
     loadMissingLevels(players);
   }
 
+  // Плашка одна — «новичок», только у того, кто пришёл впервые (ни одного
+  // сыгранного турнира). «Новичок · 2 турнира» по уровню путали с первым визитом.
   function newcomerTag(lv) {
-    if (!lv) return "";
-    if (!Number(lv.games)) return '<span class="lvChip">1-й визит</span>';
-    return Number(lv.level) <= 2 ? `<span class="lvChip">новичок · ${withPlural(lv.games, "турнир", "турнира", "турниров")}</span>` : "";
+    return lv && !Number(lv.games) ? '<span class="lvChip">новичок</span>' : "";
   }
 
   async function loadMissingLevels(players) {
