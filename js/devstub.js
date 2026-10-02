@@ -797,7 +797,8 @@
       });
       const rows = [...totals.values()].sort((a,b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
       let rank = 0;
-      rows.forEach((r,i) => { if (!i || r.points !== rows[i-1].points) rank = i + 1; r.rank = rank; delete r.results; });
+      // Без очков — без общего места: по алфавиту, номера подряд (как в 026).
+      rows.forEach((r,i) => { if (!i || r.points <= 0 || r.points !== rows[i-1].points) rank = i + 1; r.rank = rank; delete r.results; });
       return { data: rows, error: null };
     },
     vp_tournament_results(db, args) {

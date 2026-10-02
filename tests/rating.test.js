@@ -38,6 +38,12 @@ assert.equal(all[0].points, 30);
 assert.equal(all[0].games, 2);
 assert.equal(rpc(db, {p_period: 'invalid'}).data.length, 0);
 assert.equal(rpc({...db, tournament_results: []}, {p_period: 'all'}).data.length, 0);
+const zeros = rpc({...db, tournament_result_players: [
+  {result_id: 1, player_id: null, name: 'Vera', points: 5, place: 1},
+  {result_id: 1, player_id: null, name: 'Boris', points: 0, place: 2},
+  {result_id: 1, player_id: null, name: 'Anna', points: 0, place: 3},
+]}, {p_period: 'month'}).data;
+assert.equal(zeros.map(r => r.name + ':' + r.rank).join(), 'Vera:1,Anna:2,Boris:3');
 console.log('Rating — checks passed');
 
 // Half-open month intervals use Moscow midnight, including the year boundary.
