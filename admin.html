@@ -1711,7 +1711,7 @@
         ? `<button class="tiny ghost" type="button" onclick="_vp.reentryPlayer(${j})" title="Вернуть в игру по реентри (ноки сохранятся)">↩ Реентри</button>
            <button class="tiny ghost" type="button" onclick="_vp.fixBust(${j})" title="Исправить вылет: ноки или другой игрок">✎ Правка</button>
            <button class="tiny ghost" type="button" onclick="_vp.undoBust(${j})" title="Отменить вылет">Отменить</button>`
-        : `<button class="tiny danger" type="button" onclick="_vp.bustPlayer(${j})" ${p.present ? "" : "disabled"}>Вылетел</button>`;
+        : `<button class="tiny" type="button" onclick="_vp.bustPlayer(${j})" ${p.present ? "" : "disabled"}>Вылетел</button>`;
       const ko = (busted || p.ko) ? `<div class="pcKo"><span class="pcLbl">${p.place ? `Место ${p.place} · KO` : "KO"}</span><b>${clampInt(p.ko ?? 0, 0)}</b></div>` : "";
       return `<div class="pc${p.present ? " present" : ""}${busted ? " busted" : ""}">
         <div class="pcTop">
