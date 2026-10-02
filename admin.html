@@ -1684,48 +1684,55 @@
       if (ab !== bb) return ab ? 1 : -1;
       return a.name.localeCompare(b.name, "ru");
     });
-    const ADDON_TAG = { 1: "аддон", 2: "2× аддон", 3: "3× аддон" };
-    // Кнопки стоят в постоянных ячейках сетки (.plActs): R− рисуется всегда,
-    // просто выключенной. Раньше она появлялась только после реентри, и у этого
-    // игрока «Вылетел», «А», «2А» съезжали относительно соседних строк.
-    $("playersList").classList.toggle("noAddon", !addonEnabled);
-    box.innerHTML = sorted.map((p) => {
-      const n = escHtml(p.name);
+    // Карточка игрока — как в админке Дойла: сверху номер, аватар, имя и
+    // статус; под ними подписанные группы «Пришёл · Ре-энтри · Аддон» и
+    // кнопка вылета. Галочка «Пришёл» заменила пару «Пришёл / Не пришёл»,
+    // счётчик реентри стоит между R− и R+. На ПК карточка ложится одной
+    // строкой таблицы с шапкой (.pcHead), группы — колонками постоянной ширины.
+    box.classList.toggle("noAddon", !addonEnabled);
+    const head = `<div class="pcHead" aria-hidden="true"><span>Игрок</span><span>Пришёл</span><span>Ре-энтри</span>${
+      addonEnabled ? "<span>Аддон</span>" : ""}<span></span></div>`;
+    box.innerHTML = head + sorted.map((p, idx) => {
       const j = jsArg(p.name);
       const busted = p.status === "busted";
-      const tags = [
-        busted && p.place ? `<span class="tag hot">${p.place} место</span>` : "",
-        p.reentries ? `<span class="tag">re ×${p.reentries}</span>` : "",
-        addonEnabled && p.addon ? `<span class="tag gold">${ADDON_TAG[p.addon]}</span>` : "",
-        p.ko ? `<span class="tag">KO ${p.ko}</span>` : "",
-        p.present ? "" : '<span class="tag">не пришёл</span>',
-        newcomerTag(levelById.get(p.player_id)),
-      ].filter(Boolean).join(" ");
-      const addonBtns = addonEnabled
-        ? `<button class="tiny ghost${p.addon === 1 ? " on" : ""}" onclick="_vp.setAddon(${j},1)">А</button>
-           <button class="tiny ghost${p.addon === 2 ? " on" : ""}" onclick="_vp.setAddon(${j},2)">2А</button>
-           <button class="tiny ghost${p.addon === 3 ? " on" : ""}" onclick="_vp.setAddon(${j},3)">3А</button>`
-        : "";
-      const actions = !p.present
-        ? `<button class="tiny" onclick="_vp.togglePresent(${j})">Пришёл</button>`
-        : busted
-          ? `<button class="tiny ghost" onclick="_vp.reentryPlayer(${j})">↩ Реентри</button>
-             <button class="tiny ghost plFix" onclick="_vp.fixBust(${j})">✎ Исправить</button>
-             <button class="tiny ghost plUndo" onclick="_vp.undoBust(${j})">Отменить</button>`
-          : `<button class="tiny" onclick="_vp.bustPlayer(${j})">Вылетел</button>
-             <button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри" ${p.reentries ? "" : "disabled"}>R−</button>
-             <button class="tiny ghost" onclick="_vp.addReentry(${j},1)" title="Добавить реентри">R+</button>
-             ${addonBtns}`;
-      // «Не пришёл» — исправление ошибочной отметки, а не действие вечера:
-      // живёт рядом с ✕ в углу строки, а не в ряду рабочих кнопок.
-      const side = (p.present && !busted
-        ? `<button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>` : "")
-        + `<button class="tiny ghost" onclick="_vp.removePlayer(${j})" title="Удалить из списка">✕</button>`;
-      return `<div class="plRow${busted ? " busted" : ""}">
-        ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
-        <span class="plName"><span class="plNick">${n}</span>${tags ? `<span class="plTags">${tags}</span>` : ""}</span>
-        <span class="plSide">${side}</span>
-        <span class="plActs">${actions}</span>
+      const re = clampInt(p.reentries ?? 0, 0);
+      const status = !p.present ? "не пришёл" : busted ? "вылетел" : "в игре";
+      // Удалить можно только того, кто не пришёл и ничего не наиграл — как у Дойла:
+      // пришедшего сперва снимают галочкой, чтобы случайный тап не стёр вечер.
+      const canRemove = !p.present && !re && !busted;
+      const statusEl = canRemove
+        ? `<button class="pcStatus pcRemove" type="button" onclick="_vp.removePlayer(${j})" title="Удалить из списка">✕</button>`
+        : `<span class="pcStatus${busted ? " out" : p.present ? " in" : ""}">${status}</span>`;
+      const addonGrp = addonEnabled ? `
+          <div class="pcGrp pcAddon"><div class="pcLbl">Аддон</div><div class="pcInline">
+            ${[1, 2, 3].map((t) => `<button class="tiny ghost${p.addon === t ? " on" : ""}" type="button" onclick="_vp.setAddon(${j},${t})" ${p.present ? "" : "disabled"}>${t === 1 ? "А" : t + "А"}</button>`).join("")}
+          </div></div>` : "";
+      const bust = busted
+        ? `<button class="tiny ghost" type="button" onclick="_vp.reentryPlayer(${j})" title="Вернуть в игру по реентри (ноки сохранятся)">↩ Реентри</button>
+           <button class="tiny ghost" type="button" onclick="_vp.fixBust(${j})" title="Исправить вылет: ноки или другой игрок">✎ Правка</button>
+           <button class="tiny ghost" type="button" onclick="_vp.undoBust(${j})" title="Отменить вылет">Отменить</button>`
+        : `<button class="tiny danger" type="button" onclick="_vp.bustPlayer(${j})" ${p.present ? "" : "disabled"}>Вылетел</button>`;
+      const ko = (busted || p.ko) ? `<div class="pcKo"><span class="pcLbl">${p.place ? `Место ${p.place} · KO` : "KO"}</span><b>${clampInt(p.ko ?? 0, 0)}</b></div>` : "";
+      return `<div class="pc${p.present ? " present" : ""}${busted ? " busted" : ""}">
+        <div class="pcTop">
+          <span class="pcIdx">#${idx + 1}</span>
+          ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
+          <div class="pcName"><span class="pcNick">${escHtml(p.name)}</span>${newcomerTag(levelById.get(p.player_id))}</div>
+          ${statusEl}
+        </div>
+        <div class="pcRow">
+          <div class="pcGrp pcPresent"><div class="pcLbl">Пришёл</div><div class="pcInline">
+            <input class="pcCheck" type="checkbox" ${p.present ? "checked" : ""} onchange="_vp.togglePresent(${j})" aria-label="Пришёл"/>
+          </div></div>
+          <div class="pcGrp pcRe"><div class="pcLbl">Ре-энтри</div><div class="pcInline">
+            <button class="tiny ghost" type="button" onclick="_vp.addReentry(${j},-1)" ${p.present && re ? "" : "disabled"} title="Снять реентри">R−</button>
+            <span class="pcNum">${re}</span>
+            <button class="tiny ghost" type="button" onclick="_vp.addReentry(${j},1)" ${p.present && !busted ? "" : "disabled"} title="${busted ? "Вылетевшего — через «↩ Реентри»" : "Добавить реентри"}">R+</button>
+          </div></div>
+          ${addonGrp}
+          <div class="pcGrp pcBust${busted ? " isBusted" : ""}">${bust}</div>
+        </div>
+        ${ko}
       </div>`;
     }).join("");
     loadMissingPhotos(players);

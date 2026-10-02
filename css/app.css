@@ -550,34 +550,71 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
 .ratingCtrls .field>label{white-space:nowrap}
 .ratingCtrls input,.ratingCtrls button{height:44px}
 
-/* Строка игрока: аватар · имя · кнопки · «не пришёл/✕». Кнопки — в сетке
-   с постоянными ячейками, поэтому одинаковые кнопки у всех игроков стоят
-   друг под другом. На телефоне кнопки уходят второй строкой во всю ширину. */
-.plRow{
-  display:grid;grid-template-columns:32px minmax(0,1fr) auto;grid-template-areas:"ava name side" "acts acts acts";
-  gap:8px 10px;align-items:center;padding:10px 12px;border-radius:var(--r-md);background:var(--surface);
+/* Карточка игрока — как в админке Дойла. Телефон: сверху «#3 · аватар ·
+   имя · статус», под чертой подписанные группы «Пришёл / Ре-энтри / Аддон»
+   и «Вылетел» справа; группы держат свою ширину и при нехватке места
+   переносятся целиком, а не сминаются. */
+#playersList{gap:8px}
+.pcHead{display:none}
+.pc{
+  padding:10px 12px;border-radius:var(--r-md);background:var(--surface);
+  border:1px solid var(--line);transition:border-color .15s,background .15s;
 }
-.plRow+.plRow{border-top:1px solid var(--line)}
-.plRow>:first-child{grid-area:ava}
-.plName{grid-area:name;min-width:0;display:flex;flex-direction:column;gap:3px}
-/* имя не обрезаем многоточием — за столом его ищут глазами; длинное переносится */
-.plNick{font-weight:800;line-height:1.25;overflow-wrap:anywhere}
-.plTags{display:flex;gap:4px;flex-wrap:wrap}
-.plSide{grid-area:side;display:flex;gap:4px;justify-content:flex-end;align-items:center}
-.plSide button{padding:6px 8px;font-size:11px}
-.plSide button:last-child{width:28px;padding:6px 0}
-.plActs{grid-area:acts;display:grid;grid-template-columns:minmax(0,1.9fr) repeat(5,minmax(0,1fr));gap:4px}
-.noAddon .plActs{grid-template-columns:minmax(0,1.9fr) repeat(2,minmax(0,1fr))}
-.plActs button{min-width:0;padding:8px 2px;overflow:hidden;text-overflow:ellipsis}
-.plActs .plFix{grid-column:2 / span 3}
-.plActs .plUndo{grid-column:5 / span 2}
-.noAddon .plActs .plFix{grid-column:2}
-.noAddon .plActs .plUndo{grid-column:3}
-.plRow.busted{opacity:.55}
-.plRow.busted .plNick{text-decoration:line-through}
-@media(min-width:641px){
-  .plRow{grid-template-columns:32px minmax(0,1fr) 300px 118px;grid-template-areas:"ava name acts side"}
-  .noAddon .plRow{grid-template-columns:32px minmax(0,1fr) 260px 118px}
+.pc.present{border-color:rgba(233,83,31,.28);background:#FFFAF2}
+.pc.busted{border-color:rgba(194,46,46,.22);background:#FBF1EC}
+.pcTop{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.pcIdx{flex:none;min-width:3ch;font-family:var(--mono);font-size:11px;color:var(--muted)}
+.pcTop>.avatar,.pcTop>.lvWrap{flex:none}
+.pcName{flex:1;min-width:0;display:flex;align-items:center;flex-wrap:wrap;gap:4px 6px}
+.pcNick{font-weight:800;font-size:14px;line-height:1.2;overflow-wrap:anywhere}
+.pc.busted .pcNick{text-decoration:line-through;color:var(--muted)}
+.pcStatus{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;padding:3px 9px;border-radius:999px;
+  font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;white-space:nowrap;
+  background:var(--surface-2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);
+}
+.pcStatus.in{background:rgba(46,125,79,.12);color:var(--ok);box-shadow:none}
+.pcStatus.out{background:rgba(194,46,46,.10);color:var(--danger);box-shadow:none}
+button.pcRemove{width:28px;height:24px;padding:0;font-size:12px;letter-spacing:0}
+.pcRow{display:flex;flex-wrap:wrap;align-items:flex-start;gap:8px 12px;padding-top:8px;border-top:1px solid var(--line)}
+.pcGrp{flex:0 0 auto}
+.pcLbl{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);line-height:1.1;margin-bottom:4px}
+.pcInline{display:flex;align-items:center;gap:5px;min-height:36px}
+.pcInline button{min-width:36px;padding:8px 9px;font-size:13px}
+.pcNum{min-width:2ch;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}
+.pcCheck{margin:0 6px}
+input.pcCheck{transform:scale(1.45)}
+.pcBust{margin-left:auto;align-self:flex-end;display:flex;gap:6px}
+.pcBust button{min-height:36px;min-width:88px;padding:8px 12px;font-size:12px}
+/* у вылетевшего три кнопки — столбиком справа, чтобы не выдавить группы */
+.pcBust.isBusted{flex-direction:column;align-items:stretch;gap:4px}
+.pcBust.isBusted button{min-height:30px;padding:6px 10px}
+.pcKo{display:flex;align-items:center;justify-content:space-between;margin-top:8px;padding-top:6px;border-top:1px solid var(--line)}
+.pcKo .pcLbl{margin:0}
+.pcKo b{font-variant-numeric:tabular-nums;color:var(--accent-dark)}
+
+/* ПК: та же карточка одной строкой таблицы. Колонки постоянной ширины и
+   общая шапка — подписи групп не повторяются в каждой строке. Только там,
+   где имени хватает места: без сайдбара от 860px, с сайдбаром от 1100px;
+   уже — карточки, как на телефоне. Плашка статуса в строке не нужна:
+   «пришёл» видно по галочке, вылет — по красной строке и зачёркнутому имени. */
+@media(min-width:860px) and (max-width:899px),(min-width:1100px){
+  .pcStatus:not(.pcRemove){display:none}
+  #playersList{gap:4px}
+  .pcHead,.pc{display:grid;grid-template-columns:minmax(0,1fr) 56px 118px 116px 214px;align-items:center;column-gap:10px}
+  .noAddon .pcHead,.noAddon .pc{grid-template-columns:minmax(0,1fr) 56px 118px 214px}
+  .pcHead{padding:0 12px 2px}
+  .pcHead span{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+  .pc{padding:6px 12px}
+  .pcTop{margin:0}
+  .pcRow{display:contents}
+  .pcLbl{display:none}
+  .pcInline{min-height:34px}
+  .pcBust{align-self:center;justify-content:flex-end}
+  .pcBust.isBusted{flex-direction:row;align-items:center;gap:4px}
+  .pcBust.isBusted button{min-width:0;padding:6px 6px;font-size:11px}
+  .pcKo{grid-column:1 / -1;justify-content:flex-start;gap:8px;margin-top:4px;padding-top:4px}
+  .pcKo .pcLbl{display:block}
 }
 
 @media(max-width:640px){
@@ -611,13 +648,11 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
 
   .ratingCtrls{grid-template-columns:minmax(0,1fr) auto auto}
 
-  .plRow{gap:8px;padding:10px}
   .stepper{grid-template-columns:minmax(0,1fr) 34px 34px;gap:5px}
   .stepper input{padding-left:8px;padding-right:4px}
   /* заголовок карточки целиком, длинный тег справа — с многоточием */
   .cardHead h2{flex:1 0 auto}
   .cardHead .tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .plNick{font-size:14px}
   .structBtns{grid-template-columns:repeat(2,minmax(0,1fr))}
   .levelRow{grid-template-columns:12px 22px repeat(3,minmax(0,1fr)) 26px 24px 28px;gap:4px;padding:5px}
   .levelRow input{font-size:13px;padding:8px 2px}
