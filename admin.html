@@ -1107,16 +1107,26 @@
     if (!el || document.activeElement === el || DIRTY.has(id)) return;
     el.value = v;
   };
-  ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry",
-   "addon1Stack", "addon1Cost", "addon2Stack", "addon2Cost", "addon3Stack", "addon3Cost",
-   "ratingGuarantee", "infoBonusHand", "infoComment"]
+  const QUICK_IDS = ["tourName", "startStack", "lateReg", "defaultBuyIn", "defaultReentry",
+   "addon1Stack", "addon1Cost", "addon2Stack", "addon2Cost", "addon3Stack", "addon3Cost"];
+  [...QUICK_IDS, "ratingGuarantee", "infoBonusHand", "infoComment"]
     .forEach((id) => { $(id).addEventListener("input", () => DIRTY.add(id)); });
+
+  // «Турнир» сохраняется сам: админ вбивал цены, не замечал кнопку в шапке, и
+  // введённое пропадало при перезагрузке — поле-то выглядело сохранённым.
+  let quickSaveTimer = null;
+  const scheduleQuickSave = () => {
+    clearTimeout(quickSaveTimer);
+    quickSaveTimer = setTimeout(saveQuick, 400);
+  };
+  QUICK_IDS.forEach((id) => { $(id).addEventListener("change", scheduleQuickSave); });
 
   const stepper = (btnId, inputId, delta) => {
     $(btnId).onclick = () => {
       const el = $(inputId);
       el.value = Math.max(0, clampInt(el.value, 0) + delta);
       DIRTY.add(inputId);
+      scheduleQuickSave();
     };
   };
   stepper("btnStartMinus", "startStack", -1000);
@@ -1124,9 +1134,17 @@
   stepper("btnLateMinus", "lateReg", -1);
   stepper("btnLatePlus", "lateReg", 1);
 
-  $("addonEnabled").onchange = () => { $("addonFields").style.display = $("addonEnabled").checked ? "" : "none"; };
+  // Галочку тоже метим: без этого любая перерисовка (тик таймера, realtime)
+  // снимала её обратно, поля аддона прятались, и сохранялось «аддон выключен».
+  $("addonEnabled").onchange = () => {
+    DIRTY.add("addonEnabled");
+    $("addonFields").style.display = $("addonEnabled").checked ? "" : "none";
+    scheduleQuickSave();
+  };
 
-  $("btnSaveQuick").onclick = async () => {
+  $("btnSaveQuick").onclick = () => { clearTimeout(quickSaveTimer); saveQuick(); };
+
+  async function saveQuick() {
     setErr(null);
     const v = {
       name: normName($("tourName").value),
@@ -1158,9 +1176,9 @@
         st.tournament.addon3Cost = v.addon3Cost;
         return recalcRating(st);
       });
-      DIRTY.clear();
+      [...QUICK_IDS, "addonEnabled"].forEach((id) => DIRTY.delete(id));
     } catch (e) {}
-  };
+  }
 
   // ── Счётчики без имён ────────────────────────────────────────────────────
   // Турнир, который ведут «по головам», без списка. Ядро это уже умеет:
@@ -1315,7 +1333,12 @@
   // ── Инфо ─────────────────────────────────────────────────────────────────
   $("btnSaveInfo").onclick = async () => {
     const bonusHand = $("infoBonusHand").value.trim(), comment = $("infoComment").value.trim();
-    try { await saveWithReload((st) => { st.info = { bonusHand, comment }; return st; }); DIRTY.clear(); } catch (e) {}
+    try {
+      await saveWithReload((st) => { st.info = { bonusHand, comment }; return st; });
+      // Только свои поля: общий clear снимал защиту с несохранённых цен в «Турнире»,
+      // и следующая перерисовка затирала их значениями из базы.
+      DIRTY.delete("infoBonusHand"); DIRTY.delete("infoComment");
+    } catch (e) {}
   };
   $("btnClearInfo").onclick = async () => {
     try { await saveWithReload((st) => { st.info = { bonusHand: "", comment: "" }; return st; }); } catch (e) {}
@@ -2465,8 +2488,8 @@
     setIfNotFocused("addon2Cost", t.addon2Cost);
     setIfNotFocused("addon3Stack", t.addon3Stack);
     setIfNotFocused("addon3Cost", t.addon3Cost);
-    if (document.activeElement !== $("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;
-    $("addonFields").style.display = t.addonEnabled ? "" : "none";
+    if (document.activeElement !== $("addonEnabled") && !DIRTY.has("addonEnabled")) $("addonEnabled").checked = !!t.addonEnabled;
+    $("addonFields").style.display = $("addonEnabled").checked ? "" : "none";
     setIfNotFocused("ratingGuarantee", state.rating?.guarantee ?? 0);
     setIfNotFocused("infoBonusHand", state.info?.bonusHand ?? "");
     setIfNotFocused("infoComment", state.info?.comment ?? "");
