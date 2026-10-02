@@ -394,32 +394,56 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .bpEdit:hover{color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* ── Оплата ──────────────────────────────────────────────────── */
-.payRow{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r-md);background:var(--surface)}
-.payRow+.payRow{border-top:1px solid var(--line)}
+/* Строка оплаты — как в админке Дойла: цветная полоса статуса слева,
+   шапка «аватар · имя · остаток · +/−», под ней два ряда кнопок:
+   [📲 💵 💳 | 100% 50% Free] и [Free entry · + платёж · Сохранить · ↺].
+   Рассчитавшиеся свёрнуты до шапки. */
+#payList{gap:6px}
+.payRow{display:flex;border-radius:var(--r-md);background:var(--surface);border:1px solid var(--line);overflow:hidden}
 .payRow.settled{background:var(--surface-2)}
-.payDot{width:8px;height:8px;border-radius:999px;background:var(--muted);margin-top:11px;flex:none}
-.payRow>.avatar,.payRow>.lvWrap{width:30px;height:30px;font-size:10px}
-.payDot.none{background:var(--danger)}
-.payDot.part{background:var(--gold)}
-.payDot.paid{background:var(--ok)}
-.payDot.free{background:var(--muted)}
-.payMain{flex:1;min-width:0}
-.payTop{display:flex;align-items:center;gap:6px;min-height:26px}
-.payName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.payRest{margin-left:auto;font-weight:900;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.payBar{width:6px;flex:none;background:var(--muted)}
+.payBar.none{background:var(--danger)}
+.payBar.part{background:var(--gold)}
+.payBar.paid{background:var(--ok)}
+.payBar.free{background:#B9AE98}
+.payMain{flex:1;min-width:0;padding:9px 10px 10px}
+.payHead{display:flex;align-items:center;gap:8px;cursor:pointer;user-select:none}
+.payHead>.avatar,.payHead>.lvWrap{width:30px;height:30px;font-size:10px;flex:none}
+.payWho{flex:1;min-width:0}
+.payName{font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+.payMeta{font-size:11px;font-weight:600;color:var(--muted);margin-top:1px;line-height:1.3}
+.payRest{font-weight:900;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:right}
 .payRest.debt{color:var(--accent-dark)}
 .payRest.ok{color:var(--ok)}
-.payMeta{font-size:11px;font-weight:600;color:var(--muted);margin-top:1px;line-height:1.3}
-/* Кнопки оплаты — сетка с постоянными колонками: у всех игроков «Оплатить»
-   стоит на одном месте, ничего не переносится на вторую строку. */
-.payBtns{display:grid;grid-template-columns:repeat(3,minmax(0,.95fr)) minmax(0,1.9fr) minmax(0,1.8fr);gap:4px;margin-top:6px;max-width:440px}
-.payBtns button{padding:5px 2px;font-size:11px;border-radius:8px;line-height:1.4;min-width:0;overflow:hidden;text-overflow:ellipsis}
-.payIcons{display:flex;gap:4px;justify-content:flex-end;width:56px;flex:none}
 .payIcon{
-  width:26px;height:26px;padding:0;flex:none;border-radius:999px;font-size:14px;line-height:1;
+  width:29px;height:29px;padding:0;flex:none;border-radius:999px;font-size:15px;line-height:1;
   background:var(--surface-2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);
 }
-.payIcon.danger{color:var(--danger);background:var(--surface-2)}
+.payIcon.danger{color:var(--danger)}
+.payTools{display:flex;flex-direction:column;gap:6px;margin-top:9px}
+.payRow.is-collapsed .payTools{display:none}
+.payRow.is-collapsed .payMain{padding:7px 10px}
+/* ряд 1: способы | тарифы — шесть равных кнопок с зазором посередине */
+.payPick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 4px repeat(3,minmax(0,1fr));gap:5px}
+/* ряд 2: Free entry · + платёж · Сохранить · ↺ */
+.payAct{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 36px;gap:5px;align-items:center}
+.payAct .payIcon{width:36px;height:36px;padding:0}
+.payTools button{padding:8px 4px;font-size:12px;border-radius:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.payPick button[data-act="method"]{font-size:15px;padding:6px 4px}
+/* выбранный способ — в цвет способа, как у Дойла */
+.payPick .pm-transfer.on{background:rgba(232,185,74,.22);color:#7A5E12;box-shadow:inset 0 0 0 1px rgba(232,185,74,.8)}
+.payPick .pm-cash.on{background:rgba(46,125,79,.14);color:var(--ok);box-shadow:inset 0 0 0 1px rgba(46,125,79,.55)}
+.payPick .pm-card.on{background:rgba(59,130,196,.14);color:#2F6EA8;box-shadow:inset 0 0 0 1px rgba(59,130,196,.55)}
+button.paySaveBtn{background:var(--ok);color:#FFF}
+/* без ↺ «Сохранить» занимает и его ячейку — ряд кончается вровень с верхним */
+.paySaveBtn.wide{grid-column:span 2}
+.payInlineInput{padding:9px 12px;font-size:14px}
+@media(min-width:641px){
+  .payTools{flex-direction:row;flex-wrap:wrap;align-items:center}
+  .payPick{width:330px}
+  .payAct{width:340px}
+  .payInlineInput{width:160px}
+}
 button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* ── CRM: строка игрока ──────────────────────────────────────── */

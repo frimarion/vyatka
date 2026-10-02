@@ -1669,7 +1669,7 @@
     } catch (e) {}
   }
   window._vp = { togglePresent, addReentry, setAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
-    payTariff, payFreeEntry, payAdd, payUndo, payClear };
+    payTariff, payFreeEntry, payClear };
 
   function renderPlayers() {
     const box = $("playersList");
@@ -1832,16 +1832,37 @@
       });
     } catch (e) {}
   }
-  async function payAdd(name) {
+  // Черновик строки оплаты — как у Дойла: выбранный способ, «+ платёж» и
+  // сумма в поле. Живёт в памяти вкладки, в состояние комнаты не пишется.
+  const payDrafts = new Map();                 // keyName → { method, addPayment, amount }
+  const payOpen = new Set(), payShut = new Set();   // ручное раскрытие / сворачивание строки
+  const payDraft = (name) => {
+    const k = keyName(name);
+    if (!payDrafts.has(k)) payDrafts.set(k, { method: lastPayMethod, addPayment: false, amount: "" });
+    return payDrafts.get(k);
+  };
+  const resetPayDraft = (name) => payDrafts.set(keyName(name), { method: lastPayMethod, addPayment: false, amount: "" });
+  // Рассчитался — строка сворачивается; ручной выбор раскрытия сбрасывается.
+  const collapseIfPaid = (name) => {
+    const k = keyName(name);
+    const p = findPlayer(state, name);
+    payOpen.delete(k); payShut.delete(k);
+    if (p && remainingAmount(p, state.tournament) <= 0) payShut.add(k);
+  };
+
+  // Способ оплаты (💳 💵 📲): открывает модалку суммы. Без «+ платёж» сумма
+  // заменяет внесённое, с ним — добавляется отдельным платежом (доплата).
+  async function payMethod(name, method) {
     const tour = state?.tournament;
-    const p = (state?.players || []).find((x) => keyName(x.name) === keyName(name));
-    if (!p) return;
+    const p = findPlayer(state, name); if (!p) return;
+    const d = payDraft(name);
+    d.method = method;
     const expected = calcExpected(p, tour), paid = totalPaid(p);
     const rest = Math.max(0, expected - paid);
     const res = await askPayment({
       name: p.name,
-      amount: rest > 0 ? rest : expected,
-      method: lastPayMethod,
+      amount: d.addPayment ? rest : expected,
+      method,
       meta: `К оплате ${NF.format(expected)} ₽ · внесено ${NF.format(paid)} ₽`,
       quick: [
         { label: `Остаток ${NF.format(rest)}`, amount: rest },
@@ -1849,25 +1870,71 @@
         { label: `Полностью ${NF.format(expected)}`, amount: expected },
       ],
     });
-    if (!res || res.amount <= 0) return;
+    if (!res) { renderPayments(); return; }
     lastPayMethod = res.method;
+    const add = d.addPayment;
     try {
       await saveWithReload((st) => {
         const pl = findPlayer(st, name); if (!pl) return st;
-        pl.payments = [...getPayments(pl), { method: res.method, amount: res.amount }];
+        if (calcExpected(pl, st.tournament) === 0) pl.payments = [];
+        else if (add) { if (res.amount > 0) pl.payments = [...getPayments(pl), { method: res.method, amount: res.amount }]; }
+        else pl.payments = res.amount > 0 ? [{ method: res.method, amount: res.amount }] : [];
         return st;
       });
+      resetPayDraft(name);
+      collapseIfPaid(name);
+      renderPayments();
     } catch (e) {}
   }
-  async function payUndo(name) {
+
+  // «Сохранить»: без «+ платёж» — вся сумма к оплате выбранным способом
+  // (при нескольких платежах подгоняется первый); с ним — сумма из поля.
+  async function paySave(name) {
+    const d = { ...payDraft(name) };
+    lastPayMethod = d.method;
     try {
       await saveWithReload((st) => {
-        const p = findPlayer(st, name); if (!p) return st;
-        p.payments = getPayments(p).slice(0, -1);
+        const pl = findPlayer(st, name); if (!pl) return st;
+        const expected = calcExpected(pl, st.tournament);
+        const pays = getPayments(pl);
+        if (d.addPayment) {
+          const raw = String(d.amount ?? "").trim();
+          const amt = clampInt(raw === "" ? Math.max(0, expected - totalPaid(pl)) : raw, 0);
+          if (amt > 0) pl.payments = [...pays, { method: d.method, amount: amt }];
+        } else if (expected === 0) {
+          pl.payments = [];
+        } else if (pays.length <= 1) {
+          pl.payments = [{ method: d.method, amount: expected }];
+        } else {
+          const others = pays.slice(1);
+          const rest = others.reduce((a, x) => a + clampInt(x.amount, 0), 0);
+          pl.payments = [{ method: d.method, amount: Math.max(0, expected - rest) }, ...others];
+        }
         return st;
       });
+      resetPayDraft(name);
+      collapseIfPaid(name);
+      renderPayments();
     } catch (e) {}
   }
+
+  function payToggleAdd(name) {
+    const p = findPlayer(state, name); if (!p) return;
+    const d = payDraft(name);
+    d.addPayment = !d.addPayment;
+    d.amount = d.addPayment ? String(remainingAmount(p, state.tournament)) : "";
+    renderPayments();
+    if (d.addPayment) $("payList").querySelector(`.payRow[data-k="${CSS.escape(keyName(name))}"] .payInlineInput`)?.focus();
+  }
+
+  function payToggleRow(name) {
+    const k = keyName(name);
+    const row = $("payList").querySelector(`.payRow[data-k="${CSS.escape(k)}"]`);
+    const collapsed = row?.classList.contains("is-collapsed");
+    if (collapsed) { payShut.delete(k); payOpen.add(k); } else { payOpen.delete(k); payShut.add(k); }
+    renderPayments();
+  }
+
   async function payClear(name) {
     const ok = await confirm2("Сбросить оплату?", `${name}: тариф, free entry и все платежи.`);
     if (!ok) return;
@@ -1877,6 +1944,9 @@
         p.buyIn = null; p.tariff = "full"; p.freeEntries = 0; p.payments = [];
         return recalcRating(computeStatsFromPlayers(st));
       });
+      resetPayDraft(name);
+      payShut.delete(keyName(name)); payOpen.add(keyName(name));
+      renderPayments();
     } catch (e) {}
   }
 
@@ -1927,40 +1997,82 @@
       }
       return a.name.localeCompare(b.name, "ru");
     });
+    // Пока в поле «+ платёж» вводят сумму, список не перерисовываем: тик
+    // realtime иначе сбросил бы фокус на середине числа.
+    if (box.contains(document.activeElement) && document.activeElement.matches(".payInlineInput")) return;
     box.innerHTML = sorted.map((p) => {
-      const j = jsArg(p.name);
+      const k = keyName(p.name);
+      const n = escHtml(p.name);
       const stt = payStatus(p, tour);
       const rest = remainingAmount(p, tour);
       const paid = totalPaid(p);
       const tariff = tariffOf(p, tour);
+      const d = payDraft(p.name);
+      // Рассчитавшийся свёрнут до сводки — как у Дойла; руками можно раскрыть.
+      const collapsed = payShut.has(k) || (rest <= 0 && !payOpen.has(k));
       const restHtml = stt === "free"
         ? '<span class="payRest">бесплатно</span>'
         : rest > 0
           ? `<span class="payRest debt">−${NF.format(rest)} ₽</span>`
           : '<span class="payRest ok">оплачено</span>';
-      // «Снять» и «Сброс» — значками в углу и только когда есть что снимать:
-      // кнопкой в общем ряду «Сброс» переносился на отдельную строку. Место
-      // под значки держится всегда, иначе суммы стояли бы вразнобой.
+      // ↺ — только когда есть что сбрасывать, в конце ряда действий: в шапке
+      // он отнимал у имени место, и имена переносились.
       const touched = paid > 0 || effectiveFreeEntries(p) > 0 || p.buyIn != null || (p.tariff && p.tariff !== "full");
-      const icons = (paid ? `<button class="payIcon" onclick="_vp.payUndo(${j})" title="Снять последний платёж" aria-label="Снять последний платёж">↩</button>` : "")
-        + (touched ? `<button class="payIcon danger" onclick="_vp.payClear(${j})" title="Сбросить оплату: тариф, free entry и платежи" aria-label="Сбросить оплату">↺</button>` : "");
-      return `<div class="payRow${rest <= 0 ? " settled" : ""}">
-        <span class="payDot ${stt}"></span>
-        ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
+      const methods = PAY_METHODS.map((m) =>
+        `<button type="button" class="ghost pm-${m.key}${d.method === m.key ? " on" : ""}" data-act="method" data-m="${m.key}" title="${escHtml(m.title)}">${m.label}</button>`).join("");
+      const tariffs = [["full", "100%"], ["half", "50%"], ["free", "Free"]].map(([t, l]) =>
+        `<button type="button" class="ghost${tariff === t ? " on" : ""}" data-act="tariff" data-t="${t}">${l}</button>`).join("");
+      return `<div class="payRow${collapsed ? " is-collapsed" : ""}${rest <= 0 ? " settled" : ""}" data-k="${escHtml(k)}" data-name="${n}">
+        <span class="payBar ${stt}"></span>
         <div class="payMain">
-          <div class="payTop"><span class="payName">${escHtml(p.name)}</span>${restHtml}<span class="payIcons">${icons}</span></div>
-          <div class="payMeta">${payMetaHtml(p, tour)}</div>
-          <div class="payBtns">
-            <button class="ghost${tariff === "full" ? " on" : ""}" onclick="_vp.payTariff(${j},'full')">100%</button>
-            <button class="ghost${tariff === "half" ? " on" : ""}" onclick="_vp.payTariff(${j},'half')">50%</button>
-            <button class="ghost${tariff === "free" ? " on" : ""}" onclick="_vp.payTariff(${j},'free')">Free</button>
-            <button class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" onclick="_vp.payFreeEntry(${j})">Free entry</button>
-            <button onclick="_vp.payAdd(${j})">${paid ? "Доплата" : "Оплатить"}</button>
+          <div class="payHead" data-act="toggle">
+            ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
+            <div class="payWho"><div class="payName">${n}</div><div class="payMeta">${payMetaHtml(p, tour)}</div></div>
+            ${restHtml}
+            <button type="button" class="payIcon" data-act="toggle" aria-label="${collapsed ? "Развернуть" : "Свернуть"}">${collapsed ? "+" : "−"}</button>
+          </div>
+          <div class="payTools">
+            <div class="payPick">${methods}<span></span>${tariffs}</div>
+            <div class="payAct">
+              <button type="button" class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" data-act="free">Free entry</button>
+              <button type="button" class="ghost${d.addPayment ? " on" : ""}" data-act="add">+ платёж</button>
+              <button type="button" class="paySaveBtn${touched ? "" : " wide"}" data-act="save">Сохранить</button>
+              ${touched ? '<button type="button" class="payIcon danger" data-act="clear" title="Сбросить оплату: тариф, free entry и платежи" aria-label="Сбросить оплату">↺</button>' : ""}
+            </div>
+            ${d.addPayment ? `<input class="payInlineInput" type="number" min="0" step="100" inputmode="numeric" placeholder="сумма платежа" value="${escHtml(String(d.amount ?? ""))}"/>` : ""}
           </div>
         </div>
       </div>`;
     }).join("");
   }
+
+  // Один обработчик на весь список: строки перерисовываются целиком.
+  $("payList").addEventListener("click", (e) => {
+    const row = e.target.closest(".payRow"); if (!row) return;
+    const el = e.target.closest("[data-act]"); if (!el) return;
+    // Нажали кнопку — поле суммы больше не редактируют: снимаем с него фокус,
+    // иначе renderPayments продолжит пропускать перерисовку (см. выше).
+    if (document.activeElement?.matches?.(".payInlineInput")) document.activeElement.blur();
+    const name = row.dataset.name;
+    // По шапке строки сворачивают, но кнопки в ней — свои действия
+    if (el.dataset.act === "toggle" && e.target.closest("button") && e.target.closest("button") !== el) return;
+    switch (el.dataset.act) {
+      case "toggle": payToggleRow(name); break;
+      case "clear": payClear(name); break;
+      case "method": payMethod(name, el.dataset.m); break;
+      case "tariff": payTariff(name, el.dataset.t); break;
+      case "free": payFreeEntry(name); break;
+      case "add": payToggleAdd(name); break;
+      case "save": paySave(name); break;
+    }
+  });
+  $("payList").addEventListener("input", (e) => {
+    if (!e.target.matches(".payInlineInput")) return;
+    payDraft(e.target.closest(".payRow").dataset.name).amount = e.target.value;
+  });
+  $("payList").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches(".payInlineInput")) { e.target.blur(); paySave(e.target.closest(".payRow").dataset.name); }
+  });
 
   $("paySearch").oninput = (e) => { paySearchQuery = keyName(e.target.value); renderPayments(); };
 
