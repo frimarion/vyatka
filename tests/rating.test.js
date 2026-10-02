@@ -30,6 +30,8 @@ assert.equal(month[1].player_id, 2);
 assert.equal(month[0].rank, month[1].rank);
 assert.equal(month[0].games, 1);
 assert.equal(month[0].wins, 1);
+assert.equal(month[0].ko, 99);
+assert.equal(month[1].ko, 0);
 const all = rpc(db, {p_period: 'all'}).data;
 assert.equal(all[0].player_id, 2);
 assert.equal(all[0].points, 30);

@@ -788,11 +788,12 @@
       all.filter(r => ids.has(String(r.result_id))).forEach(r => {
         const p = db.players.find(p => r.player_id != null ? String(p.id) === String(r.player_id) : nkey(p.name) === nkey(r.name));
         const key = p ? `id:${p.id}` : `name:${nkey(r.name)}`;
-        if (!totals.has(key)) totals.set(key, { player_id: p?.id ?? null, name: p?.name || r.name, points: 0, games: 0, wins: 0, results: new Set() });
+        if (!totals.has(key)) totals.set(key, { player_id: p?.id ?? null, name: p?.name || r.name, points: 0, games: 0, wins: 0, ko: 0, results: new Set() });
         const item = totals.get(key);
         item.points += Number(r.points) || 0;
         item.results.add(String(r.result_id)); item.games = item.results.size;
         item.wins += Number(r.place) === 1 ? 1 : 0;
+        item.ko += Number(r.ko) || 0;
       });
       const rows = [...totals.values()].sort((a,b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
       let rank = 0;

@@ -2871,7 +2871,7 @@ document.addEventListener("touchmove", e => {
     const rows = ratingRows;
     $("ratingList").innerHTML = rows.length ? `<div class="rkList"><div class="rkLabels"><span>Игрок</span><span>Очки</span></div>${rows.map(r => {
       const rank = Number(r.rank);
-      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
+      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)} · нокаутов: ${fmtInt(r.ko || 0)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
     }).join('')}</div>` : '';
   }
   async function loadRating() {
