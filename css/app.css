@@ -178,7 +178,13 @@ button.gold{background:var(--gold);color:var(--ink)}
 button.danger{background:transparent;color:var(--danger);box-shadow:inset 0 0 0 1px rgba(194,46,46,.35)}
 button.tiny{padding:6px 10px;font-size:12px;border-radius:10px}
 .btnrow{display:flex;gap:8px;flex-wrap:wrap}
+/* Ряды кнопок таймера — с явным числом колонок. С auto-fit третий ряд
+   («Перерыв · Финалка · Сброс») на телефоне ломался на 2+1. */
 .controlRow{display:grid;gap:8px;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));margin-bottom:8px}
+.controlRow.cols1{grid-template-columns:1fr}
+.controlRow.cols2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.controlRow.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.controlRow.cols4{grid-template-columns:repeat(4,minmax(0,1fr))}
 
 /* ── Поля ────────────────────────────────────────────────────── */
 .field{display:flex;flex-direction:column;gap:6px;margin-bottom:12px}
@@ -191,7 +197,9 @@ input,select,textarea{
 input:focus,select:focus,textarea:focus{outline:2px solid var(--accent-soft);border-color:var(--accent)}
 textarea{font-weight:500;line-height:1.5;resize:vertical}
 input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
-.stepper{display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:6px}
+.stepper{display:grid;grid-template-columns:minmax(0,1fr) 38px 38px;gap:6px}
+.stepper button{padding:0}
+.stepper input{padding-left:10px;padding-right:8px}
 .row2{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px}
 .switchRow{
   display:flex;align-items:center;gap:12px;padding:11px 13px;
@@ -204,7 +212,30 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .card.compact{padding:14px 18px}
 .card.compact .cardHead{margin-bottom:10px}
 .card.compact .field{margin-bottom:0}
-.quickGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px 12px;margin-bottom:10px}
+.card.compact>.field{margin-bottom:10px}
+/* Сетка полей с постоянным числом колонок и прижатием к низу: поля одного
+   ряда стоят на одной линии, а подпись не переносится и не сдвигает поле. */
+.quickGrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px 12px;margin-bottom:10px;align-items:end}
+.quickGrid.cols3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.quickGrid .field{margin:0;min-width:0}
+.quickGrid .field>label{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* Четыре колонки — только когда каждой хватает места под степпер с «30000»:
+   на телефоне, в узком окне без сайдбара и рядом с сайдбаром до ~1060px — две. */
+@media(max-width:799px),(min-width:900px) and (max-width:1059px){
+  .quickGrid,.quickGrid.cols3{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+.quickToggles{display:flex;align-items:center;gap:10px;flex-wrap:wrap;min-height:34px;margin:0 0 10px}
+.quickToggle{display:inline-flex;align-items:center;gap:10px;font-weight:800;font-size:14px;cursor:pointer;padding-left:2px}
+.quickToggle input{margin:0}
+/* Аддон: подписи «стек / цена» один раз сверху, три размера строками */
+.addonGrid{
+  display:grid;grid-template-columns:auto repeat(2,minmax(0,1fr));gap:6px 10px;align-items:center;
+  margin-bottom:10px;padding:10px 12px;background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);
+}
+.addonGrid .agHead{font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);padding-left:2px}
+.addonGrid .agLbl{font-size:13px;font-weight:800;padding-right:6px}
+.addonGrid input{background:var(--surface);padding:9px 12px;min-width:0}
+#countersBody{margin-bottom:10px}
 .card.compact .kpis{gap:8px}
 .card.compact .kpi{padding:8px 10px}
 .card.compact .kpi .kpiValue{font-size:18px;margin-top:0}
@@ -311,11 +342,27 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .cpCell.sel{background:var(--accent) !important;color:var(--surface) !important;box-shadow:none}
 
 /* ── Структура блайндов ──────────────────────────────────────── */
+/* Одна сетка на строки уровней и их шапку (.levelHead) — подписи стоят
+   ровно над своими полями. Ширины фиксированные, кроме трёх полей. */
+.levelsBox{display:flex;flex-direction:column;gap:6px}
 .levelRow{
-  display:grid;grid-template-columns:18px 34px repeat(3,minmax(64px,1fr)) auto auto auto;
+  display:grid;grid-template-columns:16px 28px repeat(3,minmax(0,1fr)) 36px 26px 30px;
   gap:6px;align-items:center;padding:6px;border-radius:var(--r-sm);background:var(--surface-2);
+  transition:background-color .2s;
 }
-.levelRow input{padding:8px 10px;font-size:14px;background:var(--surface)}
+.levelRow input{padding:8px 6px;font-size:14px;background:var(--surface);text-align:center;min-width:0}
+.levelRow input[type=number]{-moz-appearance:textfield;appearance:textfield}
+.levelRow input[type=number]::-webkit-inner-spin-button,
+.levelRow input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.levelRow>button[data-del]{width:30px;height:30px;padding:0}
+.levelRow .lvAnteBox{display:grid;place-items:center}
+.levelRow .lvBreakLbl{grid-column:span 2;align-self:center;padding-left:6px;font-size:13px;font-weight:800;color:var(--accent-dark)}
+.levelRow.levelHead{background:none;padding-top:0;padding-bottom:0;margin-bottom:4px}
+.levelHead span{font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center}
+.levelRow:focus-within{background:#FFF1E2}
+.levelRow.lvFlash{animation:lvFlash 1.6s ease-out}
+@keyframes lvFlash{0%,35%{background:var(--accent-soft);box-shadow:inset 0 0 0 2px var(--accent)}}
+.structBtns{display:grid;grid-template-columns:repeat(4,auto);justify-content:start;gap:8px;margin-bottom:12px}
 .levelRow .lvIdx{font-weight:900;color:var(--muted);text-align:center;font-size:13px}
 .levelRow .lvGrip{cursor:grab;color:var(--muted);text-align:center;font-size:14px;user-select:none;touch-action:none}
 .levelRow.isBreak{background:var(--accent-soft)}
@@ -323,7 +370,7 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .levelRow.dragging{opacity:.4}
 .levelRow.dragOver{box-shadow:inset 0 0 0 2px var(--accent-dark)}
 .lvMoveBtns{display:flex;flex-direction:column;gap:2px}
-.lvMoveBtns button{padding:1px 6px;font-size:10px;line-height:1.4}
+.lvMoveBtns button{padding:1px 0;width:26px;font-size:10px;line-height:1.4}
 
 /* ── Пресеты ─────────────────────────────────────────────────── */
 .presetGrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
@@ -350,20 +397,29 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .payRow{display:flex;align-items:flex-start;gap:8px;padding:8px 10px;border-radius:var(--r-md);background:var(--surface)}
 .payRow+.payRow{border-top:1px solid var(--line)}
 .payRow.settled{background:var(--surface-2)}
-.payDot{width:8px;height:8px;border-radius:999px;background:var(--muted);margin-top:5px;flex:none}
+.payDot{width:8px;height:8px;border-radius:999px;background:var(--muted);margin-top:11px;flex:none}
+.payRow>.avatar,.payRow>.lvWrap{width:30px;height:30px;font-size:10px}
 .payDot.none{background:var(--danger)}
 .payDot.part{background:var(--gold)}
 .payDot.paid{background:var(--ok)}
 .payDot.free{background:var(--muted)}
 .payMain{flex:1;min-width:0}
-.payTop{display:flex;align-items:baseline;gap:8px}
+.payTop{display:flex;align-items:center;gap:6px;min-height:26px}
 .payName{font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .payRest{margin-left:auto;font-weight:900;font-size:13px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .payRest.debt{color:var(--accent-dark)}
 .payRest.ok{color:var(--ok)}
 .payMeta{font-size:11px;font-weight:600;color:var(--muted);margin-top:1px;line-height:1.3}
-.payBtns{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px}
-.payBtns button{padding:4px 8px;font-size:11px;border-radius:8px;line-height:1.4}
+/* Кнопки оплаты — сетка с постоянными колонками: у всех игроков «Оплатить»
+   стоит на одном месте, ничего не переносится на вторую строку. */
+.payBtns{display:grid;grid-template-columns:repeat(3,minmax(0,.95fr)) minmax(0,1.9fr) minmax(0,1.8fr);gap:4px;margin-top:6px;max-width:440px}
+.payBtns button{padding:5px 2px;font-size:11px;border-radius:8px;line-height:1.4;min-width:0;overflow:hidden;text-overflow:ellipsis}
+.payIcons{display:flex;gap:4px;justify-content:flex-end;width:56px;flex:none}
+.payIcon{
+  width:26px;height:26px;padding:0;flex:none;border-radius:999px;font-size:14px;line-height:1;
+  background:var(--surface-2);color:var(--muted);box-shadow:inset 0 0 0 1px var(--line);
+}
+.payIcon.danger{color:var(--danger);background:var(--surface-2)}
 button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
 
 /* ── CRM: строка игрока ──────────────────────────────────────── */
@@ -479,6 +535,100 @@ button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shado
      глаз прыгать между ними, а порядок карточек внутри колонки был неочевиден. */
   #screens.onepage{max-width:720px;margin:0 auto}
   #screens.onepage>.card{margin:0 0 16px}
+}
+
+/* ── Админка таймера ─────────────────────────────────────────── */
+.bigTimer{display:flex;align-items:center;gap:16px;margin-bottom:14px}
+#bigTime{font-size:clamp(44px,9vw,64px);font-weight:900;letter-spacing:-.03em;line-height:1;font-variant-numeric:tabular-nums}
+#bigLevel{font-size:16px;font-weight:900}
+#bigBlinds{font-size:14px;color:var(--gold);font-weight:800}
+
+/* Гарантия и кнопки — одной линией, низом к низу */
+.ratingCtrls{display:grid;grid-template-columns:minmax(0,200px) auto auto;justify-content:start;align-items:end;gap:8px;margin-bottom:10px}
+.ratingCtrls .field{margin:0}
+/* подпись шире узкой колонки поля — пусть заходит в пустоту над кнопками, а не переносится */
+.ratingCtrls .field>label{white-space:nowrap}
+.ratingCtrls input,.ratingCtrls button{height:44px}
+
+/* Строка игрока: аватар · имя · кнопки · «не пришёл/✕». Кнопки — в сетке
+   с постоянными ячейками, поэтому одинаковые кнопки у всех игроков стоят
+   друг под другом. На телефоне кнопки уходят второй строкой во всю ширину. */
+.plRow{
+  display:grid;grid-template-columns:32px minmax(0,1fr) auto;grid-template-areas:"ava name side" "acts acts acts";
+  gap:8px 10px;align-items:center;padding:10px 12px;border-radius:var(--r-md);background:var(--surface);
+}
+.plRow+.plRow{border-top:1px solid var(--line)}
+.plRow>:first-child{grid-area:ava}
+.plName{grid-area:name;min-width:0;display:flex;flex-direction:column;gap:3px}
+/* имя не обрезаем многоточием — за столом его ищут глазами; длинное переносится */
+.plNick{font-weight:800;line-height:1.25;overflow-wrap:anywhere}
+.plTags{display:flex;gap:4px;flex-wrap:wrap}
+.plSide{grid-area:side;display:flex;gap:4px;justify-content:flex-end;align-items:center}
+.plSide button{padding:6px 8px;font-size:11px}
+.plSide button:last-child{width:28px;padding:6px 0}
+.plActs{grid-area:acts;display:grid;grid-template-columns:minmax(0,1.9fr) repeat(5,minmax(0,1fr));gap:4px}
+.noAddon .plActs{grid-template-columns:minmax(0,1.9fr) repeat(2,minmax(0,1fr))}
+.plActs button{min-width:0;padding:8px 2px;overflow:hidden;text-overflow:ellipsis}
+.plActs .plFix{grid-column:2 / span 3}
+.plActs .plUndo{grid-column:5 / span 2}
+.noAddon .plActs .plFix{grid-column:2}
+.noAddon .plActs .plUndo{grid-column:3}
+.plRow.busted{opacity:.55}
+.plRow.busted .plNick{text-decoration:line-through}
+@media(min-width:641px){
+  .plRow{grid-template-columns:32px minmax(0,1fr) 300px 118px;grid-template-areas:"ava name acts side"}
+  .noAddon .plRow{grid-template-columns:32px minmax(0,1fr) 260px 118px}
+}
+
+@media(max-width:640px){
+  /* Шапка в две строки: логотип с названием, под ними комната и «Выйти».
+     Роль, почта и sync на телефоне скрыты — ошибки и так всплывают плашкой. */
+  body.adminPage .apphead{padding:12px 14px 14px;gap:10px;align-items:center;margin-bottom:12px}
+  body.adminPage .apphead>div:first-child{display:flex;align-items:center;gap:12px;min-width:0;width:100%}
+  body.adminPage .apphead .logoMark{margin:0;height:20px}
+  body.adminPage .apphead h1{font-size:22px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  body.adminPage .headSide{width:100%;margin-left:0;flex-wrap:nowrap;gap:6px}
+  body.adminPage #badgeRole,body.adminPage #badgeUser,body.adminPage #badgeSync{display:none !important}
+  body.adminPage #logoutBtn{margin-left:auto}
+
+  /* пояснения под разделами — на телефоне только занимают место */
+  .mHint{display:none !important}
+  /* длинный заголовок карточки — короче, чтобы тег справа не ломал строку */
+  .cardHead h2[data-short]{font-size:0}
+  .cardHead h2[data-short]::after{content:attr(data-short);font-size:19px}
+
+  .bigTimer{margin-bottom:12px}
+  .controlRow.cols4{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .controlRow.cols3 button{padding:11px 4px;font-size:13px}
+
+  /* четыре плитки статистики → одна строка «В игре 6/6 · Входов 7 · …» */
+  .kpis.kpiLine{display:flex;flex-wrap:wrap;gap:4px 14px;padding:9px 12px;border-radius:var(--r-md);background:var(--surface-2)}
+  .card .kpis.kpiLine .kpi{display:flex;align-items:baseline;gap:6px;padding:0;background:none;border-radius:0}
+  .kpis.kpiLine .kpiLabel{letter-spacing:.04em}
+  .kpis.kpiLine .kpiLabel[data-short]{font-size:0}
+  .kpis.kpiLine .kpiLabel[data-short]::after{content:attr(data-short);font-size:11px}
+  .card .kpis.kpiLine .kpi .kpiValue{font-size:15px;margin:0}
+
+  .ratingCtrls{grid-template-columns:minmax(0,1fr) auto auto}
+
+  .plRow{gap:8px;padding:10px}
+  .stepper{grid-template-columns:minmax(0,1fr) 34px 34px;gap:5px}
+  .stepper input{padding-left:8px;padding-right:4px}
+  /* заголовок карточки целиком, длинный тег справа — с многоточием */
+  .cardHead h2{flex:1 0 auto}
+  .cardHead .tag{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .plNick{font-size:14px}
+  .structBtns{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .levelRow{grid-template-columns:12px 22px repeat(3,minmax(0,1fr)) 26px 24px 28px;gap:4px;padding:5px}
+  .levelRow input{font-size:13px;padding:8px 2px}
+  .levelRow>button[data-del]{width:28px;height:28px}
+  .lvMoveBtns button{width:24px}
+  .levelHead span{letter-spacing:.06em}
+}
+/* Сайдбар (≥900px): контент не растягивается на весь экран — поля структуры
+   и кнопки игроков в полметра шириной читались хуже, чем узкая колонка. */
+@media(min-width:900px){
+  body.adminPage .wrap{max-width:1000px}
 }
 
 /* ── Переход между страницами клуба ──────────────────────────── */

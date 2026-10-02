@@ -69,39 +69,40 @@
       <input id="newRoomName" type="text" maxlength="80" placeholder="Вятский Фриз-аут, 19:00"/></div>
     <div class="field" id="newRoomTournamentField"><label>Привязать к турниру</label>
       <select id="newRoomTournament"><option value="">— без привязки —</option></select>
-      <div class="muted">Записавшиеся через приложение попадут в рум сразу, новые — по кнопке «Загрузить из TG».</div></div>
+      <div class="muted mHint">Записавшиеся через приложение попадут в рум сразу, новые — по кнопке «Загрузить из TG».</div></div>
     <button id="btnCreate" type="button">+ Создать комнату</button>
     <div id="roomsList" class="list" style="margin-top:14px"></div>
   </section>
 
   <!-- ── Таймер ────────────────────────────────────────────────────────── -->
   <section id="screenTimer" class="card ink" style="display:none">
-    <div class="cardHead"><div class="eyebrow on-accent" style="color:rgba(255,252,244,.6)">Панель управления</div></div>
-    <div id="bigTimer" style="display:flex;align-items:baseline;gap:14px;flex-wrap:wrap;margin-bottom:14px">
-      <div id="bigTime" style="font-size:clamp(44px,9vw,64px);font-weight:900;letter-spacing:-.03em;font-variant-numeric:tabular-nums">--:--</div>
+    <!-- Статус — в шапке карточки: рядом с часами он на телефоне уезжал
+         отдельной строкой под ними и раздувал карточку. -->
+    <div class="cardHead"><div class="eyebrow on-accent" style="flex:1;color:rgba(255,252,244,.6)">Панель управления</div>
+      <span class="badge gold" id="bigStatus">STOPPED</span></div>
+    <div class="bigTimer">
+      <div id="bigTime">--:--</div>
       <div>
-        <div id="bigLevel" style="font-size:16px;font-weight:900">Уровень —</div>
-        <div id="bigBlinds" style="font-size:14px;color:var(--gold);font-weight:800">—</div>
+        <div id="bigLevel">Уровень —</div>
+        <div id="bigBlinds">—</div>
       </div>
-      <span class="badge gold" id="bigStatus" style="margin-left:auto">STOPPED</span>
     </div>
-    <div class="controlRow">
+    <div class="controlRow cols2">
       <button id="start" type="button">▶ Старт</button>
       <button id="pauseResumeBtn" class="ghost" type="button">⏸ Пауза</button>
     </div>
-    <div class="controlRow">
+    <div class="controlRow cols4">
       <button id="prev" class="ghost" type="button">← Уровень</button>
       <button id="next" class="ghost" type="button">Уровень →</button>
       <button id="minus60" class="ghost" type="button">−60 сек</button>
       <button id="plus60" class="ghost" type="button">+60 сек</button>
     </div>
-    <div class="controlRow">
+    <div class="controlRow cols3">
       <button id="breakToggleBtn" class="gold" type="button">☕ Перерыв</button>
-      <button id="finalTableToggleBtn" class="ghost" type="button">🏆 Финальный стол</button>
+      <button id="finalTableToggleBtn" class="ghost" type="button">🏆 Финалка</button>
       <button id="reset" class="danger" type="button" style="background:rgba(255,252,244,.06)">Сброс</button>
     </div>
-    <div class="mono" id="tinfo" style="margin-top:10px;color:rgba(255,252,244,.55)"></div>
-    <div class="controlRow" style="margin-top:14px">
+    <div class="controlRow cols1" style="margin-top:14px">
       <button id="btnFinishTournament" type="button">✓ Завершить турнир</button>
     </div>
     <div id="finishTournamentInfo" class="sub" role="status" style="color:rgba(255,252,244,.75)"></div>
@@ -124,11 +125,11 @@
   <section id="screenPreset" class="card collapsible" style="display:none">
     <div class="cardHead"><h2>Формат турнира</h2><span class="tag" id="presetSrc">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="sub" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
+    <div class="sub mHint" style="margin-bottom:10px">Макет заменит структуру блайндов и стартовый стек.</div>
     <div id="presetGrid" class="presetGrid"></div>
     <div class="btnrow" id="bpAdminRow" style="margin-top:12px;display:none">
       <button id="btnBpNew" type="button">+ Новый макет</button>
-      <span class="sub">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
+      <span class="sub mHint">Правка макета не трогает идущие турниры — уровни копируются в комнату.</span>
     </div>
     </div>
   </section>
@@ -137,44 +138,52 @@
   <section id="screenQuick" class="card compact" style="display:none">
     <div class="cardHead"><h2>Турнир</h2><button id="btnSaveQuick" class="tiny" type="button">Сохранить</button></div>
     <div class="field"><label>Название</label><input id="tourName" type="text" maxlength="80"/></div>
+    <!-- Подписи короткие и в одну строку: длинная («Поздняя рег. до уровня
+         (0 = нет)») переносилась, и её поле съезжало ниже соседних. -->
     <div class="quickGrid">
-      <div class="field" style="margin:0"><label>Стартовый стек</label>
+      <div class="field"><label title="Стартовый стек, фишек">Стартовый стек</label>
         <div class="stepper">
           <input id="startStack" type="number" min="0" step="1000" value="30000" inputmode="numeric"/>
           <button id="btnStartMinus" class="ghost" type="button">−</button>
           <button id="btnStartPlus" class="ghost" type="button">+</button>
         </div></div>
-      <div class="field" style="margin:0"><label>Поздняя рег. до уровня (0 = нет)</label>
+      <div class="field"><label title="Поздняя регистрация до уровня включительно, 0 — без поздней регистрации">ПР до уровня</label>
         <div class="stepper">
           <input id="lateReg" type="number" min="0" step="1" value="0" inputmode="numeric"/>
           <button id="btnLateMinus" class="ghost" type="button">−</button>
           <button id="btnLatePlus" class="ghost" type="button">+</button>
         </div></div>
-      <div class="field" style="margin:0"><label>Взнос, ₽</label><input id="defaultBuyIn" type="number" min="0" step="100" value="800" inputmode="numeric"/></div>
-      <div class="field" style="margin:0"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
+      <div class="field"><label>Взнос, ₽</label><input id="defaultBuyIn" type="number" min="0" step="100" value="800" inputmode="numeric"/></div>
+      <div class="field"><label>Реентри, ₽</label><input id="defaultReentry" type="number" min="0" step="100" value="500" inputmode="numeric"/></div>
     </div>
 
-    <div class="switchRow"><span class="switchLabel">Аддон</span><input id="addonEnabled" type="checkbox"/></div>
-    <div id="addonFields" style="display:none">
-      <div class="quickGrid">
-        <div class="field" style="margin:0"><label>Аддон — стек</label><input id="addon1Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
-        <div class="field" style="margin:0"><label>Аддон — цена, ₽</label><input id="addon1Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
-        <div class="field" style="margin:0"><label>Двойной аддон — стек</label><input id="addon2Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
-        <div class="field" style="margin:0"><label>Двойной аддон — цена, ₽</label><input id="addon2Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
-        <div class="field" style="margin:0"><label>Тройной аддон — стек</label><input id="addon3Stack" type="number" min="0" step="1000" value="0" inputmode="numeric"/></div>
-        <div class="field" style="margin:0"><label>Тройной аддон — цена, ₽</label><input id="addon3Cost" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
-      </div>
+    <!-- Галочка аддона и раскрытие счётчиков — одной строкой, без отдельных плашек -->
+    <div class="quickToggles">
+      <label class="quickToggle"><input id="addonEnabled" type="checkbox"/>Аддон</label>
+      <span id="countersToggleRow" style="display:none;margin-left:auto">
+        <button id="btnCountersToggle" class="tiny ghost" type="button" title="Счётчики без имён — считаются из списка игроков">▶ Счётчики</button>
+      </span>
+    </div>
+    <!-- Три размера аддона — таблицей: подписи «стек / цена» один раз сверху,
+         поля стоят ровными колонками, а не шестью карточками вразнобой. -->
+    <div id="addonFields" class="addonGrid" style="display:none">
+      <span></span><span class="agHead">Стек</span><span class="agHead">Цена, ₽</span>
+      <span class="agLbl">Аддон</span>
+      <input id="addon1Stack" type="number" min="0" step="1000" value="0" inputmode="numeric" aria-label="Аддон — стек"/>
+      <input id="addon1Cost" type="number" min="0" step="100" value="0" inputmode="numeric" aria-label="Аддон — цена"/>
+      <span class="agLbl">Двойной</span>
+      <input id="addon2Stack" type="number" min="0" step="1000" value="0" inputmode="numeric" aria-label="Двойной аддон — стек"/>
+      <input id="addon2Cost" type="number" min="0" step="100" value="0" inputmode="numeric" aria-label="Двойной аддон — цена"/>
+      <span class="agLbl">Тройной</span>
+      <input id="addon3Stack" type="number" min="0" step="1000" value="0" inputmode="numeric" aria-label="Тройной аддон — стек"/>
+      <input id="addon3Cost" type="number" min="0" step="100" value="0" inputmode="numeric" aria-label="Тройной аддон — цена"/>
     </div>
 
     <!-- Счётчики без имён: турнир, который ведут «по головам». Как только
          появляется список игроков, статистика считается из него, и блок
          схлопывается — два источника правды развалили бы места и оплату. -->
-    <div id="countersWrap" style="margin-top:10px">
-      <div id="countersToggleRow" style="display:none;align-items:center;gap:8px;margin-bottom:6px">
-        <span class="sub" style="flex:1">Счётчики без имён — считаются из списка игроков</span>
-        <button id="btnCountersToggle" class="tiny ghost" type="button">▶ Раскрыть</button>
-      </div>
-      <div id="countersBody" class="grid2">
+    <div id="countersWrap">
+      <div id="countersBody" class="quickGrid cols3">
         <div class="field" style="margin:0"><label>Игроков</label>
           <div class="stepper">
             <input id="cntRegistered" type="number" min="0" step="1" value="0" inputmode="numeric"/>
@@ -196,11 +205,13 @@
       </div>
     </div>
 
-    <div class="kpis">
+    <!-- На телефоне четыре плитки сворачиваются в одну строку
+         «В игре 6/6 · Входов 7 · Ср. стек 35 000 · Фишек 210 000» -->
+    <div class="kpis kpiLine">
       <div class="kpi"><div class="kpiLabel">В игре</div><div class="kpiValue num" id="kAlive">—</div></div>
-      <div class="kpi"><div class="kpiLabel">Всего входов</div><div class="kpiValue num" id="kEntries">—</div></div>
-      <div class="kpi hot"><div class="kpiLabel">Средний стек</div><div class="kpiValue num" id="kAvg">—</div></div>
-      <div class="kpi"><div class="kpiLabel">Фишек в игре</div><div class="kpiValue num" id="kChips">—</div></div>
+      <div class="kpi"><div class="kpiLabel" data-short="Входов">Всего входов</div><div class="kpiValue num" id="kEntries">—</div></div>
+      <div class="kpi hot"><div class="kpiLabel" data-short="Ср. стек">Средний стек</div><div class="kpiValue num" id="kAvg">—</div></div>
+      <div class="kpi"><div class="kpiLabel" data-short="Фишек">Фишек в игре</div><div class="kpiValue num" id="kChips">—</div></div>
     </div>
   </section>
 
@@ -208,14 +219,14 @@
   <section id="screenRating" class="card collapsible" style="display:none">
     <div class="cardHead"><h2>Призовая зона</h2><span class="tag" id="ratingState">выключена</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="sub" style="margin-bottom:10px">Очки рейтинга: вход = 100 очков, весь банк идёт по местам — ноки в рейтинге не учитываются. Показывается на дисплее.</div>
-    <div class="row2" style="margin-bottom:10px">
-      <div class="field" style="margin:0"><label>Гарантия очков (0 — без гарантии)</label>
+    <div class="sub mHint" style="margin-bottom:10px">Очки рейтинга: вход = 100 очков, весь банк идёт по местам — ноки в рейтинге не учитываются. Показывается на дисплее. Гарантия 0 — без гарантии.</div>
+    <!-- Поле и кнопки на одной линии: раньше длинная подпись переносилась
+         в четыре строки, и кнопки стояли выше поля. -->
+    <div class="ratingCtrls">
+      <div class="field"><label title="Минимальный общий пул очков, 0 — без гарантии">Гарантия очков</label>
         <input id="ratingGuarantee" type="number" min="0" step="100" value="0" inputmode="numeric"/></div>
-      <div style="display:flex;align-items:flex-end;gap:8px">
-        <button id="btnCalcRating" type="button">Рассчитать</button>
-        <button id="btnHideRating" class="ghost" type="button">Скрыть</button>
-      </div>
+      <button id="btnCalcRating" type="button">Рассчитать</button>
+      <button id="btnHideRating" class="ghost" type="button">Скрыть</button>
     </div>
     <div id="ratingPreview" class="list"></div>
     </div>
@@ -228,7 +239,7 @@
     <!-- Левая колонка на ТВ одна на двоих: инфо висит там постоянно,
          пока её не занимает призовая зона. Раньше об этом нигде не было сказано —
          ведущий сохранял руку дня и не понимал, почему на экране пусто. -->
-    <div class="sub" style="margin-bottom:10px">Левая колонка ТВ: видна всегда, пока выключена призовая зона.</div>
+    <div class="sub mHint" style="margin-bottom:10px">Левая колонка ТВ: видна всегда, пока выключена призовая зона.</div>
     <div class="sub err" id="infoWhy" style="margin:-6px 0 10px"></div>
     <div class="field"><label>🃏 Бонусная рука дня</label>
       <div class="cpSlots" id="cpSlots">
@@ -257,7 +268,7 @@
       <button id="btnImportToggle" class="ghost" type="button">Импорт списка</button>
     </div>
     <div id="importBox" style="display:none;margin-bottom:12px">
-      <div class="sub">Нумерованный список из Telegram — по игроку в строке («1.», «1)», «1️⃣»).</div>
+      <div class="sub mHint">Нумерованный список из Telegram — по игроку в строке («1.», «1)», «1️⃣»).</div>
       <textarea id="playersImportText" spellcheck="false" style="min-height:130px;margin-top:8px"></textarea>
       <div class="btnrow" style="margin-top:8px">
         <button id="btnPlayersReplace" type="button">Заменить список</button>
@@ -273,7 +284,7 @@
   <section id="screenPayments" class="card collapsible" style="display:none">
     <div class="cardHead"><h2>Оплата</h2><span class="tag" id="payInfo">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="sub" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос.</div>
+    <div class="sub mHint" style="margin-bottom:10px">Считаются только пришедшие. К оплате = (входы − free entry) × взнос.</div>
     <input id="paySearch" type="search" placeholder="🔎 Поиск игрока" autocomplete="off" style="margin-bottom:10px"/>
     <div id="payList" class="list"></div>
     <div class="kpis" id="paySummary" style="margin-top:12px">
@@ -286,16 +297,16 @@
       <button id="btnPaymentsReport" type="button">💾 Сохранить отчёт</button>
       <span class="muted" id="paymentsReportInfo" style="align-self:center"></span>
     </div>
-    <div class="sub">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
+    <div class="sub mHint">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
       Сохранять можно сколько угодно раз: отчёт перезаписывается, а не дублируется.</div>
     </div>
   </section>
 
   <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
   <section id="screenTgImport" class="card collapsible" style="display:none">
-    <div class="cardHead"><h2>Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardHead"><h2 data-short="Из приложения">Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="sub" style="margin-bottom:10px">Подтягивает тех, кто записался на привязанный турнир через Telegram Mini App.</div>
+    <div class="sub mHint" style="margin-bottom:10px">Подтягивает тех, кто записался на привязанный турнир через Telegram Mini App.</div>
     <div class="btnrow">
       <button id="btnImportFromTG" type="button">📲 Загрузить список</button>
       <button id="btnImportFromTGAdd" class="ghost" type="button">Добавить к текущему</button>
@@ -308,7 +319,7 @@
   <section id="screenPost" class="card collapsible" style="display:none">
     <div class="cardHead"><h2>Пост для Telegram</h2><span class="tag" id="postInfo">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="sub" style="margin-bottom:10px">Итоги турнира: в игре — сверху, вылетевшие — по хронологии вылетов. Призовая зона отбита пустой строкой.</div>
+    <div class="sub mHint" style="margin-bottom:10px">Итоги турнира: в игре — сверху, вылетевшие — по хронологии вылетов. Призовая зона отбита пустой строкой.</div>
     <div class="btnrow">
       <button id="btnBuildPost" type="button">Сформировать</button>
       <button id="btnCopyPost" class="ghost" type="button">Копировать</button>
@@ -334,19 +345,20 @@
   </section>
 
   <section id="screenStructure" class="card collapsible" style="display:none">
-    <div class="cardHead"><h2>Структура блайндов</h2><span class="tag" id="structInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardHead"><h2 data-short="Структура">Структура блайндов</h2><span class="tag" id="structInfo">—</span><button class="cardToggle" type="button">▶</button></div>
     <div class="cardBody">
-    <div class="btnrow" style="margin-bottom:10px">
-      <button id="addLevel" type="button">+ Уровень</button>
+    <div class="structBtns">
+      <button id="addLevel" class="ghost" type="button">+ Уровень</button>
       <button id="addBreak" class="ghost" type="button">+ Перерыв</button>
-      <button id="btnStructureSave" type="button">Сохранить структуру</button>
       <button id="btnStructureReset" class="ghost" type="button">Дефолт</button>
+      <button id="btnStructureSave" type="button">Сохранить</button>
     </div>
-    <div style="display:grid;grid-template-columns:34px repeat(3,minmax(64px,1fr)) auto auto;gap:6px;padding:0 6px 4px;">
-      <span class="eyebrow">#</span><span class="eyebrow">мин</span><span class="eyebrow">SB</span>
-      <span class="eyebrow">BB</span><span class="eyebrow">анте</span><span class="eyebrow"></span>
+    <!-- Шапка — та же сетка, что у строк уровней (.levelRow), иначе «SB»
+         стоял над минутами, а «анте» — над BB. -->
+    <div class="levelRow levelHead" aria-hidden="true">
+      <span></span><span>#</span><span>мин</span><span>SB</span><span>BB</span><span>анте</span><span></span><span></span>
     </div>
-    <div id="levelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div id="levelsBox" class="levelsBox"></div>
     </div>
   </section>
 
@@ -438,28 +450,45 @@
 <div class="modal" id="bpModal">
   <div class="modalCard" style="width:min(760px,100%);max-height:92vh;overflow:auto">
     <h2 id="bpTitle">Новый макет</h2>
-    <div class="sub" style="margin-bottom:10px">Макет общий для клуба. Уже идущие турниры не изменятся.</div>
-    <div class="grid2">
-      <div class="field"><label>Название</label><input id="bpName" type="text" maxlength="80"/></div>
+    <div class="sub" style="margin-bottom:10px">Макет общий для клуба. Уже идущие турниры не изменятся. Пустое поле — макет его не задаёт.</div>
+    <!-- «Пусто — не задавать» живёт в плейсхолдере: в подписи оно переносило
+         её на вторую строку, и поля в соседних колонках стояли вразнобой. -->
+    <div class="field"><label>Название</label><input id="bpName" type="text" maxlength="80"/></div>
+    <div class="quickGrid cols3">
       <div class="field"><label>Стартовый стек</label><input id="bpStack" type="number" min="1" inputmode="numeric"/></div>
-      <div class="field"><label>Поздняя рег. до уровня (0 — нет)</label><input id="bpLateReg" type="number" min="0" inputmode="numeric"/></div>
-      <div class="field"><label>Взнос, ₽ (пусто — не задавать)</label><input id="bpBuyIn" type="number" min="0" inputmode="numeric"/></div>
-      <div class="field"><label>Реентри, ₽ (пусто — не задавать)</label><input id="bpReentry" type="number" min="0" inputmode="numeric"/></div>
-      <div class="field"><label>Аддон — стек (пусто — без аддона)</label><input id="bpAddonStack" type="number" min="0" step="1000" inputmode="numeric"/></div>
-      <div class="field"><label>Аддон — цена, ₽ (пусто — без аддона)</label><input id="bpAddonCost" type="number" min="0" step="100" inputmode="numeric"/></div>
+      <div class="field"><label title="Поздняя регистрация до уровня включительно, 0 — нет">ПР до уровня</label><input id="bpLateReg" type="number" min="0" inputmode="numeric" placeholder="0 — нет"/></div>
+      <div class="field"><label>Взнос, ₽</label><input id="bpBuyIn" type="number" min="0" inputmode="numeric" placeholder="не задавать"/></div>
+      <div class="field"><label>Реентри, ₽</label><input id="bpReentry" type="number" min="0" inputmode="numeric" placeholder="не задавать"/></div>
+      <div class="field"><label>Аддон — стек</label><input id="bpAddonStack" type="number" min="0" step="1000" inputmode="numeric" placeholder="без аддона"/></div>
+      <div class="field"><label>Аддон — цена, ₽</label><input id="bpAddonCost" type="number" min="0" step="100" inputmode="numeric" placeholder="без аддона"/></div>
     </div>
     <div class="cardHead" style="margin-top:14px"><h2 style="font-size:17px">Уровни</h2><span class="tag" id="bpLevelsInfo">—</span></div>
     <div class="btnrow" style="margin:8px 0">
       <button id="bpAddLevel" class="ghost" type="button">+ Уровень</button>
       <button id="bpAddBreak" class="ghost" type="button">+ Перерыв</button>
     </div>
-    <div id="bpLevelsBox" style="display:flex;flex-direction:column;gap:6px"></div>
+    <div class="levelRow levelHead" aria-hidden="true">
+      <span></span><span>#</span><span>мин</span><span>SB</span><span>BB</span><span>анте</span><span></span><span></span>
+    </div>
+    <div id="bpLevelsBox" class="levelsBox"></div>
     <div class="err" id="bpErr" style="margin-top:8px"></div>
     <div class="btnrow" style="margin-top:12px">
       <button id="bpSave" type="button">Сохранить</button>
       <button id="bpDelete" class="ghost danger" type="button" style="display:none">Удалить</button>
       <button id="bpCancel" class="ghost" type="button">Отмена</button>
     </div>
+  </div>
+</div>
+
+<!-- «+ Перерыв»: куда поставить. Раньше перерыв всегда уезжал в самый
+     конец, и его приходилось тащить вверх через два десятка уровней. -->
+<div class="modal" id="breakPlaceModal">
+  <div class="modalCard">
+    <h2>Добавить перерыв</h2>
+    <div class="field"><label for="breakPlaceSel">Поставить</label><select id="breakPlaceSel"></select></div>
+    <div class="field"><label for="breakPlaceMin">Длительность, мин</label>
+      <input id="breakPlaceMin" type="number" min="1" step="1" value="15" inputmode="numeric"/></div>
+    <div class="btnrow"><button id="breakPlaceOk" type="button">Добавить</button><button id="breakPlaceCancel" class="ghost" type="button">Отмена</button></div>
   </div>
 </div>
 
@@ -660,6 +689,7 @@
     $("screenCreate").style.display = "";
     $("screens").classList.remove("onepage");
     $("tabbar").style.display = "none";
+    $("badgeRoom").style.display = "none";   // «• —» на списке комнат ничего не сообщает
     const listTitle = isOperator() ? "Ваши турниры" : "Комнаты";
     $("headTitle").textContent = listTitle;
     $("createTitle").textContent = listTitle;   // шапка и карточка под ней не должны спорить
@@ -1191,10 +1221,10 @@
   function renderCounters() {
     const locked = hasPlayerList();
     const row = $("countersToggleRow"), body = $("countersBody");
-    row.style.display = locked ? "flex" : "none";
+    row.style.display = locked ? "" : "none";
     body.style.display = (!locked || countersExpanded) ? "" : "none";
     if (!locked) countersExpanded = false;
-    $("btnCountersToggle").textContent = countersExpanded ? "▼ Свернуть" : "▶ Раскрыть";
+    $("btnCountersToggle").textContent = countersExpanded ? "▼ Счётчики" : "▶ Счётчики";
     ["cntRegistered", "cntReentries", "cntBusted"].forEach((id) => {
       const el = $(id);
       el.disabled = locked;
@@ -1655,6 +1685,10 @@
       return a.name.localeCompare(b.name, "ru");
     });
     const ADDON_TAG = { 1: "аддон", 2: "2× аддон", 3: "3× аддон" };
+    // Кнопки стоят в постоянных ячейках сетки (.plActs): R− рисуется всегда,
+    // просто выключенной. Раньше она появлялась только после реентри, и у этого
+    // игрока «Вылетел», «А», «2А» съезжали относительно соседних строк.
+    $("playersList").classList.toggle("noAddon", !addonEnabled);
     box.innerHTML = sorted.map((p) => {
       const n = escHtml(p.name);
       const j = jsArg(p.name);
@@ -1676,18 +1710,22 @@
         ? `<button class="tiny" onclick="_vp.togglePresent(${j})">Пришёл</button>`
         : busted
           ? `<button class="tiny ghost" onclick="_vp.reentryPlayer(${j})">↩ Реентри</button>
-             <button class="tiny ghost" onclick="_vp.fixBust(${j})">✎ Исправить</button>
-             <button class="tiny ghost" onclick="_vp.undoBust(${j})">Отменить</button>`
-          : `<button class="tiny" onclick="_vp.bustPlayer(${j})">BUSTED</button>
-             <button class="tiny ghost" onclick="_vp.addReentry(${j},1)">R+</button>
-             ${p.reentries ? `<button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри">R−</button>` : ""}
-             ${addonBtns}
-             <button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>`;
-      return `<div class="listRow${busted ? " busted" : ""}">
+             <button class="tiny ghost plFix" onclick="_vp.fixBust(${j})">✎ Исправить</button>
+             <button class="tiny ghost plUndo" onclick="_vp.undoBust(${j})">Отменить</button>`
+          : `<button class="tiny" onclick="_vp.bustPlayer(${j})">Вылетел</button>
+             <button class="tiny ghost" onclick="_vp.addReentry(${j},-1)" title="Снять реентри" ${p.reentries ? "" : "disabled"}>R−</button>
+             <button class="tiny ghost" onclick="_vp.addReentry(${j},1)" title="Добавить реентри">R+</button>
+             ${addonBtns}`;
+      // «Не пришёл» — исправление ошибочной отметки, а не действие вечера:
+      // живёт рядом с ✕ в углу строки, а не в ряду рабочих кнопок.
+      const side = (p.present && !busted
+        ? `<button class="tiny ghost" onclick="_vp.togglePresent(${j})" title="Отметили по ошибке — вернуть в список не пришедших">Не пришёл</button>` : "")
+        + `<button class="tiny ghost" onclick="_vp.removePlayer(${j})" title="Удалить из списка">✕</button>`;
+      return `<div class="plRow${busted ? " busted" : ""}">
         ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
-        <span class="nm">${n}<div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${tags}</div></span>
-        <span class="rowActs stack">${actions}
-          <button class="tiny ghost" onclick="_vp.removePlayer(${j})">✕</button></span>
+        <span class="plName"><span class="plNick">${n}</span>${tags ? `<span class="plTags">${tags}</span>` : ""}</span>
+        <span class="plSide">${side}</span>
+        <span class="plActs">${actions}</span>
       </div>`;
     }).join("");
     loadMissingPhotos(players);
@@ -1728,7 +1766,7 @@
       if (error) throw error;
       const got = (data || []).filter((r) => r.photo_url);
       got.forEach((r) => photoById.set(r.id, r.photo_url));
-      if (got.length) renderPlayers();
+      if (got.length) { renderPlayers(); renderPayments(); }
     } catch (e) {
       ids.forEach((id) => photoAsked.delete(id));   // повторим при следующей отрисовке
     }
@@ -1870,10 +1908,16 @@
     if (!present.length) { box.innerHTML = '<div class="muted">Никто ещё не отмечен пришедшим.</div>'; return; }
     const visible = present.filter((p) => !paySearchQuery || keyName(p.name).includes(paySearchQuery));
     if (!visible.length) { box.innerHTML = '<div class="muted">Никого не нашли.</div>'; return; }
-    // Сначала те, кто ещё должен: экран нужен, чтобы закрывать долги.
+    // Сначала те, кто ещё должен: экран нужен, чтобы закрывать долги. Среди
+    // должников выше — вылетевшие, в порядке вылета: они уходят из клуба первыми.
     const sorted = visible.slice().sort((a, b) => {
       const ad = remainingAmount(a, tour) <= 0, bd = remainingAmount(b, tour) <= 0;
       if (ad !== bd) return ad ? 1 : -1;
+      if (!ad) {
+        const ao = a.status === "busted", bo = b.status === "busted";
+        if (ao !== bo) return ao ? -1 : 1;
+        if (ao) return (Number(a.bustOrder) || 0) - (Number(b.bustOrder) || 0);
+      }
       return a.name.localeCompare(b.name, "ru");
     });
     box.innerHTML = sorted.map((p) => {
@@ -1887,10 +1931,17 @@
         : rest > 0
           ? `<span class="payRest debt">−${NF.format(rest)} ₽</span>`
           : '<span class="payRest ok">оплачено</span>';
+      // «Снять» и «Сброс» — значками в углу и только когда есть что снимать:
+      // кнопкой в общем ряду «Сброс» переносился на отдельную строку. Место
+      // под значки держится всегда, иначе суммы стояли бы вразнобой.
+      const touched = paid > 0 || effectiveFreeEntries(p) > 0 || p.buyIn != null || (p.tariff && p.tariff !== "full");
+      const icons = (paid ? `<button class="payIcon" onclick="_vp.payUndo(${j})" title="Снять последний платёж" aria-label="Снять последний платёж">↩</button>` : "")
+        + (touched ? `<button class="payIcon danger" onclick="_vp.payClear(${j})" title="Сбросить оплату: тариф, free entry и платежи" aria-label="Сбросить оплату">↺</button>` : "");
       return `<div class="payRow${rest <= 0 ? " settled" : ""}">
         <span class="payDot ${stt}"></span>
+        ${avatarHtml(p.name, p.photo_url || photoById.get(p.player_id))}
         <div class="payMain">
-          <div class="payTop"><span class="payName">${escHtml(p.name)}</span>${restHtml}</div>
+          <div class="payTop"><span class="payName">${escHtml(p.name)}</span>${restHtml}<span class="payIcons">${icons}</span></div>
           <div class="payMeta">${payMetaHtml(p, tour)}</div>
           <div class="payBtns">
             <button class="ghost${tariff === "full" ? " on" : ""}" onclick="_vp.payTariff(${j},'full')">100%</button>
@@ -1898,8 +1949,6 @@
             <button class="ghost${tariff === "free" ? " on" : ""}" onclick="_vp.payTariff(${j},'free')">Free</button>
             <button class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" onclick="_vp.payFreeEntry(${j})">Free entry</button>
             <button onclick="_vp.payAdd(${j})">${paid ? "Доплата" : "Оплатить"}</button>
-            ${paid ? `<button class="ghost" onclick="_vp.payUndo(${j})">↩ Снять</button>` : ""}
-            <button class="ghost" onclick="_vp.payClear(${j})">Сброс</button>
           </div>
         </div>
       </div>`;
@@ -2048,10 +2097,10 @@
         <span class="lvIdx">${num}</span>
         <input class="lvMin" type="number" min="0" value="${clampInt(l.min, 0)}" inputmode="numeric"/>
         ${l.isBreak
-          ? '<span class="muted" style="grid-column:span 2;align-self:center">перерыв</span><span></span>'
+          ? '<span class="lvBreakLbl">перерыв</span><span></span>'
           : `<input class="lvSb" type="number" min="0" value="${clampInt(l.sb, 0)}" inputmode="numeric"/>
              <input class="lvBb" type="number" min="0" value="${clampInt(l.bb, 0)}" inputmode="numeric"/>
-             <label style="display:grid;place-items:center"><input class="lvAnte" type="checkbox" ${l.anteMode === "BB" ? "checked" : ""}/></label>`}
+             <label class="lvAnteBox" title="Анте = BB"><input class="lvAnte" type="checkbox" ${l.anteMode === "BB" ? "checked" : ""}/></label>`}
         <span class="lvMoveBtns">
           <button class="tiny ghost" data-up="${i}" type="button" title="Выше" ${i === 0 ? "disabled" : ""}>▲</button>
           <button class="tiny ghost" data-down="${i}" type="button" title="Ниже" ${i === levels.length - 1 ? "disabled" : ""}>▼</button>
@@ -2074,7 +2123,9 @@
         markEdit();
         const lv = readLevels(ctx);
         [lv[i - 1], lv[i]] = [lv[i], lv[i - 1]];
+        const fromTop = b.closest("[data-lv]").getBoundingClientRect().top;
         renderLevels(lv, ctx);
+        flashLevel(ctx, i - 1, fromTop);
       };
     });
     $(ctx.box).querySelectorAll("[data-down]").forEach((b) => {
@@ -2084,7 +2135,9 @@
         if (i >= lv.length - 1) return;
         markEdit();
         [lv[i + 1], lv[i]] = [lv[i], lv[i + 1]];
+        const fromTop = b.closest("[data-lv]").getBoundingClientRect().top;
         renderLevels(lv, ctx);
+        flashLevel(ctx, i + 1, fromTop);
       };
     });
     $(ctx.box).querySelectorAll("input").forEach((el) => { el.oninput = markEdit; });
@@ -2123,8 +2176,30 @@
         lv.splice(targetIdx, 0, moved);
         dragIdx = null;
         renderLevels(lv, ctx);
+        flashLevel(ctx, targetIdx);
       });
     });
+  }
+
+  // Переставленный уровень плавно доезжает с прежнего места (fromTop — где
+  // строка была до перерисовки) и вспыхивает: после ↑/↓ в длинном списке
+  // одинаковых строк глаз терял, куда он делся.
+  function flashLevel(ctx, idx, fromTop = null) {
+    const row = $(ctx.box).querySelector(`[data-lv="${idx}"]`);
+    if (!row) return;
+    if (fromTop != null) {
+      const d = fromTop - row.getBoundingClientRect().top;
+      if (d) {
+        row.style.transition = "none"; row.style.transform = `translateY(${d}px)`;
+        row.getBoundingClientRect();
+        row.style.transition = "transform .25s ease"; row.style.transform = "";
+        setTimeout(() => { row.style.transition = ""; }, 300);
+      }
+    }
+    row.classList.remove("lvFlash"); row.getBoundingClientRect(); row.classList.add("lvFlash");
+    row.addEventListener("animationend", () => row.classList.remove("lvFlash"), { once: true });
+    const r = row.getBoundingClientRect();
+    if (r.top < 80 || r.bottom > innerHeight - 100) row.scrollIntoView({ behavior: "smooth", block: "center" });
   }
   const addLevelTo = (ctx) => {
     const lv = readLevels(ctx);
@@ -2132,13 +2207,37 @@
     lv.push({ min: last.min, sb: last.sb * 2, bb: last.bb * 2, anteMode: last.anteMode });
     renderLevels(lv, ctx);
   };
+  // «+ Перерыв» спрашивает, куда его поставить (по умолчанию — в конец, как раньше)
   const addBreakTo = (ctx) => {
     const lv = readLevels(ctx);
-    lv.push({ isBreak: true, min: 15, label: "Перерыв" });
-    renderLevels(lv, ctx);
+    const sel = $("breakPlaceSel"), modal = $("breakPlaceModal");
+    let playNo = 0;
+    sel.innerHTML = ['<option value="0">В начало</option>'].concat(lv.map((l, i) => {
+      const label = l.isBreak
+        ? `После перерыва (${clampInt(l.min, 0)} мин)`
+        : `После уровня ${++playNo} · ${fmtInt(l.sb)}/${fmtInt(l.bb)}`;
+      return `<option value="${i + 1}">${escHtml(label)}</option>`;
+    })).join("");
+    sel.value = String(lv.length);
+    $("breakPlaceMin").value = "15";
+    modal.classList.add("show");
+    const close = () => {
+      modal.classList.remove("show");
+      $("breakPlaceOk").onclick = null; $("breakPlaceCancel").onclick = null; modal.onclick = null;
+    };
+    $("breakPlaceCancel").onclick = close;
+    modal.onclick = (e) => { if (e.target === modal) close(); };
+    $("breakPlaceOk").onclick = () => {
+      const at = Math.min(Math.max(clampInt(sel.value, 0), 0), lv.length);
+      lv.splice(at, 0, { isBreak: true, min: Math.max(1, clampInt($("breakPlaceMin").value, 15)), label: "Перерыв" });
+      close();
+      if (ctx.tracksEdits) editingStructure = true;
+      renderLevels(lv, ctx);
+      flashLevel(ctx, at);
+    };
   };
   $("addLevel").onclick = () => { editingStructure = true; addLevelTo(STRUCT_CTX); };
-  $("addBreak").onclick = () => { editingStructure = true; addBreakTo(STRUCT_CTX); };
+  $("addBreak").onclick = () => addBreakTo(STRUCT_CTX);   // editingStructure — по «Добавить»
   $("btnStructureSave").onclick = async () => {
     setErr(null);
     const levels = readLevels();
@@ -2414,7 +2513,10 @@
     const sec = onBreak && breakSec !== null ? breakSec : (ti.isPaused ? (ti.pauseRemainingSec ?? 0) : (remainingSec(state) ?? 0));
 
     $("bigTime").textContent = ti.isRunning ? fmtTime(sec) : "--:--";
-    $("bigLevel").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${playLevelNum(levels, ti.levelIndex)}`;
+    // «из N» — по игровым уровням, а не по строкам структуры с перерывами:
+    // служебная строка «L1/26 · STOPPED · конец уровня» под кнопками убрана.
+    const playTotal = levels.filter((l) => !l.isBreak).length;
+    $("bigLevel").textContent = lv.isBreak ? (lv.label || "Перерыв") : `Уровень ${playLevelNum(levels, ti.levelIndex)} из ${playTotal}`;
     $("bigBlinds").textContent = lv.isBreak ? "—" : `${fmtInt(lv.sb)} / ${fmtInt(lv.bb)}${lv.anteMode === "BB" ? ` · анте ${fmtInt(lv.bb)}` : ""}`;
     const finished = !!state.tournament?.finishedAt;
     const status = finished ? "ЗАВЕРШЁН" : !ti.isRunning ? "STOPPED" : (onBreak ? "BREAK" : (ti.isPaused ? "PAUSED" : "RUNNING"));
@@ -2426,16 +2528,8 @@
 
     $("pauseResumeBtn").textContent = ti.isPaused ? "▶ Продолжить" : "⏸ Пауза";
     $("breakToggleBtn").textContent = onBreak ? "▶ Закончить перерыв" : "☕ Перерыв";
-    $("finalTableToggleBtn").textContent = ti.finalTableActive ? "✕ Скрыть финал" : "🏆 Финальный стол";
-
-    const endAt = ti.levelEndAt ? new Date(ti.levelEndAt).toLocaleTimeString("ru-RU") : "—";
-    // Счёт по игровым уровням, а не по строкам структуры: раньше тут стояло
-    // «L1/31», пока экран структуры рядом писал «30 уровней · 1 перерыв».
-    const playTotal = levels.filter((l) => !l.isBreak).length;
-    const where = levels[ti.levelIndex]?.isBreak
-      ? `перерыв после L${playLevelNum(levels, ti.levelIndex)}/${playTotal}`
-      : `L${playLevelNum(levels, ti.levelIndex)}/${playTotal}`;
-    $("tinfo").textContent = `${where} · ${status} · конец уровня ${endAt}`;
+    $("finalTableToggleBtn").textContent = ti.finalTableActive ? "✕ Финалка" : "🏆 Финалка";
+    $("finalTableToggleBtn").title = ti.finalTableActive ? "Скрыть финальный стол с дисплея" : "Показать финальный стол на дисплее";
   }
 
   function renderKpis() {
@@ -2541,6 +2635,7 @@
   function boot(firstState) {
     setLinks(roomId);
     $("metaRoom").textContent = roomId;
+    $("badgeRoom").style.display = "";
     $("btnRefresh").style.display = "";
     $("btnBackRooms").style.display = "";
     $("btnBackRooms").textContent = isOperator() ? "← Турниры" : "← Комнаты";
