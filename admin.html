@@ -1499,11 +1499,45 @@
     });
   }
 
+  // Список в приложении читается из registrations, а не из рума: без этой
+  // записи посаженный из админки игрок за столом есть, а в приложении — нет.
+  // Ключ — та же свёртка, что players.name_key в базе.
+  const dbNameKey = (s) => keyName(s).replace(/ё/g, "е").replace(/й/g, "и");
+  async function ensureDbPlayer(name) {
+    const { data: found, error } = await sb.from(TBL.players).select("id,photo_url")
+      .eq("name_key", dbNameKey(name)).maybeSingle();
+    if (error) throw error;
+    if (found) return found;
+    const { data, error: insErr } = await sb.from(TBL.players).insert({ name }).select("id,photo_url").single();
+    if (insErr) throw insErr;
+    return data;
+  }
+  async function setRegistration(playerId, on) {
+    const t = linkedTournament || await refreshLinkedTournament();
+    if (!t || !playerId) return;
+    const q = on
+      ? sb.from(TBL.registrations).upsert({ tournament_id: t.id, player_id: playerId, status: "registered" },
+          { onConflict: "tournament_id,player_id" })
+      : sb.from(TBL.registrations).update({ status: "cancelled" })
+          .eq("tournament_id", t.id).eq("player_id", playerId);
+    const { error } = await q;
+    if (error) throw error;
+    refreshLinkedTournament().catch(() => {});
+  }
+
   $("btnPlayerAdd").onclick = async () => {
     const picked = await askPlayerFromDB();
     if (!picked) return;
     const name = normName(picked.name);
     if (!name) return;
+    // Набранного руками новичка заводим в базу до записи в рум: в руме он
+    // сразу с player_id, и триггер регистрации не продублирует его строкой.
+    if (!picked.id && (linkedTournament || await refreshLinkedTournament().catch(() => null))) {
+      try {
+        const row = await ensureDbPlayer(name);
+        picked.id = row.id; picked.photo_url = picked.photo_url || row.photo_url || null;
+      } catch (e) { console.warn("ensureDbPlayer", e); }
+    }
     try {
       await saveWithReload((st) => {
         const exists = st.players.find((p) => keyName(p.name) === keyName(name));
@@ -1518,7 +1552,10 @@
           ko: 0, player_id: picked.id ?? null, photo_url: picked.photo_url ?? null });
         return computeStatsFromPlayers(st);
       });
-    } catch (e) {}
+    } catch (e) { return; }
+    // Запись в рум уже есть — регистрация вторична, её сбой только показываем.
+    try { await setRegistration(picked.id, true); }
+    catch (e) { setErr(new Error(`В рум добавлен, но в записи турнира — нет: ${e.message || e}`)); }
   };
   $("playerSearch").oninput = (e) => { playerSearchQuery = keyName(e.target.value); renderPlayers(); };
 
@@ -1668,12 +1705,18 @@
   async function removePlayer(name) {
     const ok = await confirm2("Удалить игрока?", name);
     if (!ok) return;
+    let playerId = null;
     try {
       await saveWithReload((st) => {
+        playerId = findPlayer(st, name)?.player_id ?? null;
         st.players = st.players.filter((p) => keyName(p.name) !== keyName(name));
         return computeStatsFromPlayers(st);
       });
-    } catch (e) {}
+    } catch (e) { return; }
+    // Удалённый из рума снимается и с записи — иначе в приложении он так и
+    // висит записавшимся, а повторный импорт из приложения вернёт его в рум.
+    try { await setRegistration(playerId, false); }
+    catch (e) { setErr(new Error(`Из рума удалён, но запись на турнир осталась: ${e.message || e}`)); }
   }
   // Повторный клик по тому же размеру снимает аддон — выбор одного из трёх, не флаг.
   async function setAddon(name, tier) {
