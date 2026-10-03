@@ -1370,7 +1370,7 @@ document.addEventListener("touchmove", e => {
 <div class="modal" id="pickModal">
   <div class="modalCard">
     <h2>Записать игрока</h2>
-    <div class="sub" style="margin-bottom:10px">Имя или фамилия — можно латиницей.</div>
+    <div class="sub" style="margin-bottom:10px">Имя или фамилия — можно латиницей. Нет в базе — выбери «+ Новый игрок».</div>
     <input id="pickInput" type="search" placeholder="Имя или фамилия" autocomplete="off"/>
     <div id="pickResults" class="pickResults"></div>
     <div class="btnrow" style="margin-top:12px">
@@ -2738,6 +2738,9 @@ document.addEventListener("touchmove", e => {
   }
 
   let pickSeq = 0;
+  const cleanName = (s) => String(s || "").trim().replace(/\s+/g, " ");
+  // Та же свёртка, что players.name_key в базе.
+  const foldName = (s) => cleanName(s).toLowerCase().replace(/ё/g, "е").replace(/й/g, "и");
   function helperAdd(tid) {
     const modal = $("pickModal"), input = $("pickInput"), box = $("pickResults"), add = $("pickAdd");
     let selected = null, timer = null;
@@ -2759,12 +2762,16 @@ document.addEventListener("touchmove", e => {
       try {
         const rows = await rpc("vp_app_helper_search", { p_token: token, p_patterns: searchVariants(q) }) || [];
         if (seq !== pickSeq) return;
-        if (!rows.length) { box.innerHTML = '<div class="pickNote">В базе не нашлось</div>'; return; }
-        box.innerHTML = rows.map((p) => {
+        // Новичка поиск не найдёт — он записывается отдельным пунктом, а не
+        // «Записать» без выбора: иначе недонабранное «Ан» стало бы игроком.
+        const typed = cleanName(q);
+        const exact = rows.some((p) => foldName(p.name) === foldName(typed));
+        const newItem = exact ? "" : `<div class="pickItem" data-new="1" data-name="${escHtml(typed)}">+ Новый игрок «${escHtml(typed)}»<span class="full">в базе нет — заведём</span></div>`;
+        box.innerHTML = (rows.length ? "" : '<div class="pickNote">В базе не нашлось</div>') + rows.map((p) => {
           const already = inRoster.has(Number(p.id));
           return `<div class="pickItem"${already ? ' style="opacity:.5;cursor:default"' : ""} data-id="${Number(p.id)}" data-name="${escHtml(p.name)}"${already ? ' data-already="1"' : ""}>${escHtml(p.name)}${
             p.full_name && p.full_name !== p.name ? `<span class="full">${escHtml(p.full_name)}</span>` : ""}${already ? '<span class="full">уже записан</span>' : ""}</div>`;
-        }).join("");
+        }).join("") + newItem;
       } catch (e) {
         if (seq !== pickSeq) return;
         box.innerHTML = `<div class="pickNote">${escHtml(errText(e))}</div>`;
@@ -2782,13 +2789,41 @@ document.addEventListener("touchmove", e => {
       if (!item || item.dataset.already) return;
       box.querySelectorAll(".pickItem").forEach((el) => el.classList.remove("sel"));
       item.classList.add("sel");
-      selected = { id: Number(item.dataset.id), name: item.dataset.name };
+      selected = item.dataset.new ? { id: null, name: item.dataset.name } : { id: Number(item.dataset.id), name: item.dataset.name };
       add.disabled = false;
     };
-    add.onclick = () => { const p = selected; close(); if (p) helperSet(tid, p.id, true, p.name); };
+    add.onclick = () => {
+      const p = selected;
+      close();
+      if (!p) return;
+      if (p.id) helperSet(tid, p.id, true, p.name);
+      else helperAddNew(tid, p.name);
+    };
     $("pickCancel").onclick = close;
     modal.onclick = (e) => { if (e.target === modal) close(); };
-    input.onkeydown = (e) => { if (e.key === "Escape") close(); };
+    input.onkeydown = (e) => {
+      if (e.key === "Escape") close();
+      if (e.key === "Enter") { e.preventDefault(); if (!add.disabled) add.onclick(); }
+    };
+  }
+
+  async function helperAddNew(tid, name) {
+    if (regBusy) return;
+    regBusy = true;
+    try {
+      const res = await rpc("vp_app_helper_add_new", { p_token: token, p_tournament_id: tid, p_name: name });
+      const t = tours.find((x) => x.id === tid);
+      if (t && res?.registered_count != null) t.registered_count = Number(res.registered_count);
+      rosterCache[tid] = await rpc("vp_tournament_roster", { p_tournament_id: tid }) || [];
+      haptic("medium");
+      toast(`${res?.name || name} записан ✓`, "good");
+      renderAll();
+      if (openId === tid) renderTourney();
+    } catch (e) {
+      toast(errText(e), "bad");
+    } finally {
+      regBusy = false;
+    }
   }
 
   // ── Живой таймер ───────────────────────────────────────────────────────────
