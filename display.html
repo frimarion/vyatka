@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ru">
+<html lang="ru" data-theme="dark">
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
@@ -19,7 +19,31 @@
   --d-fg-dim:rgba(36,27,20,.42);
   --d-stroke:rgba(36,27,20,.14);
   --d-display:var(--sans);              /* дисплейного шрифта у клуба нет — тот же гротеск, но тяжёлый */
+  --d-track:rgba(36,27,20,.14);
+  --d-glow:rgba(36,27,20,.16);
+  --d-card-line:rgba(36,27,20,.25);
+  --d-num:var(--olive);                 /* на кремовом золото не читается — акцентные числа оливковые */
+  --d-overlay:rgba(255,252,244,.965);
 }
+/* Тёмная тема (выбирается в админке, по умолчанию). Светлая на большом ТВ
+   в тёмном зале слепит: фон — тёплый почти чёрный, текст кремовый,
+   орнамент едва угадывается, акцент и марка остаются оранжевыми. */
+html[data-theme="dark"]{
+  --bg:#15100C;
+  --surface:#211912;
+  --d-fg:#FFF4E6;
+  --d-fg-soft:rgba(255,244,230,.70);
+  --d-fg-dim:rgba(255,244,230,.46);
+  --d-stroke:rgba(255,244,230,.13);
+  --d-track:rgba(255,244,230,.14);
+  --d-glow:rgba(0,0,0,.5);
+  --d-card-line:rgba(255,244,230,.22);
+  --d-num:var(--gold);
+  --d-overlay:rgba(21,16,12,.955);
+  color-scheme:dark;
+}
+html[data-theme="dark"] body.ornament{background:var(--bg)}
+html[data-theme="dark"] body.ornament::before{opacity:.05}
 html,body{height:100%;overflow:hidden}
 body{margin:0;background:var(--bg);color:var(--d-fg);font-family:var(--sans)}
 
@@ -89,9 +113,9 @@ body.ornament::before{opacity:.3}
 .timerLabel{font-weight:800;font-size:clamp(9px,.78vw,16px);letter-spacing:.26em;text-transform:uppercase;
   color:var(--d-fg-dim);margin-bottom:clamp(4px,.8vh,10px)}
 .time{font-family:var(--d-display);font-weight:900;font-size:clamp(80px,11.46vw,240px);line-height:.9;
-  letter-spacing:-.04em;color:var(--d-fg);font-variant-numeric:tabular-nums;text-shadow:0 18px 60px rgba(36,27,20,.16)}
+  letter-spacing:-.04em;color:var(--d-fg);font-variant-numeric:tabular-nums;text-shadow:0 18px 60px var(--d-glow)}
 .timerBar{margin-top:clamp(8px,1.1vh,14px);width:clamp(220px,27vw,560px);max-width:100%;
-  height:clamp(3px,.26vw,6px);background:rgba(36,27,20,.14);border-radius:3px;overflow:hidden}
+  height:clamp(3px,.26vw,6px);background:var(--d-track);border-radius:3px;overflow:hidden}
 .timerBar i{display:block;height:100%;width:0;background:var(--accent);transition:width .25s linear}
 .nextBox{font-family:var(--d-display);font-weight:800;font-size:clamp(14px,1.35vw,28px);letter-spacing:.06em;
   text-transform:uppercase;color:var(--d-fg-dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
@@ -107,8 +131,7 @@ body.ornament::before{opacity:.3}
 .statValue{margin:clamp(5px,.65vh,10px) 0 0;font-family:var(--d-display);font-weight:900;
   font-size:clamp(26px,3.02vw,64px);line-height:1;color:var(--d-fg);font-variant-numeric:tabular-nums}
 .statValue small{font-size:.58em;color:var(--d-fg-dim);font-weight:800}
-/* На кремовом золото не читается — для акцентных чисел берём оливковый из палитры */
-.statValue.gold{color:var(--olive)}
+.statValue.gold{color:var(--d-num)}
 .statValue.hot{color:var(--accent);animation:lateRegPulse 1.2s ease-in-out infinite}
 @keyframes lateRegPulse{0%,100%{opacity:1}50%{opacity:.68}}
 
@@ -130,7 +153,7 @@ body.ornament::before{opacity:.3}
 .rItem.rGold .rPlace{color:color-mix(in srgb,var(--accent) 65%,transparent)}
 .rItem.rGold .rName,.rItem.rGold .rPts{color:var(--accent)}
 .rItem.rSilver .rName,.rItem.rSilver .rPts{color:var(--d-fg)}
-.rItem.rBronze .rName,.rItem.rBronze .rPts{color:var(--olive)}
+.rItem.rBronze .rName,.rItem.rBronze .rPts{color:var(--d-num)}
 
 /* ── Инфо ── */
 .infoBlock{flex-direction:column;margin:0;padding:clamp(10px,1.6vh,24px) 0;border-bottom:1px solid var(--d-stroke)}
@@ -140,7 +163,7 @@ body.ornament::before{opacity:.3}
 .infoValue{font-size:clamp(18px,1.7vw,28px);font-weight:800;line-height:1.25;white-space:pre-wrap;word-break:break-word}
 .dCards{display:flex;gap:clamp(8px,.8vw,16px);align-items:center}
 .dCard{--h:clamp(70px,7vw,120px);width:calc(var(--h)*.72);height:var(--h);border-radius:calc(var(--h)*.11);
-  background:var(--surface);border:1px solid rgba(36,27,20,.25);box-shadow:var(--shadow);
+  background:var(--surface);border:1px solid var(--d-card-line);box-shadow:var(--shadow);
   display:flex;align-items:center;justify-content:center;overflow:hidden;aspect-ratio:auto}
 .dCard img{width:100%;height:100%;object-fit:cover}
 
@@ -148,7 +171,7 @@ body.ornament::before{opacity:.3}
 .overlay{position:absolute;inset:0;z-index:20;display:none;flex-direction:column;align-items:center;justify-content:center;
   gap:16px;border-radius:0;color:var(--d-fg);text-align:center;padding:24px;backdrop-filter:blur(6px);
   /* На светлом просвечивающий таймер заметнее, чем на тёмном фоне Дойла, — кроем плотнее */
-  background:radial-gradient(900px 500px at 50% 40%,rgba(233,83,31,.10),transparent 60%),rgba(255,252,244,.965)}
+  background:radial-gradient(900px 500px at 50% 40%,rgba(233,83,31,.10),transparent 60%),var(--d-overlay)}
 .overlay .oTitle{font-family:var(--d-display);font-size:clamp(52px,5vw,90px);font-weight:900;letter-spacing:.08em;
   color:var(--accent)}
 .overlay .oTime{font-family:var(--d-display);font-size:clamp(48px,4.5vw,82px);font-weight:900;
@@ -329,6 +352,8 @@ body.ornament::before{opacity:.3}
 
   const sb = supabase.createClient(window.SUPABASE_URL, window.SUPABASE_ANON_KEY, { global: { fetch: window.sbFetchFailover } });
   const roomId = ((new URLSearchParams(location.search)).get("room") || "").trim();
+  const themeOverride = ["light", "dark"].includes(new URLSearchParams(location.search).get("theme"))
+    ? new URLSearchParams(location.search).get("theme") : null;
 
   let state = null;
   let lastSavedAt = 0;
@@ -417,6 +442,10 @@ body.ornament::before{opacity:.3}
   function render() {
     if (!state) return;
     advanceExpiredLevels(state);
+
+    // ?theme=light|dark в ссылке перебивает выбор из админки — на случай отдельного экрана.
+    const theme = themeOverride || (state.display?.theme === "light" ? "light" : "dark");
+    if (document.documentElement.dataset.theme !== theme) document.documentElement.dataset.theme = theme;
 
     const ti = state.timer;
     const levels = state.structure.levels;

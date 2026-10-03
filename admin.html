@@ -116,6 +116,11 @@
       <div class="row2"><input id="adminLink" class="mono" readonly/><button id="copyAdmin" class="ghost" type="button">Копировать</button></div></div>
     <div class="field" style="margin-bottom:0"><label>Дисплей для ТВ</label>
       <div class="row2"><input id="displayLink" class="mono" readonly/><button id="copyDisplay" class="ghost" type="button">Копировать</button></div></div>
+    <div class="field" style="margin:12px 0 0"><label>Тема дисплея</label>
+      <div class="btnrow" id="themeRow">
+        <button type="button" data-theme="dark">🌙 Тёмная</button>
+        <button type="button" data-theme="light">☀️ Светлая</button>
+      </div></div>
     </div>
   </section>
 
@@ -1103,6 +1108,18 @@
   }
   $("copyAdmin").onclick = () => navigator.clipboard?.writeText($("adminLink").value);
   $("copyDisplay").onclick = () => navigator.clipboard?.writeText($("displayLink").value);
+
+  // Тема ТВ живёт в состоянии комнаты: дисплей подхватывает её по realtime, без перезагрузки.
+  function renderTheme() {
+    const cur = state?.display?.theme === "light" ? "light" : "dark";
+    $("themeRow").querySelectorAll("button").forEach((b) => b.classList.toggle("ghost", b.dataset.theme !== cur));
+  }
+  $("themeRow").querySelectorAll("button").forEach((b) => {
+    b.onclick = async () => {
+      const theme = b.dataset.theme;
+      try { await saveWithReload((st) => { st.display = { ...(st.display || {}), theme }; return st; }); } catch (e) {}
+    };
+  });
 
   // ── Кнопки таймера ───────────────────────────────────────────────────────
   const bind = (id, mutator) => { $(id).onclick = async () => { setErr(null); try { await saveWithReload(mutator); } catch (e) {} }; };
@@ -2713,6 +2730,7 @@
   function renderAll() {
     if (!state) return;
     safe(fillFields, "fields");
+    safe(renderTheme, "theme");
     safe(renderTimerCard, "timer");
     safe(renderKpis, "kpis");
     safe(renderCounters, "counters");

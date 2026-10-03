@@ -177,6 +177,7 @@
       timer: { isRunning: false, isPaused: false, levelIndex: 0, levelEndAt: null, pauseRemainingSec: null },
       players: [],
       info: { bonusHand: DEFAULT_BONUS_HAND, comment: DEFAULT_BONUS_COMMENT },
+      display: { theme: "dark" },
     };
   }
 
@@ -242,6 +243,10 @@
     if (st.info == null || typeof st.info !== "object") st.info = { bonusHand: DEFAULT_BONUS_HAND, comment: DEFAULT_BONUS_COMMENT };
     st.info.bonusHand = (st.info.bonusHand ?? "").toString().slice(0, 20);
     st.info.comment = (st.info.comment ?? "").toString().slice(0, 200);
+    // Тема ТВ. По умолчанию тёмная: светлая на большом экране в тёмном зале слепит,
+    // поэтому и комнаты, созданные до выбора темы, открываются тёмными.
+    if (st.display == null || typeof st.display !== "object") st.display = {};
+    st.display.theme = st.display.theme === "light" ? "light" : "dark";
     st.presetKey = st.presetKey || "";
     return st;
   }
