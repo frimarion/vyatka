@@ -307,6 +307,25 @@
     </div>
   </section>
 
+  <!-- ── Доп. очки рейтинга (только админ) ─────────────────────────────── -->
+  <section id="screenBonus" class="card collapsible" style="display:none">
+    <div class="cardHead"><h2>Доп. очки рейтинга</h2><span class="tag" id="bonusInfo">—</span><button class="cardToggle" type="button">▶</button></div>
+    <div class="cardBody">
+    <div class="sub mHint" style="margin-bottom:10px">Очки добавляются к рейтингу игрока за этот турнир. На опыт и уровни не влияют.
+      Доступно после сохранения отчёта: игрок выбирается из тех, кто есть в отчёте.</div>
+    <div class="grid2">
+      <div class="field" style="margin:0"><label>Игрок</label><select id="bonusPlayer"></select></div>
+      <div class="field" style="margin:0"><label>Очки</label><input id="bonusPoints" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="10"/></div>
+    </div>
+    <div class="field" style="margin-top:10px"><label>Причина</label><input id="bonusReason" maxlength="200" placeholder="Лучший игрок вечера"/></div>
+    <div class="btnrow">
+      <button id="bonusAdd" type="button">Начислить</button>
+      <span class="muted" id="bonusMsg" style="align-self:center"></span>
+    </div>
+    <div id="bonusList" class="list" style="margin-top:12px"></div>
+    </div>
+  </section>
+
   <!-- ── Регистрации из приложения ─────────────────────────────────────── -->
   <section id="screenTgImport" class="card collapsible" style="display:none">
     <div class="cardHead"><h2 data-short="Из приложения">Регистрации из приложения</h2><span class="tag" id="tgRegInfo">—</span><button class="cardToggle" type="button">▶</button></div>
@@ -674,11 +693,11 @@
     timer: ["screenTimer", "screenLinks", "screenPreset"],
     tour: ["screenQuick", "screenRating", "screenInfo"],
     players: ["screenPlayers", "screenTgImport", "screenPost"],
-    pay: ["screenPayments"],
+    pay: ["screenPayments", "screenBonus"],
     struct: ["screenStructure"],
   };
   const ALL_SCREENS = ["screenCreate", "screenLinks", "screenPreset", "screenTimer", "screenQuick", "screenRating", "screenInfo",
-    "screenPlayers", "screenPayments", "screenTgImport", "screenPost", "screenStructure"];
+    "screenPlayers", "screenPayments", "screenBonus", "screenTgImport", "screenPost", "screenStructure"];
 
   // Комнату целиком показываем там, где она помещается: на ПК таббар из пяти
   // кнопок — лишний клик между карточками, которые все нужны одновременно.
@@ -716,7 +735,97 @@
     // Наверх скроллим только при смене вкладки: на одной странице карточка
     // никуда не уезжает, и прыжок вверх после перерисовки был бы потерей места.
     if (scroll && !onepage) window.scrollTo({ top: 0, behavior: "smooth" });
+    refreshBonus();
   }
+
+  // ── Доп. очки за этот турнир ─────────────────────────────────────────────
+  // Только админ (RLS в 029): оператор ведёт вечер, но очки не раздаёт. Бонус
+  // привязан к сохранённому отчёту турнира и берёт его дату, поэтому попадает
+  // в месяц самого вечера. Игроки без player_id (не из базы) очков не получают.
+  let bonusHead = null, bonusPlayers = [], bonusRows = [], bonusSeq = 0;
+  const bonusMsg = (t) => { $("bonusMsg").textContent = t || ""; };
+
+  async function refreshBonus() {
+    const box = $("screenBonus");
+    if (!isAdmin()) { box.style.display = "none"; return; }
+    if (box.style.display === "none" || !roomId || !state?.tournament?.createdAt) return;
+    const seq = ++bonusSeq;
+    try {
+      const { data: head, error } = await sb.from(TBL.results).select("id,played_at,name")
+        .eq("report_key", window.VPCrm.reportKey(state, roomId)).maybeSingle();
+      if (error) throw error;
+      let players = [], rows = [];
+      if (head) {
+        const [pr, br] = await Promise.all([
+          sb.from(TBL.resultPlayers).select("player_id,name,place").eq("result_id", head.id),
+          sb.from("rating_adjustments").select("*").eq("result_id", head.id).order("created_at", { ascending: false }),
+        ]);
+        if (pr.error) throw pr.error;
+        if (br.error) throw br.error;
+        players = (pr.data || []).filter((r) => r.player_id != null)
+          .sort((a, b) => String(a.name).localeCompare(String(b.name), "ru"));
+        rows = br.data || [];
+      }
+      if (seq !== bonusSeq) return;
+      bonusHead = head || null; bonusPlayers = players; bonusRows = rows;
+      renderBonus();
+    } catch (e) {
+      if (seq !== bonusSeq) return;
+      const msg = String(e?.message || e);
+      $("bonusInfo").textContent = "ошибка";
+      bonusMsg(/relation|does not exist|schema cache|404/i.test(msg)
+        ? "Таблицы доп. очков нет в базе — примени migrations/029_rating_adjustments.sql" : msg);
+    }
+  }
+
+  function renderBonus() {
+    const ready = !!bonusHead && bonusPlayers.length > 0;
+    const sel = $("bonusPlayer"), keep = sel.value;
+    sel.innerHTML = bonusPlayers.map((p) => `<option value="${p.player_id}">${escHtml(p.name)}</option>`).join("")
+      || '<option value="">—</option>';
+    if (bonusPlayers.some((p) => String(p.player_id) === keep)) sel.value = keep;
+    ["bonusPlayer", "bonusPoints", "bonusReason", "bonusAdd"].forEach((id) => { $(id).disabled = !ready; });
+    const sum = bonusRows.reduce((a, r) => a + clampInt(r.points, 0), 0);
+    $("bonusInfo").textContent = bonusRows.length ? `${bonusRows.length} · ${fmtInt(sum)} очк.` : (bonusHead ? "пока нет" : "нет отчёта");
+    bonusMsg(!bonusHead ? "Сначала сохрани отчёт или заверши турнир" : (!bonusPlayers.length ? "В отчёте нет игроков из базы" : ""));
+    const names = new Map(bonusPlayers.map((p) => [String(p.player_id), p.name]));
+    $("bonusList").innerHTML = bonusRows.map((r) => `<div class="listRow">
+        <span class="nm">${escHtml(names.get(String(r.player_id)) || `Игрок #${r.player_id}`)}
+          ${r.reason ? `<div class="muted">${escHtml(r.reason)}</div>` : ""}</span>
+        <span class="tag gold">+${fmtInt(r.points)}</span>
+        <button class="ghost tiny" data-bdel="${r.id}" type="button">Удалить</button>
+      </div>`).join("");
+    $("bonusList").querySelectorAll("[data-bdel]").forEach((b) => { b.onclick = () => deleteBonus(b.dataset.bdel); });
+  }
+
+  async function deleteBonus(id) {
+    const row = bonusRows.find((r) => String(r.id) === String(id));
+    if (!row || !(await confirm2("Удалить начисление?", `+${row.points} очков будут убраны из рейтинга.`))) return;
+    const { error } = await sb.from("rating_adjustments").delete().eq("id", row.id);
+    if (error) { setErr(error); return; }
+    await refreshBonus();
+    bonusMsg("Удалено");
+  }
+
+  $("bonusAdd").onclick = async () => {
+    setErr(null); bonusMsg("");
+    const playerId = Number($("bonusPlayer").value);
+    const points = Number($("bonusPoints").value);
+    if (!bonusHead || !Number.isFinite(playerId)) { bonusMsg("Выбери игрока"); return; }
+    if (!Number.isInteger(points) || points < 1 || points > 100000) { bonusMsg("Очки — целое число от 1"); return; }
+    const name = bonusPlayers.find((p) => p.player_id === playerId)?.name || "";
+    $("bonusAdd").disabled = true;
+    try {
+      const { error } = await sb.from("rating_adjustments").insert({
+        player_id: playerId, result_id: bonusHead.id, points,
+        reason: $("bonusReason").value.trim().slice(0, 200), awarded_at: bonusHead.played_at,
+      });
+      if (error) throw error;
+      $("bonusPoints").value = ""; $("bonusReason").value = "";
+      await refreshBonus();
+      bonusMsg(`Начислено +${points} · ${name}`);
+    } catch (e) { setErr(e); $("bonusAdd").disabled = false; }
+  };
 
   // Второстепенные карточки свёрнуты по умолчанию — открывают только ту,
   // что сейчас нужна, а не листают глазами весь турнир заново.
@@ -2192,6 +2301,7 @@
       const snap = await saveReportSnapshot();
       const t = new Date().toLocaleTimeString("ru-RU", { hour: "2-digit", minute: "2-digit" });
       info.textContent = `Сохранено в ${t} · игроков: ${snap.players.length}`;
+      refreshBonus();
     } catch (e) {
       console.error("report snapshot", e);
       info.textContent = "Ошибка";
@@ -2236,6 +2346,7 @@
         realtimeChannel?.send({ type: "broadcast", event: "timer_state", payload: { state } });
         renderAll(); setSync("saved");
         info.textContent = "Турнир завершён. Отчёт сохранён в CRM, результаты опубликованы, таймер остановлен.";
+        refreshBonus();
       } finally { saveInFlight = false; }
     });
     saveQueue = run.catch(() => {});
