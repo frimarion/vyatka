@@ -58,3 +58,26 @@ for (const invalid of ['2025-13', '2025-00', '0000-01', '2025-1', 'garbage']) {
   assert.equal(rpc(archiveDb, {p_period: invalid}).data.length, 0);
 }
 console.log('Monthly rating — checks passed');
+
+// Доп. очки админа (029): суммируются с очками турниров, период — по awarded_at,
+// на games/wins не влияют, игрок с одним бонусом попадает в таблицу.
+const bonusDb = {...db, rating_adjustments: [
+  {player_id: 1, points: 7, awarded_at: recent},
+  {player_id: 1, points: 3, awarded_at: recent},
+  {player_id: 2, points: 4, awarded_at: '2000-01-01T00:00:00Z'},
+  {player_id: 1, points: 50, awarded_at: new Date(Date.now() + 86400000 * 400).toISOString()},
+]};
+const bMonth = rpc(bonusDb, {p_period: 'month'}).data;
+assert.equal(bMonth.find(r => r.player_id === 1).points, 30);
+assert.equal(bMonth.find(r => r.player_id === 1).games, 1);
+assert.equal(bMonth.find(r => r.player_id === 1).wins, 1);
+assert.equal(bMonth.find(r => r.player_id === 2).points, 20);
+assert.equal(rpc(bonusDb, {p_period: 'all'}).data.find(r => r.player_id === 2).points, 34);
+const onlyBonus = rpc({...db, tournament_results: [], tournament_result_players: [],
+  rating_adjustments: [{player_id: 2, points: 9, awarded_at: recent}]}, {p_period: 'month'}).data;
+assert.equal(onlyBonus.length, 1);
+assert.equal(onlyBonus[0].name, 'Two');
+assert.equal(onlyBonus[0].points, 9);
+assert.equal(onlyBonus[0].games, 0);
+assert.equal(onlyBonus[0].rank, 1);
+console.log('Rating adjustments — checks passed');

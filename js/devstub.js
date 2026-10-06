@@ -795,6 +795,16 @@
         item.wins += Number(r.place) === 1 ? 1 : 0;
         item.ko += Number(r.ko) || 0;
       });
+      // Доп. очки админа (029): в период по awarded_at, на games/wins не влияют.
+      (db.rating_adjustments || []).forEach(a => {
+        const t = new Date(a.awarded_at).getTime();
+        if (!(t >= start && t < end && t <= now.getTime())) return;
+        const p = db.players.find(p => String(p.id) === String(a.player_id));
+        if (!p) return;
+        const key = `id:${p.id}`;
+        if (!totals.has(key)) totals.set(key, { player_id: p.id, name: p.name, points: 0, games: 0, wins: 0, ko: 0, results: new Set() });
+        totals.get(key).points += Number(a.points) || 0;
+      });
       const rows = [...totals.values()].sort((a,b) => b.points - a.points || a.name.localeCompare(b.name, "ru"));
       let rank = 0;
       // Без очков — без общего места: по алфавиту, номера подряд (как в 026).

@@ -114,11 +114,35 @@
     </div>
     <div id="reportList" class="list"></div>
   </section>
+
+  <!-- ── Доп. очки рейтинга (только админ) ─────────────────────────────── -->
+  <section id="screenBonus" class="card" style="display:none">
+    <div class="cardHead"><h2>Доп. очки рейтинга</h2><span class="tag" id="bonusInfo">—</span></div>
+    <div class="muted" style="margin-bottom:10px">Очки добавляются к рейтингу игрока. На опыт и уровни не влияют.</div>
+    <div class="field"><label>Игрок</label>
+      <input id="bonusPlayer" list="bonusPlayerList" placeholder="Начни вводить имя" autocomplete="off"/>
+      <datalist id="bonusPlayerList"></datalist></div>
+    <div class="grid2">
+      <div class="field" style="margin:0"><label>Очки</label><input id="bonusPoints" type="number" min="1" max="100000" step="1" inputmode="numeric" placeholder="10"/></div>
+      <div class="field" style="margin:0"><label>Турнир</label><select id="bonusResult"><option value="">Без турнира</option></select></div>
+    </div>
+    <div class="grid2" style="margin-top:10px">
+      <div class="field" style="margin:0"><label>Дата (если без турнира)</label><input id="bonusDate" type="date"/></div>
+      <div class="field" style="margin:0"><label>Причина</label><input id="bonusReason" maxlength="200" placeholder="Лучший игрок вечера"/></div>
+    </div>
+    <div class="btnrow" style="margin-top:12px">
+      <button id="bonusAdd" type="button">Начислить</button>
+      <span class="muted" id="bonusMsg" style="align-self:center"></span>
+    </div>
+    <div class="cardHead" style="margin-top:16px"><h2>Начислено за период</h2></div>
+    <div id="bonusList" class="list"></div>
+  </section>
 </div>
 
 <nav class="tabbar" id="tabbar" style="display:none">
   <button data-tab="players" class="active" type="button"><span class="ic">♣</span>Игроки</button>
   <button data-tab="reports" type="button"><span class="ic">₽</span>Отчёты</button>
+  <button data-tab="bonus" id="tabBonus" type="button" style="display:none"><span class="ic">★</span>Очки</button>
 </nav>
 
 <div class="modal" id="playerModal">
@@ -384,15 +408,123 @@
     }
   };
 
-  function renderAll() { renderPlayers(); renderReports(); }
+  function renderAll() {
+    renderPlayers(); renderReports();
+    if ($("screenBonus").style.display !== "none") loadBonuses();
+  }
+
+  // ── Доп. очки рейтинга ────────────────────────────────────────────────────
+  // Пишет только админ (RLS в 029). Привязанный к турниру бонус получает дату
+  // турнира и попадает в его месяц; «без турнира» — выбранную дату (по умолчанию
+  // сегодня). Очки только положительные.
+  const isAdmin = () => !!profile && profile.role !== "operator";
+  const BONUS_TBL = "rating_adjustments";
+  let bonusPlayers = [];            // все игроки для выбора
+  let bonusResults = [];            // последние турниры для привязки
+  let bonusRows = [];               // начисления периода
+  const bonusMsg = (t) => { $("bonusMsg").textContent = t || ""; };
+  const pLabel = (p) => `${p.name} · #${p.id}`;
+  const todayKey = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`; };
+
+  async function loadBonuses() {
+    if (!isAdmin()) return;
+    bonusMsg("");
+    try {
+      if (!bonusPlayers.length) {
+        const { data, error } = await sb.from(TBL.players).select("id,name,full_name").order("name", { ascending: true }).limit(5000);
+        if (error) throw error;
+        bonusPlayers = data || [];
+        $("bonusPlayerList").innerHTML = bonusPlayers.map((p) => `<option value="${escHtml(pLabel(p))}"></option>`).join("");
+      }
+      const { data: rs, error: re } = await sb.from(TBL.results).select("id,name,played_at").order("played_at", { ascending: false }).limit(40);
+      if (re) throw re;
+      bonusResults = rs || [];
+      const sel = $("bonusResult");
+      const keep = sel.value;
+      sel.innerHTML = '<option value="">Без турнира</option>' + bonusResults.map((r) =>
+        `<option value="${r.id}">${escHtml(r.name || "Турнир")} · ${fmtDate(r.played_at)}</option>`).join("");
+      sel.value = bonusResults.some((r) => String(r.id) === keep) ? keep : "";
+      if (!$("bonusDate").value) $("bonusDate").value = todayKey();
+      const { from, to } = currentPeriod();
+      let q = sb.from(BONUS_TBL).select("*").order("awarded_at", { ascending: false }).limit(500);
+      if (from) q = q.gte("awarded_at", dayStart(from).toISOString());
+      if (to) q = q.lte("awarded_at", dayEnd(to).toISOString());
+      const { data, error } = await q;
+      if (error) throw error;
+      bonusRows = data || [];
+      renderBonuses();
+    } catch (e) {
+      const msg = String(e?.message || e);
+      setErr(/relation|does not exist|schema cache|404/i.test(msg)
+        ? new Error("Таблицы доп. очков нет в базе — примени migrations/029_rating_adjustments.sql")
+        : e);
+    }
+  }
+
+  function renderBonuses() {
+    const names = new Map(bonusPlayers.map((p) => [String(p.id), p.name]));
+    const tours = new Map(bonusResults.map((r) => [String(r.id), r.name]));
+    const sum = bonusRows.reduce((a, r) => a + clampInt(r.points, 0), 0);
+    $("bonusInfo").textContent = bonusRows.length ? `${bonusRows.length} · ${fmtInt(sum)} очк.` : "пока нет";
+    $("bonusList").innerHTML = bonusRows.map((r) => `<div class="listRow">
+        <span class="nm">${escHtml(names.get(String(r.player_id)) || `Игрок #${r.player_id}`)}
+          <div class="muted">${fmtDate(r.awarded_at)}${r.result_id != null ? ` · ${escHtml(tours.get(String(r.result_id)) || "турнир")}` : ""}${r.reason ? ` · ${escHtml(r.reason)}` : ""}</div></span>
+        <span class="tag gold">+${fmtInt(r.points)}</span>
+        <button class="ghost tiny" data-del="${r.id}" type="button">Удалить</button>
+      </div>`).join("") || '<div class="muted">За этот период доп. очков нет.</div>';
+    $("bonusList").querySelectorAll("[data-del]").forEach((b) => { b.onclick = () => deleteBonus(b.dataset.del); });
+  }
+
+  async function deleteBonus(id) {
+    const row = bonusRows.find((r) => String(r.id) === String(id));
+    if (!row || !confirm(`Удалить начисление +${row.points} очков?`)) return;
+    const { error } = await sb.from(BONUS_TBL).delete().eq("id", row.id);
+    if (error) { setErr(error); return; }
+    await loadBonuses();
+    bonusMsg("Удалено");
+  }
+
+  $("bonusAdd").onclick = async () => {
+    setErr(null); bonusMsg("");
+    const m = /#(\d+)\s*$/.exec($("bonusPlayer").value);
+    const player = m && bonusPlayers.find((p) => String(p.id) === m[1]);
+    if (!player) { bonusMsg("Выбери игрока из списка"); return; }
+    const points = Number($("bonusPoints").value);
+    if (!Number.isInteger(points) || points < 1 || points > 100000) { bonusMsg("Очки — целое число от 1"); return; }
+    const resultId = $("bonusResult").value;
+    const head = resultId ? bonusResults.find((r) => String(r.id) === resultId) : null;
+    let awardedAt;
+    if (head) awardedAt = head.played_at;
+    else {
+      const key = $("bonusDate").value || todayKey();
+      // Сегодняшний день — текущий момент (бонус в будущем рейтинг не учитывает),
+      // прошедший — полдень по Москве, чтобы дата не уехала в соседний день.
+      awardedAt = key === todayKey() ? new Date().toISOString() : new Date(`${key}T12:00:00+03:00`).toISOString();
+    }
+    $("bonusAdd").disabled = true;
+    try {
+      const { error } = await sb.from(BONUS_TBL).insert({
+        player_id: player.id, result_id: head ? head.id : null, points,
+        reason: $("bonusReason").value.trim().slice(0, 200), awarded_at: awardedAt,
+      });
+      if (error) throw error;
+      $("bonusPoints").value = ""; $("bonusReason").value = ""; $("bonusPlayer").value = "";
+      await loadBonuses();
+      bonusMsg(`Начислено +${points} · ${player.name}`);
+    } catch (e) { setErr(e); }
+    finally { $("bonusAdd").disabled = false; }
+  };
 
   // ── Вкладки ───────────────────────────────────────────────────────────────
-  const TABS = { players: ["screenPeriod", "screenPlayers"], reports: ["screenPeriod", "screenReports"] };
-  const ALL = ["screenPeriod", "screenPlayers", "screenReports"];
+  const TABS = { players: ["screenPeriod", "screenPlayers"], reports: ["screenPeriod", "screenReports"],
+    bonus: ["screenPeriod", "screenBonus"] };
+  const ALL = ["screenPeriod", "screenPlayers", "screenReports", "screenBonus"];
   function switchTab(tab) {
+    if (tab === "bonus" && !isAdmin()) tab = "players";
     ALL.forEach((id) => { $(id).style.display = "none"; });
     (TABS[tab] || TABS.players).forEach((id) => { $(id).style.display = ""; });
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === tab));
+    if (tab === "bonus") loadBonuses();
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   document.querySelectorAll("#tabbar button").forEach((b) => { b.onclick = () => switchTab(b.dataset.tab); });
@@ -425,6 +557,7 @@
       $("userText").textContent = `${profile.email || "—"} · ${profile.role === "operator" ? "оператор" : "админ"}`;
     }
     $("tabbar").style.display = "";
+    $("tabBonus").style.display = isAdmin() ? "" : "none";
     switchTab("players");
     setPeriod(readPeriod());
     load();
