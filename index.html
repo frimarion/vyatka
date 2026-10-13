@@ -629,6 +629,11 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .phEditBtn:hover{background:rgba(255,252,244,.18);filter:none}
 .phEditForm{margin-top:14px}
 .phEditForm .field{margin-bottom:10px}
+/* Своё фото: тап по аватарке в своём профиле тоже открывает выбор файла. */
+#profAvWrap{cursor:pointer}
+#profAvWrap.busy .phAvatar{opacity:.45}
+.pfPhotoRow{display:flex;gap:8px;margin-bottom:12px}
+.pfPhotoRow button{flex:1}
 /* Поля ввода наследуют светлую тему — на тёмном сукне это провал: своя
    тёмная заливка и золотой фокус вместо оранжевого. */
 .profileHero .field>label{color:rgba(255,252,244,.48)}
@@ -1249,6 +1254,9 @@ document.addEventListener("touchmove", e => {
         </div>
 
         <div class="phEditForm" id="phEditForm" style="display:none">
+          <div class="pfPhotoRow"><button id="pfPhoto" class="ghost" type="button">Сменить фото</button>
+            <button id="pfPhotoDel" class="ghost" type="button">Убрать фото</button></div>
+          <input id="pfPhotoFile" type="file" accept="image/*" hidden/>
           <div class="field"><label>Имя за столом</label><input id="pfName" type="text" maxlength="60"/></div>
           <div class="field"><label>Полное имя (для клуба)</label><input id="pfFull" type="text" maxlength="120" placeholder="необязательно"/></div>
           <div class="field"><label>Телефон</label><input id="pfPhone" type="tel" maxlength="32" placeholder="необязательно"/></div>
@@ -1526,6 +1534,9 @@ document.addEventListener("touchmove", e => {
     init_data_invalid: "Telegram не подтвердил вход. Открой приложение заново.",
     init_data_expired: "Сессия Telegram устарела. Открой приложение заново.",
     not_authorized: "Нужно войти заново.",
+    avatar_too_big: "Фото слишком большое — выбери другое.",
+    avatar_bad_image: "Не получилось прочитать картинку — выбери другое фото.",
+    avatar_failed: "Фото не сохранилось. Попробуй ещё раз.",
     invalid_name: "Имя от 2 до 60 символов.",
     name_taken: "Такое имя в клубе уже занято — добавь фамилию.",
     tournament_not_found: "Турнир не найден.",
@@ -2162,6 +2173,7 @@ document.addEventListener("touchmove", e => {
     $("profAvatar").innerHTML = p.photo_url
       ? `<img src="${escHtml(p.photo_url)}" alt=""/>`
       : escHtml(initials(p.name || "Игрок"));
+    $("pfPhotoDel").style.display = isOwnPhoto(p.photo_url) ? "" : "none";
     heroLevel("prof", me.level);
     renderXp(me.level);
     $("meTg").textContent = p.vk_username ? "VK · " + p.vk_username
@@ -2422,7 +2434,10 @@ document.addEventListener("touchmove", e => {
         ? `<img src="${escHtml(p.photo_url)}" alt="" referrerpolicy="no-referrer"/>`
         : escHtml(initials(p.name || "Игрок"));
       heroLevel("pl", d?.level);
-      plPhoto = p.photo_url || null;
+      // Раскрывать есть смысл, только если найдётся крупнее миниатюры: VK ID
+      // с осени подписывает ссылку лишь на 50×50, и растянутая на экран она
+      // превращается в мыло.
+      plPhoto = p.photo_url && bigPhoto(p.photo_url).px >= 200 ? p.photo_url : null;
       $("plAvWrap").classList.toggle("zoom", !!plPhoto);
       $("plGames").textContent = fmtInt(st.games || 0);
       $("plWins").textContent = fmtInt(st.wins || 0);
@@ -2957,17 +2972,22 @@ document.addEventListener("touchmove", e => {
   // VK отдаёт аватарку миниатюрой: размер зашит в ссылку (cs=50x50 у VK ID,
   // size=200x200 у старых photo_200). Для просмотра просим крупную — VK сам
   // ужмёт до размера исходной обрезки, если она меньше.
+  // Возвращает и ссылку, и сколько пикселей по ней реально дадут (px).
   function bigPhoto(url) {
     try {
       // Меняем строкой, а не через URLSearchParams: тот перекодирует запятые
       // в crop=…, и подписанная ссылка VK может перестать открываться.
-      if (!/(^|\.)(userapi\.com|vk\.com|vk\.me|vkuserphoto\.ru)$/.test(new URL(url).hostname)) return url;
-      // Размер берём наибольший из списка as=…, который VK сам перечисляет в ссылке.
+      if (!/(^|\.)(userapi\.com|vk\.com|vk\.me|vkuserphoto\.ru)$/.test(new URL(url).hostname)) return { url, px: Infinity };
+      // blur=… — заглушка VK вместо закрытого или удалённого фото.
+      if (/[?&]blur=/.test(url)) return { url, px: 0 };
+      // Размер берём наибольший из списка as=…, который VK сам перечисляет в
+      // ссылке: подпись покрывает только его, чего нет в списке — VK отдаст 404.
+      // У новых ссылок VK ID там лишь 50x50,32x32,48x48 — крупнее не будет.
       const as = (url.match(/[?&]as=([^&]+)/) || [])[1];
       const sizes = as ? decodeURIComponent(as).split(",").filter((x) => /^\d+x\d+$/.test(x)) : [];
       const big = sizes.length ? sizes.sort((a, b) => parseInt(b) - parseInt(a))[0] : "800x800";
-      return url.replace(/([?&](?:cs|size)=)\d+x\d+/g, "$1" + big);
-    } catch (_) { return url; }
+      return { url: url.replace(/([?&](?:cs|size)=)\d+x\d+/g, "$1" + big), px: parseInt(big) };
+    } catch (_) { return { url, px: Infinity }; }
   }
   $("plAvWrap").onclick = () => {
     if (!plPhoto) return;
@@ -2975,7 +2995,7 @@ document.addEventListener("touchmove", e => {
     const img = $("photoImg"), orig = plPhoto;
     // Не открылась крупная — показываем ту же миниатюру, что в профиле.
     img.onerror = () => { img.onerror = null; img.src = orig; };
-    img.src = bigPhoto(orig);
+    img.src = bigPhoto(orig).url;
     $("photoModal").classList.add("show");
   };
   $("photoModal").onclick = () => $("photoModal").classList.remove("show");
@@ -3115,6 +3135,69 @@ document.addEventListener("touchmove", e => {
       $("pfPhone").value = p.phone || "";
     }
     setProfileEdit(false);
+  };
+
+  // ── Своё фото ─────────────────────────────────────────────────────────────
+  // Картинку ужимаем на телефоне: квадрат из середины, 512px, JPEG. Сервер
+  // принимает только такое (supabase/functions/avatar), и грузить 5 МБ с
+  // камеры по мобильному незачем.
+  const isOwnPhoto = (url) => typeof url === "string" && url.includes("/storage/v1/object/public/avatars/");
+  function squareJpeg(file, px = 512) {
+    return new Promise((resolve, reject) => {
+      const src = URL.createObjectURL(file);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(src);
+        const w = img.naturalWidth, h = img.naturalHeight, s = Math.min(w, h);
+        if (!s) { reject(new Error("avatar_bad_image")); return; }
+        const out = Math.min(px, s);
+        const c = document.createElement("canvas");
+        c.width = c.height = out;
+        const ctx = c.getContext("2d");
+        ctx.imageSmoothingQuality = "high";
+        ctx.drawImage(img, (w - s) / 2, (h - s) / 2, s, s, 0, 0, out, out);
+        c.toBlob((b) => (b ? resolve(b) : reject(new Error("avatar_bad_image"))), "image/jpeg", 0.86);
+      };
+      img.onerror = () => { URL.revokeObjectURL(src); reject(new Error("avatar_bad_image")); };
+      img.src = src;
+    });
+  }
+  async function avatarCall(method, body) {
+    const res = await window.sbFetchFailover(window.SUPABASE_URL + "/functions/v1/avatar", {
+      method,
+      headers: {
+        apikey: window.SUPABASE_ANON_KEY, Authorization: "Bearer " + window.SUPABASE_ANON_KEY,
+        "x-vp-token": token || "", ...(body ? { "Content-Type": "image/jpeg" } : {}),
+      },
+      body,
+    });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.error || "avatar_failed");
+    return d.photo_url || null;
+  }
+  async function setMyPhoto(work) {
+    const wrap = $("profAvWrap");
+    if (wrap.classList.contains("busy")) return;
+    wrap.classList.add("busy");
+    $("pfErr").textContent = "";
+    try {
+      me.player.photo_url = await work();
+      toast("Фото обновлено", "good");
+      renderAll();
+    } catch (e) {
+      $("pfErr").textContent = errText(e);
+      if ($("phEditForm").style.display === "none") toast(errText(e), "bad");
+    } finally { wrap.classList.remove("busy"); }
+  }
+  $("profAvWrap").onclick = () => { if (me?.player) $("pfPhotoFile").click(); };
+  $("pfPhoto").onclick = () => $("pfPhotoFile").click();
+  $("pfPhotoFile").onchange = () => {
+    const f = $("pfPhotoFile").files?.[0];
+    $("pfPhotoFile").value = "";
+    if (f) setMyPhoto(async () => avatarCall("POST", await squareJpeg(f)));
+  };
+  $("pfPhotoDel").onclick = () => {
+    if (confirm("Убрать своё фото?")) setMyPhoto(() => avatarCall("DELETE"));
   };
 
   $("pfSave").onclick = async () => {
