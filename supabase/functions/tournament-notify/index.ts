@@ -7,6 +7,9 @@
 //                  из migrations/012_tg_admin_notify.sql).
 // action=prepare — раз в день по внешнему cron (см. deploy/README.md), утренний
 //                  черновик поста с текущим списком записавшихся.
+// action=publish — в день турнира в 15:00 МСК по внешнему cron: пост со списком
+//                  участников в канал клуба (migrations/031_tg_channel_post.sql).
+//                  Дальше notify правит этот пост при каждой записи/отмене.
 
 const BOT_TOKEN            = Deno.env.get("BOT_TOKEN")!;
 const TG_ADMIN_CHAT_ID     = Deno.env.get("TG_ADMIN_CHAT_ID")!;
@@ -47,6 +50,20 @@ function formatDayMonth(dateIso: string): string {
   return new Date(dateIso).toLocaleDateString("ru-RU", { day: "numeric", month: "long", timeZone: TZ });
 }
 
+async function dbWrite(method: string, path: string, body?: unknown, prefer = "return=representation") {
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    method,
+    headers: {
+      "apikey": SUPABASE_SERVICE_KEY, "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`,
+      "Content-Type": "application/json", "Prefer": prefer,
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`DB error: ${res.status} ${await res.text()}`);
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
+}
+
 async function dbFetch(path: string) {
   const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
     headers: { "apikey": SUPABASE_SERVICE_KEY, "Authorization": `Bearer ${SUPABASE_SERVICE_KEY}`, "Accept": "application/json" },
@@ -73,7 +90,7 @@ function escHtml(s: string): string {
 
 async function getPlayers(tournamentId: number) {
   const regs = await dbFetch(
-    `registrations?tournament_id=eq.${tournamentId}&status=eq.registered&select=players(name)`
+    `registrations?tournament_id=eq.${tournamentId}&status=eq.registered&select=players(name)&order=created_at.asc,id.asc`
   );
   return (regs ?? []).map((r: any) => ({ name: r.players?.name ?? "—" }));
 }
@@ -148,6 +165,136 @@ function buildDraftHtml(
   return lines.join("\n");
 }
 
+// ── Пост в канале ───────────────────────────────────────────────────────────
+
+const CHANNEL_PUBLISH_HOUR_MSK = 15;
+const TOURNAMENT_COLS = "id,name,date,status,slots,late_reg_level,level_minutes,room_id";
+
+function mskDayKey(iso: string | Date): string {
+  return new Date(new Date(iso).getTime() + MSK_OFFSET).toISOString().slice(0, 10);
+}
+const isTodayMsk = (iso: string) => mskDayKey(iso) === mskDayKey(new Date());
+
+// Конец поздней регистрации — конец уровня late_reg_level, как считает и
+// приложение (VP.lateRegRemainingSec): перерывы до него входят во время. Если
+// у турнира уже есть комната, берём её структуру уровней — там и перерывы, и
+// правки админа; нет — уровень × длительность. Округляем вверх до 5 минут:
+// «до 21:40» читается лучше, чем «до 21:39».
+async function lateRegEnd(t: any): Promise<Date | null> {
+  if (!t.date) return null;
+  let lvl = Number(t.late_reg_level) || 0;
+  let minutes = 0;
+  if (t.room_id) {
+    try {
+      const rows = await dbFetch(`rooms?room_id=eq.${encodeURIComponent(t.room_id)}&select=state&limit=1`);
+      const st = rows?.[0]?.state;
+      const levels = Array.isArray(st?.structure?.levels) ? st.structure.levels : [];
+      lvl = Number(st?.tournament?.lateRegUntilLevel) || lvl;
+      if (lvl && levels.length) {
+        let played = 0;
+        for (const l of levels) {
+          minutes += Number(l?.min) || 0;
+          if (!l?.isBreak && ++played >= lvl) break;
+        }
+      }
+    } catch (_) { minutes = 0; }
+  }
+  if (!minutes && lvl && t.level_minutes) minutes = lvl * Number(t.level_minutes);
+  if (!minutes) return null;
+  const step = 5 * 60 * 1000;
+  return new Date(Math.ceil((new Date(t.date).getTime() + minutes * 60000) / step) * step);
+}
+
+async function buildChannelHtml(t: any, players: { name: string }[]): Promise<string> {
+  const end = await lateRegEnd(t);
+  const lines = [
+    `<b>ТУРНИР СЕГОДНЯ ( ${escHtml(formatDayMonth(t.date))} )</b>`,
+    `Начало ${formatTime(t.date)}` + (end ? ` поздняя регистрация ДО ${formatTime(end.toISOString())}` : ""),
+    "",
+    "Предварительный состав участников:",
+    "",
+    players.length
+      ? players.map((p, i) => `${i + 1}. ${escHtml(p.name)}`).join("\n")
+      : "Пока никого — будь первым!",
+    "",
+    "",
+    t.slots && players.length >= t.slots
+      ? "<b>МЕСТ БОЛЬШЕ НЕТ</b> ♠️♥️♣️♦️"
+      : "<b>ПРИСОЕДИНЯЙТЕСЬ ЕСТЬ СВОБОДНЫЕ МЕСТА</b> ♠️♥️♣️♦️",
+    "",
+    "",
+    "📱 Для записи пишите:",
+    "• В сообщения @maks9228",
+    "• В комментариях ставьте «+»",
+  ];
+  return lines.join("\n");
+}
+
+async function channelId(): Promise<string | null> {
+  const rows = await dbFetch(`_app_config?key=eq.tg_channel_id&select=value&limit=1`);
+  return rows?.[0]?.value || null;
+}
+
+// Публикует пост (create) или приводит уже опубликованный к текущему списку.
+// Запись и отмена могут прийти почти одновременно, и правка по старому списку
+// может доехать до Telegram позже свежей. Поэтому после правки список читаем
+// ещё раз и, если он успел измениться, правим снова — последний вызов всегда
+// оставляет в канале актуальный состав.
+async function syncChannelPost(t: any, create: boolean) {
+  const chatId = await channelId();
+  if (!chatId || !t?.date || !isTodayMsk(t.date)) return { skipped: true };
+
+  let post = (await dbFetch(`tg_channel_posts?tournament_id=eq.${t.id}&select=*&limit=1`))?.[0];
+  if (!post) {
+    if (!create) return { skipped: true };
+    // Сначала «занимаем» строку: unique по tournament_id не даст второму
+    // одновременному вызову опубликовать дубль.
+    const claimed = await dbWrite(
+      "POST", "tg_channel_posts?on_conflict=tournament_id",
+      { tournament_id: t.id, chat_id: chatId },
+      "resolution=ignore-duplicates,return=representation",
+    );
+    if (!claimed?.length) return { skipped: "claimed" };
+    const text = await buildChannelHtml(t, await getPlayers(t.id));
+    const res = await tgRequest("sendMessage", { chat_id: chatId, text, parse_mode: "HTML" });
+    if (!res.ok) {
+      await dbWrite("DELETE", `tg_channel_posts?tournament_id=eq.${t.id}`, undefined, "return=minimal");
+      throw new Error("Telegram error: " + JSON.stringify(res));
+    }
+    await dbWrite("PATCH", `tg_channel_posts?tournament_id=eq.${t.id}`,
+      { message_id: res.result.message_id, text, updated_at: new Date().toISOString() }, "return=minimal");
+    post = { message_id: res.result.message_id, chat_id: chatId, text };
+  }
+  // Пост ещё публикуется соседним вызовом — он же и подхватит наш список.
+  if (!post.message_id) return { skipped: "publishing" };
+
+  let last = post.text;
+  for (let i = 0; i < 3; i++) {
+    const text = await buildChannelHtml(t, await getPlayers(t.id));
+    if (text === last) break;
+    const res = await tgRequest("editMessageText", {
+      chat_id: post.chat_id, message_id: post.message_id, text, parse_mode: "HTML",
+    });
+    if (!res.ok && !/not modified/i.test(res.description || "")) {
+      throw new Error("Telegram error: " + JSON.stringify(res));
+    }
+    await dbWrite("PATCH", `tg_channel_posts?tournament_id=eq.${t.id}`,
+      { text, updated_at: new Date().toISOString() }, "return=minimal");
+    last = text;
+  }
+  return { ok: true, message_id: post.message_id };
+}
+
+async function publish() {
+  const { start, end } = todayBoundsUTC();
+  const tournaments = await dbFetch(
+    `tournaments?status=neq.past&status=neq.cancelled&date=gte.${start}&date=lte.${end}&order=date.asc&select=${TOURNAMENT_COLS}`
+  );
+  const results = [];
+  for (const t of tournaments ?? []) results.push({ tournament_id: t.id, ...(await syncChannelPost(t, true)) });
+  return { ok: true, results };
+}
+
 async function prepare() {
   const { start, end } = todayBoundsUTC();
   const tournaments = await dbFetch(
@@ -172,9 +319,21 @@ async function notify(tournamentId: number, playerId: number, opType: string) {
   const playersRes = await dbFetch(`players?id=eq.${playerId}&select=name&limit=1`);
   const playerName = playersRes?.[0]?.name ?? "Неизвестный";
 
-  const tournamentsRes = await dbFetch(`tournaments?id=eq.${tournamentId}&select=name,date&limit=1`);
+  const tournamentsRes = await dbFetch(`tournaments?id=eq.${tournamentId}&select=${TOURNAMENT_COLS}&limit=1`);
   if (!tournamentsRes || tournamentsRes.length === 0) throw new Error(`Tournament ${tournamentId} not found`);
   const t = tournamentsRes[0];
+
+  // Пост в канале правим независимо от сообщения в служебную группу: сбой
+  // одного не должен оставлять устаревшим другое. Если пост ещё не вышел, а
+  // 15:00 уже было (cron не сработал или турнир завели днём) — публикуем сразу.
+  let channel: unknown = null;
+  try {
+    const lateEnough = nowInMsk().getUTCHours() >= CHANNEL_PUBLISH_HOUR_MSK;
+    if (t.status !== "cancelled") channel = await syncChannelPost(t, lateEnough);
+  } catch (e) {
+    console.error("[tournament-notify] channel:", (e as Error).message);
+    channel = { error: (e as Error).message };
+  }
 
   const dateStr = t.date ? formatDate(t.date) : "";
   const verb = opType === "CANCEL" ? "отменил(а) регистрацию" : "зарегистрировался(лась)";
@@ -182,7 +341,7 @@ async function notify(tournamentId: number, playerId: number, opType: string) {
 
   const tgRes = await tgRequest("sendMessage", { chat_id: TG_ADMIN_CHAT_ID, text, parse_mode: "HTML" });
   if (!tgRes.ok) throw new Error("Telegram error: " + JSON.stringify(tgRes));
-  return { ok: true };
+  return { ok: true, channel };
 }
 
 Deno.serve(async (req: Request) => {
@@ -198,6 +357,7 @@ Deno.serve(async (req: Request) => {
   try {
     let result;
     if (body.action === "prepare") result = await prepare();
+    else if (body.action === "publish") result = await publish();
     else if (body.action === "notify" && body.tournament_id && body.player_id) {
       result = await notify(body.tournament_id, body.player_id, body.op_type ?? "INSERT");
     }

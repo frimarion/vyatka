@@ -489,10 +489,21 @@ curl -s -X POST https://api.vyatkapoker.ru/functions/v1/tournament-notify \
 
 ```
 # /etc/cron.d/vyatka-announce
-0 7 * * * root /usr/local/bin/vyatka-announce.sh >> /var/log/vyatka-announce.log 2>&1
+0 7 * * * root /usr/local/bin/vyatka-announce.sh prepare >> /var/log/vyatka-announce.log 2>&1
+0 12 * * * root /usr/local/bin/vyatka-announce.sh publish >> /var/log/vyatka-announce.log 2>&1
 ```
 
+Скрипт принимает action первым аргументом (по умолчанию `prepare`).
 Проверить вручную, не дожидаясь утра: `/usr/local/bin/vyatka-announce.sh`.
+
+**Пост в канале** ([../migrations/031_tg_channel_post.sql](../migrations/031_tg_channel_post.sql)).
+В 15:00 МСК `publish` публикует в канал `_app_config('tg_channel_id')` пост
+«ТУРНИР СЕГОДНЯ» со списком записавшихся; каждая запись/отмена (`notify`)
+правит его на месте. Если к 15:00 поста нет (турнир завели днём, cron не
+сработал) — его опубликует первая же запись после 15:00. Какой пост чей —
+в `tg_channel_posts`. Бот должен быть админом канала с правами публикации и
+редактирования. Выключить автопостинг — удалить строку `tg_channel_id` из
+`_app_config`.
 
 Если группа молчит на регистрации из приложения — смотреть `docker logs
 supabase-edge-functions --tail 50` и проверять, что все три ключа легли в
