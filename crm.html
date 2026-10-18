@@ -160,6 +160,20 @@
   </div>
 </div>
 
+<div class="modal" id="koModal">
+  <div class="modalCard" style="width:min(520px,100%);max-height:90vh;overflow:auto">
+    <h2>Нокауты в турнире</h2>
+    <div class="sub" id="koMeta" style="margin-bottom:10px">—</div>
+    <div class="muted" style="margin-bottom:10px">Правит только число нокаутов в сохранённом отчёте. Очки за места не меняются. Если потом пересохранить отчёт из комнаты, значения придут из неё заново.</div>
+    <div id="koRows" class="list"></div>
+    <div class="err" id="koErr" style="margin-top:8px"></div>
+    <div class="btnrow" style="margin-top:14px">
+      <button id="koSave" type="button">Сохранить</button>
+      <button id="koCancel" class="ghost" type="button">Отмена</button>
+    </div>
+  </div>
+</div>
+
 <script src="js/config.js"></script>
 <script src="lib/supabase-js.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'"></script>
 <script src="js/core.js"></script>
@@ -390,9 +404,53 @@
           <div class="muted">${fmtDate(r.played_at)} · ${clampInt(r.players_count, 0)} игроков · входов ${clampInt(r.entries, 0)}
             <span class="mono">${escHtml(r.room_id || "")}</span></div></span>
         <span class="tag${debt > 0 ? " hot" : " ok"}">${NF.format(clampInt(r.paid, 0))} ₽${debt > 0 ? ` · долг ${NF.format(debt)}` : ""}</span>
+        ${isAdmin() ? `<button class="ghost tiny" data-ko="${r.id}" type="button">Ноки</button>` : ""}
       </div>`;
     }).join("");
+    box.querySelectorAll("[data-ko]").forEach((b) => { b.onclick = () => openKo(b.dataset.ko); });
   }
+
+  // ── Правка нокаутов в сохранённом отчёте ──────────────────────────────────
+  let koResultId = null, koPlayers = [];
+  function openKo(resultId) {
+    const head = results.find((r) => String(r.id) === String(resultId));
+    if (!head) return;
+    koResultId = head.id;
+    koPlayers = rows.filter((r) => String(r.result_id) === String(head.id))
+      .sort((a, b) => (a.place ?? 999) - (b.place ?? 999));
+    $("koMeta").textContent = `${head.name || "Турнир"} · ${fmtDate(head.played_at)}`;
+    $("koErr").textContent = "";
+    $("koRows").innerHTML = koPlayers.map((r) => `<div class="listRow">
+        <span class="nm">${r.place != null ? `${r.place}. ` : ""}${escHtml(r.name)}</span>
+        <input type="number" min="0" max="999" step="1" inputmode="numeric" data-rp="${r.id}"
+          value="${clampInt(r.ko, 0)}" style="width:80px" aria-label="Нокауты ${escHtml(r.name)}"/>
+      </div>`).join("") || '<div class="muted">В отчёте нет игроков.</div>';
+    $("koModal").classList.add("show");
+  }
+  const closeKo = () => $("koModal").classList.remove("show");
+  $("koCancel").onclick = closeKo;
+  $("koModal").onclick = (e) => { if (e.target === $("koModal")) closeKo(); };
+  $("koSave").onclick = async () => {
+    $("koErr").textContent = "";
+    const changes = [];
+    for (const inp of $("koRows").querySelectorAll("[data-rp]")) {
+      const v = Number(inp.value);
+      if (!Number.isInteger(v) || v < 0 || v > 999) { $("koErr").textContent = "Нокауты — целое число от 0"; return; }
+      const row = koPlayers.find((r) => String(r.id) === inp.dataset.rp);
+      if (row && clampInt(row.ko, 0) !== v) changes.push({ id: row.id, ko: v });
+    }
+    if (!changes.length) { closeKo(); return; }
+    $("koSave").disabled = true;
+    try {
+      for (const c of changes) {
+        const { error } = await sb.from(TBL.resultPlayers).update({ ko: c.ko }).eq("id", c.id);
+        if (error) throw error;
+      }
+      closeKo();
+      await load();
+    } catch (e) { $("koErr").textContent = String(e?.message || e); }
+    finally { $("koSave").disabled = false; }
+  };
 
   $("btnExcel").onclick = () => {
     const info = $("excelInfo");
