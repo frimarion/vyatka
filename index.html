@@ -206,7 +206,7 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
   mask-composite:intersect;
 }
 
-/* Карточки с картинкой — «Джокер», «Нокаут», «Феникс», «Double Life», «Фриролл» (card_art в
+/* Карточки с картинкой — «Джокер», «Нокаут», «Феникс», «Double Life», «Фриролл», «Мафия» (card_art в
    tournaments, выбирается в tournaments.html). Слева на картинке тёмное поле
    под текст, справа сюжет. Градиент поверх — страховка: на узкой карточке
    картинка обрезается слева, и сюжет подъезжает под пилюли. Карточка тёмная
@@ -216,6 +216,7 @@ html{touch-action:manipulation;-webkit-text-size-adjust:100%}
 .art-phoenix{--art:url("assets/art/phoenix.webp");--art-shift:0px}
 .art-doublelife{--art:url("assets/art/doublelife.webp");--art-shift:-64px}
 .art-freeroll{--art:url("assets/art/freeroll.webp");--art-shift:-40px}
+.art-mafia{--art:url("assets/art/mafia.webp");--art-shift:-40px}
 /* Финал месяца — не card_art, а флаг is_monthly_final: картинка идёт сама. */
 .art-final{--art:url("assets/art/final.webp");--art-shift:-40px}
 .tcard.art{
@@ -2053,7 +2054,7 @@ document.addEventListener("touchmove", e => {
   }
 
   // Оформления карточки с картинкой — те же значения, что в check миграций 017/018/028.
-  const CARD_ART = ["joker", "knockout", "phoenix", "doublelife", "freeroll"];
+  const CARD_ART = ["joker", "knockout", "phoenix", "doublelife", "freeroll", "mafia"];
   // Финал месяца оформляется всегда своей картинкой — поверх выбранной.
   // В строке истории флага нет, поэтому финал узнаём по турниру из расписания.
   const isFinal = (t) => !!(t?.is_monthly_final
