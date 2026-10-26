@@ -703,7 +703,8 @@ body.tournamentsPage #screenForm{margin-top:16px}
       card_art: $("fCardArt").value || null,
       is_monthly_final: $("fMonthlyFinal").checked,
     };
-    if (payload.is_monthly_final || editId) payload.final_rating_month = payload.is_monthly_final ? ($("fFinalMonth").value || null) : null;
+    // Поле из 033 шлём только финалу: обычный турнир сохраняется и на базе без неё.
+    if (payload.is_monthly_final) payload.final_rating_month = $("fFinalMonth").value || null;
 
     const btn = $("btnSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
     try {
