@@ -24,7 +24,11 @@ const sql = (name) => fs.readFileSync(path.join(__dirname, '../migrations', name
         insert into public.calls values (body) returning 1::bigint $$;
       create table public._app_config(key text primary key, value text not null);
       insert into public._app_config values ('edge_url', 'x'), ('cron_secret', 'x'), ('anon_key', 'x');
-      create table public.players(id bigint primary key, name text, name_key text, photo_url text);
+      create table public.players(id bigint primary key, name text, name_key text, photo_url text,
+        full_name text, phone text, tg_id bigint, tg_username text, vk_id bigint, vk_username text,
+        email text, email_verified boolean default false, auth_provider text, games_played integer,
+        pd_consent_at timestamptz, pd_consent_version text, photo_consent boolean,
+        marketing_consent boolean, can_register_others boolean default false);
       create table public.tournaments(id bigint primary key, name text, date timestamptz, status text,
         slots integer, registered_count integer not null default 0,
         is_monthly_final boolean not null default false);
@@ -50,6 +54,8 @@ const sql = (name) => fs.readFileSync(path.join(__dirname, '../migrations', name
     `);
     await db.exec(sql('033_monthly_final_roster.sql'));
     await db.exec(sql('033_monthly_final_roster.sql')); // reapplying must be safe
+    await db.exec(sql('034_app_final_admin.sql'));
+    await db.exec(sql('034_app_final_admin.sql'));
     await db.exec(`
       drop trigger n on public.registrations;
       create trigger n after insert or update of status on public.registrations
@@ -128,6 +134,23 @@ const sql = (name) => fs.readFileSync(path.join(__dirname, '../migrations', name
     A.deepEqual(r.filter((x) => !x.extra).map((x) => x.player_id), [1, 2, 3]);
     const silent = (await db.query("select count(*)::int as n from public.calls where body->>'op_type' = 'SILENT'")).rows[0].n;
     A.ok(silent > 0, 'admin actions do not message the group');
+
+    // Organizer in the player app (034): only players with can_manage_finals.
+    const appSet = (pid, action) => db.query('select public.vp_app_final_admin_set($1, 2, $2, $3)', ['6', pid, action]);
+    await A.rejects(appSet(3, 'exclude'), /not_allowed/);
+    await A.rejects(db.query("select public.vp_app_final_set_confirmations('6', 2, false)"), /not_allowed/);
+    await db.exec('update public.players set can_manage_finals = true where id = 6');
+    A.equal((await db.query("select public.vp_player_json(6)->>'can_manage_finals' as f")).rows[0].f, 'true');
+    await appSet(3, 'exclude');
+    A.deepEqual((await db.query("select player_id::int from public.vp_app_final_excluded('6', 2)")).rows, [{ player_id: 3 }]);
+    r = await roster();
+    A.ok(!r.some((x) => x.player_id === 3), 'excluded from the app');
+    await appSet(3, 'reset');
+    await db.query("select public.vp_app_final_set_confirmations('6', 2, false)");
+    await A.rejects(respond(3, true), /confirmations_closed/);
+    // Admin entry points still work after the refactor.
+    await asAdmin('select public.vp_final_set_confirmations(2, true)');
+    await respond(3, true);
 
     console.log('Monthly final — checks passed');
   } finally {

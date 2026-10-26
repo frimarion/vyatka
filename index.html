@@ -958,6 +958,11 @@ body.navOn .tabbar{display:grid}
 .rkRow .sub{color:var(--muted);font-size:11px}
 .rkRow .rkPts{font-weight:900;font-size:17px;font-variant-numeric:tabular-nums}
 .rkRow.isMe{border:2px solid rgba(233,83,31,.45);background:linear-gradient(168deg,#FFF8F0 0%,#FBE6D6 100%)}
+/* Финал месяца: кнопки организатора (players.can_manage_finals). */
+.finGate{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}
+.finGate button{width:100%}
+.finCtrl{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+[data-player] .nm.hasCtrl::after{content:none}
 /* Месячный рейтинг: топ проходит в финал месяца — после последнего места черта. */
 .rkCut{display:flex;align-items:center;gap:10px;padding:6px 4px;font-size:11px;font-weight:900;
   letter-spacing:.08em;text-transform:uppercase;color:#7A5E12}
@@ -1559,7 +1564,7 @@ document.addEventListener("touchmove", e => {
     vk_id_taken: "Этот VK уже привязан к другому профилю.",
     email_taken: "Эта почта уже привязана к другому профилю.",
     player_not_found: "Профиль не найден.",
-    not_allowed: "Записывать других тебе не разрешено.",
+    not_allowed: "Тебе это действие не разрешено.",
     same_player: "Это один и тот же профиль.",
     consent_not_saved: "Согласие не сохранилось. Попробуй ещё раз.",
   };
@@ -2506,8 +2511,16 @@ document.addEventListener("touchmove", e => {
 
   // Состав финала месяца считает база: топ рейтинга месяца без исключённых,
   // с отметками «подтвердил» / «отказался». У обычного турнира — записи.
+  const finalManager = () => !!me?.player?.can_manage_finals;
+  let finalExcluded = {};          // id финала → исключённые (видит только организатор)
   async function loadRoster(t) {
-    if (t.is_monthly_final) return await rpc("vp_final_roster", { p_tournament_id: t.id }) || [];
+    if (t.is_monthly_final) {
+      if (finalManager()) {
+        try { finalExcluded[t.id] = await rpc("vp_app_final_excluded", { p_token: token, p_tournament_id: t.id }) || []; }
+        catch (_) { finalExcluded[t.id] = []; }
+      }
+      return await rpc("vp_final_roster", { p_tournament_id: t.id }) || [];
+    }
     return await rpc("vp_tournament_roster", { p_tournament_id: t.id }) || [];
   }
 
@@ -2519,23 +2532,44 @@ document.addEventListener("touchmove", e => {
     const mark = (r) => r.declined ? '<span class="tag">отказался</span>'
       : r.confirmed ? '<span class="tag ok">✓ подтвердил</span>'
       : open ? '<span class="tag">ждём ответа</span>' : "";
+    // Организатор финала (players.can_manage_finals) управляет составом прямо тут.
+    const mgr = finalManager() && !isPast(t);
+    const fb = (act, pid, text, cls = "ghost") =>
+      `<button class="${cls} tiny" type="button" data-fin="${act}" data-pid="${Number(pid)}">${text}</button>`;
+    const ctrl = (r) => !mgr ? "" : `<div class="finCtrl">${r.extra ? fb("reset", r.player_id, "✕ Убрать")
+      : r.declined ? fb("exclude", r.player_id, "✓ Принять отказ", "danger") + fb("reset", r.player_id, "↩ Вернуть")
+      : r.confirmed ? fb("exclude", r.player_id, "Исключить", "danger") + fb("reset", r.player_id, "Снять")
+      : fb("confirm", r.player_id, "✓ Подтвердить") + fb("exclude", r.player_id, "Исключить", "danger")}</div>`;
+    const excluded = mgr ? (finalExcluded[t.id] || []) : [];
+    const pending = top.filter((r) => r.declined).length;
     return `<div class="card">
         <div class="cardHead"><h2>${open ? "Финалисты" : "Предварительный состав"}</h2>
           <span class="tag">${roster === null ? "—" : open ? `${fmtInt(confirmed)} / ${fmtInt(top.length)}` : fmtInt(top.length)}</span></div>
+        ${mgr ? `<div class="finGate">
+            <button class="${open ? "danger" : ""}" type="button" data-fin="gate" data-open="${open ? "0" : "1"}">
+              ${open ? "🔒 Закрыть подтверждения" : "🔓 Открыть подтверждения игрокам"}</button>
+            <div class="muted">${open ? `Подтвердили ${fmtInt(confirmed)}${pending ? ` · отказов ждут решения: ${fmtInt(pending)}` : ""}`
+              : "Видишь это как организатор. Открой, когда рейтинг месяца окончательный."}</div>
+          </div>` : ""}
         <div class="muted" style="margin:-4px 0 10px">${open
           ? `Топ-${fmtInt(t.slots || 27)} рейтинга за ${escHtml(ratingMonthLabel(t.final_rating_month || prevMonth(t.date)).toLowerCase())}. Не сможешь прийти — твоё место займёт следующий по рейтингу.`
           : `Топ-${fmtInt(t.slots || 27)} рейтинга за ${escHtml(ratingMonthLabel(t.final_rating_month || prevMonth(t.date)).toLowerCase())}. Состав ещё может поменяться — подтверждение участия откроется позже.`}</div>
         ${roster === null
           ? '<div class="muted">Список участников сейчас недоступен.</div>'
           : roster.length
-            ? `<div class="list">${roster.map((r) => `<div class="listRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}${r.declined ? ' style="opacity:.6"' : ""}>
+            ? `<div class="list">${roster.map((r) => `<div class="listRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}${r.declined && !mgr ? ' style="opacity:.6"' : ""}>
                  <span class="idx">${r.seat ?? "+"}</span>
                  ${avatarHtml(r.name, r.photo_url, "avatar", r)}
-                 <span class="nm">${escHtml(r.name)}${r.extra ? "" : `<div class="muted">${fmtInt(r.points)} оч.</div>`}</span>
+                 <span class="nm${mgr ? " hasCtrl" : ""}">${escHtml(r.name)}${r.extra ? `<div class="muted">сверх топа</div>` : `<div class="muted">${fmtInt(r.points)} оч.</div>`}${ctrl(r)}</span>
                  ${Number(r.player_id) === myId ? '<span class="tag hot">это ты</span>' : ""}
                  ${mark(r)}
                </div>`).join("")}</div>`
             : '<div class="muted">В рейтинге этого месяца пока никого нет.</div>'}
+        ${excluded.length ? `<div class="eyebrow" style="margin:14px 0 6px">Исключены — ${fmtInt(excluded.length)}</div>
+          <div class="list">${excluded.map((e) => `<div class="listRow" style="opacity:.6">
+            <span class="idx">—</span>${avatarHtml(e.name, null, "avatar")}
+            <span class="nm">${escHtml(e.name)}<div class="finCtrl">${fb("reset", e.player_id, "↩ Вернуть")}</div></span>
+          </div>`).join("")}</div>` : ""}
       </div>`;
   }
   // Месяц перед датой финала (YYYY-MM) — как vp_final_period в базе.
@@ -2739,6 +2773,10 @@ document.addEventListener("touchmove", e => {
 
     $("btnReg")?.addEventListener("click", () => doRegister(t.id, true));
     $("btnCancel")?.addEventListener("click", () => doRegister(t.id, false));
+    $("tdBody").querySelectorAll("[data-fin]").forEach((b) => b.addEventListener("click", (ev) => {
+      ev.stopPropagation();   // строка финалиста сама открывает профиль игрока
+      finalManage(t.id, b.dataset.fin, Number(b.dataset.pid), b.dataset.open === "1");
+    }));
     $("btnFinalYes")?.addEventListener("click", () => doFinal(t.id, true));
     $("btnFinalNo")?.addEventListener("click", () => doFinal(t.id, false));
     $("btnHelperAdd")?.addEventListener("click", () => helperAdd(t.id));
@@ -2820,6 +2858,34 @@ document.addEventListener("touchmove", e => {
     } catch (e) {
       toast(errText(e), "bad");
       renderTourney();
+    } finally {
+      regBusy = false;
+    }
+  }
+
+  // Организатор финала: открыть/закрыть подтверждения и решения по финалистам.
+  async function finalManage(tid, act, pid, open) {
+    if (regBusy) return;
+    if (act === "gate" && !confirm(open
+      ? "Открыть игрокам подтверждение участия? Состав считается окончательным."
+      : "Закрыть подтверждения? Игроки снова увидят состав как предварительный.")) return;
+    if (act === "exclude" && !confirm("Исключить игрока из финала? Его место займёт следующий по рейтингу.")) return;
+    regBusy = true;
+    try {
+      const t = tours.find((x) => x.id === tid);
+      if (act === "gate") {
+        await rpc("vp_app_final_set_confirmations", { p_token: token, p_tournament_id: tid, p_open: open });
+        if (t) t.final_confirmations_open = open;
+        toast(open ? "Подтверждения открыты игрокам" : "Подтверждения закрыты", "good");
+      } else {
+        await rpc("vp_app_final_admin_set", { p_token: token, p_tournament_id: tid, p_player_id: pid, p_action: act });
+      }
+      haptic("medium");
+      if (t) rosterCache[tid] = await loadRoster(t);
+      renderAll();
+      if (openId === tid) renderTourney();
+    } catch (e) {
+      toast(errText(e), "bad");
     } finally {
       regBusy = false;
     }

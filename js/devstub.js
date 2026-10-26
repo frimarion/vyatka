@@ -416,6 +416,8 @@
     photo_url: p.photo_url ?? null, games_played: p.games_played ?? 0,
     pd_consent_at: p.pd_consent_at ?? null, pd_consent_version: p.pd_consent_version ?? null,
     photo_consent: !!p.photo_consent, marketing_consent: !!p.marketing_consent,
+    // В песочнице «свой» игрок — организатор финалов (034), чтобы кнопки было видно.
+    can_manage_finals: p.can_manage_finals ?? p.tg_id === DEV_TG.id,
   } : null);
 
   const fail = (code) => ({ data: null, error: { message: code } });
@@ -835,6 +837,25 @@
       if (!t?.is_monthly_final) return fail("not_a_final");
       t.final_confirmations_open = !!args?.p_open;
       return { data: { ok: true, open: !!args?.p_open }, error: null };
+    },
+    // Организатор финала из приложения (034_app_final_admin.sql).
+    vp_app_final_admin_set(db, args) {
+      const p = (db.players || []).find((x) => String(x.id) === String(sessionPlayerId(db, args?.p_token)));
+      if (!p) return fail("not_authorized");
+      if (!playerJson(p).can_manage_finals) return fail("not_allowed");
+      return APP_RPC.vp_final_admin_set(db, args);
+    },
+    vp_app_final_set_confirmations(db, args) {
+      const p = (db.players || []).find((x) => String(x.id) === String(sessionPlayerId(db, args?.p_token)));
+      if (!p) return fail("not_authorized");
+      if (!playerJson(p).can_manage_finals) return fail("not_allowed");
+      return APP_RPC.vp_final_set_confirmations(db, args);
+    },
+    vp_app_final_excluded(db, args) {
+      const p = (db.players || []).find((x) => String(x.id) === String(sessionPlayerId(db, args?.p_token)));
+      if (!p) return fail("not_authorized");
+      if (!playerJson(p).can_manage_finals) return fail("not_allowed");
+      return APP_RPC.vp_final_excluded(db, args);
     },
     vp_app_rating(db, args) {
       const period = args?.p_period || "month";

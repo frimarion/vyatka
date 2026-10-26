@@ -64,6 +64,11 @@ reg.ru). Бэкенд — свой self-hosted Supabase на **api.vyatkapoker.r
 финал в рейтинг не идут. В месячном рейтинге приложения после 27-го места
 проведена черта.
 
+То же самое организатор может делать прямо в приложении игрока, в карточке
+финала. Для этого у игрока должен стоять флаг `players.can_manage_finals`
+(**`migrations/034_app_final_admin.sql`**). Выдать или забрать его:
+`update players set can_manage_finals = … where id = …`.
+
 Нужна **`migrations/033_monthly_final_roster.sql`**, а Edge Function
 `tournament-notify` нужно передеплоить: в ней тексты про финал. Проверка SQL:
 `tests/monthly-final.test.js` (PGlite, как и тест завершения турнира).
