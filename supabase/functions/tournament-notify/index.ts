@@ -168,7 +168,7 @@ function buildDraftHtml(
 // ── Пост в канале ───────────────────────────────────────────────────────────
 
 const CHANNEL_PUBLISH_HOUR_MSK = 15;
-const TOURNAMENT_COLS = "id,name,date,status,slots,late_reg_level,level_minutes,room_id";
+const TOURNAMENT_COLS = "id,name,date,status,slots,late_reg_level,level_minutes,room_id,is_monthly_final";
 
 function mskDayKey(iso: string | Date): string {
   return new Date(new Date(iso).getTime() + MSK_OFFSET).toISOString().slice(0, 10);
@@ -335,9 +335,18 @@ async function notify(tournamentId: number, playerId: number, opType: string) {
     channel = { error: (e as Error).message };
   }
 
+  // SILENT — запись финала поменял сам админ: пост в канале поправили,
+  // писать в группу о его же действии незачем.
+  if (opType === "SILENT") return { ok: true, channel, silent: true };
+
   const dateStr = t.date ? formatDate(t.date) : "";
-  const verb = opType === "CANCEL" ? "отменил(а) регистрацию" : "зарегистрировался(лась)";
-  const text = `<b>${escHtml(t.name)}</b> ${dateStr}\n${escHtml(playerName)} ${verb}`;
+  // У финала месяца запись — это подтверждение участия (migrations/033).
+  const verb = opType === "DECLINE"
+    ? "отказался(лась) от участия в финале.\nПримите отказ или верните игрока: «Расписание» → «Записались»."
+    : t.is_monthly_final
+      ? (opType === "CANCEL" ? "снял(а) подтверждение участия в финале" : "подтвердил(а) участие в финале")
+      : (opType === "CANCEL" ? "отменил(а) регистрацию" : "зарегистрировался(лась)");
+  const text = `${opType === "DECLINE" ? "⚠️ " : ""}<b>${escHtml(t.name)}</b> ${dateStr}\n${escHtml(playerName)} ${verb}`;
 
   const tgRes = await tgRequest("sendMessage", { chat_id: TG_ADMIN_CHAT_ID, text, parse_mode: "HTML" });
   if (!tgRes.ok) throw new Error("Telegram error: " + JSON.stringify(tgRes));

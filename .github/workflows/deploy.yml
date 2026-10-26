@@ -41,6 +41,9 @@ jobs:
       - run: node tests/finish-tournament.test.js
         env:
           VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite
+      - run: node tests/monthly-final.test.js
+        env:
+          VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite
 
   deploy:
     needs: test

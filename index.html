@@ -958,6 +958,10 @@ body.navOn .tabbar{display:grid}
 .rkRow .sub{color:var(--muted);font-size:11px}
 .rkRow .rkPts{font-weight:900;font-size:17px;font-variant-numeric:tabular-nums}
 .rkRow.isMe{border:2px solid rgba(233,83,31,.45);background:linear-gradient(168deg,#FFF8F0 0%,#FBE6D6 100%)}
+/* Месячный рейтинг: топ проходит в финал месяца — после последнего места черта. */
+.rkCut{display:flex;align-items:center;gap:10px;padding:6px 4px;font-size:11px;font-weight:900;
+  letter-spacing:.08em;text-transform:uppercase;color:#7A5E12}
+.rkCut::before,.rkCut::after{content:"";flex:1;height:1px;background:rgba(122,94,18,.35)}
 }
 #tabbar{grid-template-columns:repeat(4,minmax(0,1fr))}
 
@@ -1542,7 +1546,10 @@ document.addEventListener("touchmove", e => {
     name_taken: "Такое имя в клубе уже занято — добавь фамилию.",
     tournament_not_found: "Турнир не найден.",
     registration_closed: "Запись на этот турнир закрыта.",
-    final_invite_only: "На финал месяца записывает организатор.",
+    final_invite_only: "В финал месяца проходит топ рейтинга — записываться не нужно.",
+    confirmations_closed: "Подтверждение участия в финале ещё не открыли.",
+    not_in_final: "Тебя нет в составе финала.",
+    not_a_final: "Это не финал месяца.",
     tournament_full: "Мест больше нет.",
     vk_not_configured: "Вход через VK пока не настроен. Напиши организатору.",
     email_auth_not_configured: "Вход по почте пока не настроен. Напиши организатору.",
@@ -2487,7 +2494,7 @@ document.addEventListener("touchmove", e => {
       if (isPast(t)) {
         resultCache[t.id] = await rpc("vp_tournament_results", { p_tournament_id: t.id }) || [];
       } else {
-        rosterCache[t.id] = await rpc("vp_tournament_roster", { p_tournament_id: t.id }) || [];
+        rosterCache[t.id] = await loadRoster(t);
       }
     } catch (e) {
       // Список недоступен — это не повод не открыть турнир.
@@ -2495,6 +2502,47 @@ document.addEventListener("touchmove", e => {
       console.warn("roster", e);
     }
     if (openId === t.id) renderTourney();
+  }
+
+  // Состав финала месяца считает база: топ рейтинга месяца без исключённых,
+  // с отметками «подтвердил» / «отказался». У обычного турнира — записи.
+  async function loadRoster(t) {
+    if (t.is_monthly_final) return await rpc("vp_final_roster", { p_tournament_id: t.id }) || [];
+    return await rpc("vp_tournament_roster", { p_tournament_id: t.id }) || [];
+  }
+
+  function finalRosterCard(t, roster) {
+    const open = t.final_confirmations_open === true;
+    const top = (roster || []).filter((r) => !r.extra);
+    const confirmed = (roster || []).filter((r) => r.confirmed).length;
+    const myId = Number(me?.player?.id) || null;
+    const mark = (r) => r.declined ? '<span class="tag">отказался</span>'
+      : r.confirmed ? '<span class="tag ok">✓ подтвердил</span>'
+      : open ? '<span class="tag">ждём ответа</span>' : "";
+    return `<div class="card">
+        <div class="cardHead"><h2>${open ? "Финалисты" : "Предварительный состав"}</h2>
+          <span class="tag">${roster === null ? "—" : open ? `${fmtInt(confirmed)} / ${fmtInt(top.length)}` : fmtInt(top.length)}</span></div>
+        <div class="muted" style="margin:-4px 0 10px">${open
+          ? `Топ-${fmtInt(t.slots || 27)} рейтинга за ${escHtml(ratingMonthLabel(t.final_rating_month || prevMonth(t.date)).toLowerCase())}. Не сможешь прийти — твоё место займёт следующий по рейтингу.`
+          : `Топ-${fmtInt(t.slots || 27)} рейтинга за ${escHtml(ratingMonthLabel(t.final_rating_month || prevMonth(t.date)).toLowerCase())}. Состав ещё может поменяться — подтверждение участия откроется позже.`}</div>
+        ${roster === null
+          ? '<div class="muted">Список участников сейчас недоступен.</div>'
+          : roster.length
+            ? `<div class="list">${roster.map((r) => `<div class="listRow"${r.player_id ? ` data-player="${Number(r.player_id)}"` : ""}${r.declined ? ' style="opacity:.6"' : ""}>
+                 <span class="idx">${r.seat ?? "+"}</span>
+                 ${avatarHtml(r.name, r.photo_url, "avatar", r)}
+                 <span class="nm">${escHtml(r.name)}${r.extra ? "" : `<div class="muted">${fmtInt(r.points)} оч.</div>`}</span>
+                 ${Number(r.player_id) === myId ? '<span class="tag hot">это ты</span>' : ""}
+                 ${mark(r)}
+               </div>`).join("")}</div>`
+            : '<div class="muted">В рейтинге этого месяца пока никого нет.</div>'}
+      </div>`;
+  }
+  // Месяц перед датой финала (YYYY-MM) — как vp_final_period в базе.
+  function prevMonth(iso) {
+    const ym = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Moscow", year: "numeric", month: "2-digit" })
+      .format(iso ? new Date(iso) : new Date());
+    return shiftMonth(ym, -1);
   }
 
   function liveBlock(t) {
@@ -2611,15 +2659,38 @@ document.addEventListener("touchmove", e => {
     const left = seatsLeft(t);
     const reg = isReg(t.id);
     const open = regOpen(t);
-    // Помощник записи правит состав, пока турнир открыт или идёт.
-    const helper = !!me?.player?.can_register_others && (t.status === "open" || t.status === "running");
+    // Помощник записи правит состав, пока турнир открыт или идёт. Состав
+    // финала считается по рейтингу — его помощник не трогает.
+    const helper = !!me?.player?.can_register_others && (t.status === "open" || t.status === "running")
+      && !t.is_monthly_final;
+    const fin = t.is_monthly_final && !isPast(t);
+    const myFinal = fin && me?.player && Array.isArray(roster)
+      ? roster.find((r) => !r.extra && Number(r.player_id) === Number(me.player.id)) : null;
 
     let cta;
-    if (!me?.player) {
+    if (fin && me?.player) {
+      // Финал месяца: «Записаться» нет. Игрок из топа подтверждает участие
+      // или отказывается, когда админ откроет подтверждения.
+      if (!myFinal) {
+        cta = reg ? `<button class="ghost" type="button" disabled>Ты в составе финала ✓</button>`
+          : `<button class="ghost" type="button" disabled>Финал месяца · топ-${fmtInt(t.slots || 27)} рейтинга</button>`;
+      } else if (t.final_confirmations_open !== true) {
+        cta = `<button class="ghost" type="button" disabled>Ты в составе · подтверждение откроется позже</button>`;
+      } else if (myFinal.declined) {
+        cta = `<div class="muted" style="text-align:center;margin-bottom:8px">Отказ отправлен организатору</div>
+          <button type="button" id="btnFinalYes">Всё-таки приду</button>`;
+      } else if (myFinal.confirmed) {
+        cta = `<div class="muted" style="text-align:center;margin-bottom:8px">Участие подтверждено ✓</div>
+          <button class="danger" type="button" id="btnFinalNo">Не смогу прийти</button>`;
+      } else {
+        cta = `<button type="button" id="btnFinalYes">Подтвердить участие</button>
+          <button class="ghost" type="button" id="btnFinalNo" style="margin-top:8px">Не смогу прийти</button>`;
+      }
+    } else if (!me?.player) {
       // Два «не записан»: вход ещё идёт — или его надо начать. Отдельной
       // ветки «уходи в Telegram» больше нет: войти можно прямо здесь.
       if (authBusy) cta = `<button class="ghost" type="button" disabled>Входим в клуб…</button>`;
-      else cta = `<button type="button" id="btnLogin">Войти и записаться</button>`;
+      else cta = `<button type="button" id="btnLogin">${fin ? "Войти" : "Войти и записаться"}</button>`;
     } else if (isPast(t)) {
       cta = "";
     } else if (reg) {
@@ -2646,7 +2717,7 @@ document.addEventListener("touchmove", e => {
         ${feats.length ? `<div style="margin-top:10px">${feats.map((f) => `<div class="feat">${escHtml(String(f))}</div>`).join("")}</div>` : ""}
       </div>
 
-      ${isPast(t) ? resultsCard(t) : livePlayers(t) ? livePlayersCard(t, livePlayers(t)) : `<div class="card">
+      ${isPast(t) ? resultsCard(t) : livePlayers(t) ? livePlayersCard(t, livePlayers(t)) : fin ? finalRosterCard(t, roster) : `<div class="card">
         <div class="cardHead"><h2>Участники</h2>
           <span class="tag">${roster === null ? "—" : roster.length + (t.slots ? " / " + t.slots : "")}</span>
           ${helper ? '<button class="ghost tiny" type="button" id="btnHelperAdd">+ Игрок</button>' : ""}</div>
@@ -2668,6 +2739,8 @@ document.addEventListener("touchmove", e => {
 
     $("btnReg")?.addEventListener("click", () => doRegister(t.id, true));
     $("btnCancel")?.addEventListener("click", () => doRegister(t.id, false));
+    $("btnFinalYes")?.addEventListener("click", () => doFinal(t.id, true));
+    $("btnFinalNo")?.addEventListener("click", () => doFinal(t.id, false));
     $("btnHelperAdd")?.addEventListener("click", () => helperAdd(t.id));
     $("tdBody").querySelectorAll("[data-unreg]").forEach((b) => b.addEventListener("click", (ev) => {
       ev.stopPropagation();   // строка сама открывает профиль игрока
@@ -2716,6 +2789,34 @@ document.addEventListener("touchmove", e => {
         rosterCache[Number(id)] = await rpc("vp_tournament_roster", { p_tournament_id: Number(id) }) || [];
         if (openId === Number(id)) renderTourney();
       } catch (_) {}
+    } catch (e) {
+      toast(errText(e), "bad");
+      renderTourney();
+    } finally {
+      regBusy = false;
+    }
+  }
+
+  // ── Финал месяца: «Буду» / «Не смогу» ──────────────────────────────────────
+  async function doFinal(id, going) {
+    if (regBusy) return;
+    if (!me?.player) { toast("Сначала войди в клуб", "bad"); return; }
+    if (!going && !confirm("Отказаться от участия в финале? Отказ уйдёт организатору, твоё место займёт следующий по рейтингу.")) return;
+    regBusy = true;
+    const btn = $(going ? "btnFinalYes" : "btnFinalNo");
+    if (btn) { btn.disabled = true; btn.textContent = going ? "Подтверждаю…" : "Отправляю…"; }
+    try {
+      const res = await rpc("vp_app_final_respond", { p_token: token, p_tournament_id: Number(id), p_going: going });
+      const t = tours.find((x) => x.id === Number(id));
+      if (t && res?.registered_count != null) t.registered_count = Number(res.registered_count);
+      const set = myRegs();
+      if (going) set.add(Number(id)); else set.delete(Number(id));
+      me.registrations = [...set];
+      haptic(going ? "medium" : "light");
+      toast(going ? "Участие подтверждено ✓" : "Отказ отправлен организатору", going ? "good" : "");
+      if (t) rosterCache[t.id] = await loadRoster(t);
+      renderAll();
+      if (openId === Number(id)) renderTourney();
     } catch (e) {
       toast(errText(e), "bad");
       renderTourney();
@@ -2888,6 +2989,8 @@ document.addEventListener("touchmove", e => {
     const d = new Date(y, m - 1 + delta, 1);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
   }
+  // Сколько мест месячного рейтинга проходит в финал (у турнира-финала это slots).
+  const MONTHLY_FINAL_SIZE = 27;
   function renderRating() {
     $("ratingMonthLabel").textContent = ratingMonthLabel(ratingMonth);
     $("ratingNext").disabled = ratingMonth >= ratingCurrentMonth;
@@ -2916,15 +3019,31 @@ document.addEventListener("touchmove", e => {
     }
 
     const mine = me?.player && ratingRows.find(r => r.player_id != null && String(r.player_id) === String(me.player.id));
+    // Зона финала — только в месячном рейтинге.
+    const finalZone = ratingPeriod === "month"
+      ? ratingRows.filter(r => r.player_id != null && Number(r.points) > 0).slice(0, MONTHLY_FINAL_SIZE) : [];
+    let finalNote = "";
+    if (mine && ratingPeriod === "month" && Number(mine.points) > 0) {
+      if (finalZone.includes(mine)) finalNote = "в зоне финала месяца";
+      else if (finalZone.length === MONTHLY_FINAL_SIZE)
+        finalNote = `до финала месяца ${fmtInt(Math.max(1, Number(finalZone[finalZone.length - 1].points) - Number(mine.points)))} оч.`;
+    }
     if (mine) $("ratingMine").innerHTML = `<div class="rkMine"${playerAttr(mine)}>${avatarHtml(mine.name, mine.photo_url || me.player.photo_url, "avatar", mine)}
-          <div class="mTxt"><div class="mLbl">Твоё место</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
+          <div class="mTxt"><div class="mLbl">Твоё место${finalNote ? ` · ${finalNote}` : ""}</div><div class="mVal">${fmtInt(mine.rank)} · ${fmtInt(mine.points)} <small>${plural(mine.points, 'очко', 'очка', 'очков')}</small></div></div>
           <span class="mGo">›</span></div>`;
 
     const rows = ratingRows;
+    // В финал месяца проходят первые MONTHLY_FINAL_SIZE игроков с профилем и
+    // очками (как vp_final_roster) — черта после последнего из них.
+    const cutAfter = finalZone.length === MONTHLY_FINAL_SIZE ? finalZone[finalZone.length - 1] : null;
     $("ratingList").innerHTML = rows.length ? `<div class="rkList"><div class="rkLabels"><span>Игрок</span><span>Очки</span></div>${rows.map(r => {
       const rank = Number(r.rank);
-      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)} · нокаутов: ${fmtInt(r.ko || 0)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
+      const cut = r === cutAfter && rows[rows.length - 1] !== r ? `<div class="rkCut">Финал месяца · топ-${MONTHLY_FINAL_SIZE}</div>` : "";
+      return cut ? rowHtml(r, rank) + cut : rowHtml(r, rank);
     }).join('')}</div>` : '';
+    function rowHtml(r, rank) {
+      return `<div class="rkRow${mine === r ? ' isMe' : ''}"${playerAttr(r)}>${rank <= 3 ? medalHtml(rank) : `<span class="rkPlace">${fmtInt(rank)}</span>`}${avatarHtml(r.name, r.photo_url, "avatar", r)}<div class="rkName"><strong>${escHtml(r.name)}${mine === r ? ' <small class="muted">· ты</small>' : ''}</strong><div class="sub">${r.level ? escHtml(RANKS[rankOf(r)].name) + ' · ' : ''}${fmtInt(r.games)} ${plural(r.games, 'турнир', 'турнира', 'турниров')} · побед: ${fmtInt(r.wins)} · нокаутов: ${fmtInt(r.ko || 0)}</div></div><span class="rkPts">${fmtInt(r.points)}</span></div>`;
+    }
   }
   async function loadRating() {
     const request = ++ratingRequest;

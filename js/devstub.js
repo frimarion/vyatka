@@ -141,6 +141,11 @@
         { id: 4, name: "Вятский Дейли", date: at(-7, 19), status: "past", entry_fee: 1000, slots: 45,
           room_id: null, registered_count: 11, start_stack: 30000, level_minutes: 16, late_reg_level: 9,
           description: "", features: [] },
+        // Финал месяца (033): состав — топ рейтинга текущего месяца, в песочнице на 5 мест.
+        { id: 5, name: "Финал месяца", date: at(5, 18), status: "open", entry_fee: 0, slots: 5,
+          room_id: null, registered_count: 0, start_stack: 50000, level_minutes: 20, late_reg_level: null,
+          description: "", features: [], is_monthly_final: true, final_confirmations_open: false,
+          final_rating_month: new Date(Date.now() + 3 * 3600000).toISOString().slice(0, 7) },
       ],
       // восьмеро уже записались на сегодняшний — есть что импортировать
       registrations: players.slice(0, 8).map((p, i) => ({
@@ -189,6 +194,22 @@
   // записавшихся врёт, а запись из приложения не доезжает в открытую комнату —
   // то есть проверить как раз то, что связывает приложение с админкой, нельзя.
   const nkey = (s) => String(s ?? "").toLowerCase().replace(/[ёйЁЙ]/g, (c) => ({ "ё": "е", "Ё": "е", "й": "и", "Й": "и" }[c])).replace(/\s+/g, " ").trim();
+
+  // Действия над финалистом — как vp_app_final_respond / vp_final_admin_set (033).
+  function devFinalSet(db, tid, pid, action) {
+    const same = (x) => String(x.tournament_id) === String(tid) && String(x.player_id) === String(pid);
+    db.final_declines = (db.final_declines || []).filter((d) => !same(d));
+    db.registrations = db.registrations || [];
+    const reg = db.registrations.find(same);
+    if (action === "confirm") {
+      if (reg) { reg.status = "registered"; reg.created_at = new Date().toISOString(); }
+      else db.registrations.push({ id: Date.now(), tournament_id: Number(tid), player_id: Number(pid), status: "registered", created_at: new Date().toISOString() });
+    } else {
+      if (reg) reg.status = "cancelled";
+      if (action !== "reset") db.final_declines.push({ tournament_id: Number(tid), player_id: Number(pid), status: action === "decline" ? "pending" : "approved" });
+    }
+    devSyncRegistrations(db);
+  }
 
   function devSyncRegistrations(db) {
     const regs = db.registrations || [];
@@ -762,6 +783,59 @@
         }).filter(Boolean);
       return { data: rows, error: null };
     },
+    // Финал месяца — копия vp_final_roster и соседей из 033_monthly_final_roster.sql.
+    vp_final_roster(db, args) {
+      const tid = String(args?.p_tournament_id);
+      const t = (db.tournaments || []).find((x) => String(x.id) === tid);
+      if (!t?.is_monthly_final) return { data: [], error: null };
+      const decl = (db.final_declines || []).filter((d) => String(d.tournament_id) === tid);
+      const regd = (pid) => (db.registrations || []).some((r) => String(r.tournament_id) === tid
+        && String(r.player_id) === String(pid) && r.status !== "cancelled");
+      // Пусто — месяц перед датой финала, как vp_final_period.
+      const [fy, fm] = mskMonth(t.date || new Date().toISOString()).split("-").map(Number);
+      const period = t.final_rating_month || (fm === 1 ? `${fy - 1}-12` : `${fy}-${String(fm - 1).padStart(2, "0")}`);
+      const top = APP_RPC.vp_app_rating(db, { p_period: period }).data
+        .filter((r) => r.player_id != null && r.points > 0
+          && !decl.some((d) => String(d.player_id) === String(r.player_id) && d.status === "approved"))
+        .sort((a, b) => b.points - a.points || (b.ko || 0) - (a.ko || 0) || a.name.localeCompare(b.name))
+        .slice(0, t.slots ?? 27)
+        .map((r, i) => ({ player_id: r.player_id, name: r.name, photo_url: r.photo_url ?? null, points: r.points,
+          ko: r.ko || 0, rating_rank: r.rank, seat: i + 1, confirmed: regd(r.player_id),
+          declined: decl.some((d) => String(d.player_id) === String(r.player_id) && d.status === "pending"), extra: false }));
+      const extra = (db.registrations || []).filter((r) => String(r.tournament_id) === tid && r.status !== "cancelled"
+          && !top.some((x) => String(x.player_id) === String(r.player_id)))
+        .map((r) => (db.players || []).find((p) => String(p.id) === String(r.player_id))).filter(Boolean)
+        .map((p) => ({ player_id: p.id, name: p.name, photo_url: p.photo_url ?? null, points: null, ko: null,
+          rating_rank: null, seat: null, confirmed: true, declined: false, extra: true }));
+      return { data: [...top, ...extra], error: null };
+    },
+    vp_final_excluded(db, args) {
+      return { data: (db.final_declines || []).filter((d) => String(d.tournament_id) === String(args?.p_tournament_id) && d.status === "approved")
+        .map((d) => ({ player_id: d.player_id, name: (db.players || []).find((p) => String(p.id) === String(d.player_id))?.name || "—" })), error: null };
+    },
+    vp_app_final_respond(db, args) {
+      const pid = sessionPlayerId(db, args?.p_token);
+      if (!pid) return fail("not_authorized");
+      const t = (db.tournaments || []).find((x) => String(x.id) === String(args?.p_tournament_id));
+      if (!t) return fail("tournament_not_found");
+      if (!t.is_monthly_final) return fail("not_a_final");
+      if (!["open", "running"].includes(t.status)) return fail("registration_closed");
+      if (!t.final_confirmations_open) return fail("confirmations_closed");
+      if (!APP_RPC.vp_final_roster(db, args).data.some((r) => !r.extra && String(r.player_id) === String(pid))) return fail("not_in_final");
+      devFinalSet(db, t.id, pid, args?.p_going ? "confirm" : "decline");
+      return { data: { going: !!args?.p_going, registered_count: t.registered_count }, error: null };
+    },
+    vp_final_admin_set(db, args) {
+      if (!["confirm", "exclude", "reset"].includes(args?.p_action)) return fail("bad_action");
+      devFinalSet(db, args.p_tournament_id, args.p_player_id, args.p_action);
+      return { data: { ok: true }, error: null };
+    },
+    vp_final_set_confirmations(db, args) {
+      const t = (db.tournaments || []).find((x) => String(x.id) === String(args?.p_tournament_id));
+      if (!t?.is_monthly_final) return fail("not_a_final");
+      t.final_confirmations_open = !!args?.p_open;
+      return { data: { ok: true, open: !!args?.p_open }, error: null };
+    },
     vp_app_rating(db, args) {
       const period = args?.p_period || "month";
       const archive = /^([0-9]{4})-(0[1-9]|1[0-2])$/.exec(period);
@@ -781,7 +855,7 @@
       const ids = new Set((db.tournament_results || []).filter(h => {
         const rows = all.filter(r => String(r.result_id) === String(h.id));
         return new Date(h.played_at).getTime() >= start && new Date(h.played_at).getTime() < end && new Date(h.played_at) <= now
-          && (h.tournament_id == null || db.tournaments.some(t => String(t.id) === String(h.tournament_id) && t.status === "past"))
+          && (h.tournament_id == null || db.tournaments.some(t => String(t.id) === String(h.tournament_id) && t.status === "past" && !t.is_monthly_final))
           && rows.length && rows.every(r => r.place != null && r.place >= 1);
       }).map(h => String(h.id)));
       const totals = new Map();

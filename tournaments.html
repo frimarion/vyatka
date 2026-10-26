@@ -126,13 +126,16 @@ body.tournamentsPage #screenForm{margin-top:16px}
         <option value="freeroll">Фриролл — с билетом</option>
         <option value="mafia">Мафия — человек в маске</option>
       </select></div>
-    <!-- Финал месяца: в приложении виден, но кнопки «Записаться» нет —
-         состав набирает админ через «+ Игрок». Запрет держит и vp_app_register
-         (миграция 022), так что старая вкладка приложения мимо не проскочит. -->
+    <!-- Финал месяца: «Записаться» в приложении нет. Состав — топ по рейтингу
+         месяца (столько, сколько мест), игроки подтверждают участие сами,
+         когда админ откроет подтверждения (миграция 033). -->
     <label class="checkRow" style="margin-top:4px;font-size:14px">
       <input id="fMonthlyFinal" type="checkbox"/>
-      <span><b>🏆 Финал месяца</b> — игроки сами не записываются, состав добавляет админ. Карточка в приложении — с кубком, вместо выбранной выше.</span>
+      <span><b>🏆 Финал месяца</b> — состав: топ рейтинга месяца по числу мест. Игроки подтверждают участие в приложении. Карточка — с кубком, вместо выбранной выше.</span>
     </label>
+    <div class="field" id="fFinalMonthWrap" style="display:none"><label>Рейтинг за месяц</label>
+      <input id="fFinalMonth" type="month"/>
+      <div class="muted" style="font-size:12px;margin-top:4px">Пусто — месяц перед датой финала.</div></div>
 
     <div class="btnrow"><button id="btnSave" type="button">Создать турнир</button>
       <button id="btnCancelEdit" class="ghost" type="button">Закрыть</button></div>
@@ -337,7 +340,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
         <span class="tag${t.slots && t.registered_count >= t.slots ? " hot" : ""}">👥 ${fmtInt(t.registered_count || 0)}${seats}</span>
         ${t.room_id ? `<span class="tag gold mono">🎮 ${escHtml(t.room_id)}</span>` : '<span class="tag">без комнаты</span>'}
         ${t.start_stack ? `<span class="tag">стек ${fmtInt(t.start_stack)}</span>` : ""}
-        ${t.is_monthly_final ? '<span class="tag gold">🏆 финал месяца · запись через админа</span>' : ""}
+        ${t.is_monthly_final ? `<span class="tag gold">🏆 финал месяца · топ-${fmtInt(t.slots || 27)} рейтинга${t.final_confirmations_open ? " · подтверждения открыты" : ""}</span>` : ""}
       </div>
       <div class="tBtns">
         <button class="ghost" type="button" data-act="regs" data-id="${t.id}">👥 Записались</button>
@@ -364,6 +367,18 @@ body.tournamentsPage #screenForm{margin-top:16px}
   }
 
   async function fetchRoster(id) {
+    const t = tours.find((x) => x.id === id);
+    if (t?.is_monthly_final) {
+      try {
+        const [roster, excluded] = await Promise.all([
+          sb.rpc("vp_final_roster", { p_tournament_id: id }),
+          isAdmin() ? sb.rpc("vp_final_excluded", { p_tournament_id: id }) : Promise.resolve({ data: [] }),
+        ]);
+        if (roster.error) throw roster.error;
+        rosters[id] = { final: true, rows: roster.data || [], excluded: excluded.data || [] };
+      } catch (e) { rosters[id] = null; console.warn("fetchRoster final", e); }
+      return;
+    }
     try {
       const { data, error } = await sb.from(TBL.registrations)
         .select(`id, player_id, status, created_at, ${TBL.players}(name, full_name, tg_username)`)
@@ -382,6 +397,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
     const rows = rosters[id];
     if (rows === null) { box.innerHTML = '<div class="err">Список не загрузился.</div>'; return; }
     if (rows === undefined) { box.innerHTML = '<div class="muted">Загрузка…</div>'; return; }
+    if (rows.final) { renderFinalRoster(id, rows); return; }
 
     const live = rows.filter((r) => r.status === "registered");
     const off = rows.filter((r) => r.status !== "registered");
@@ -408,6 +424,64 @@ body.tournamentsPage #screenForm{margin-top:16px}
                     : '<div class="muted">Никто ещё не записался.</div>'}
       ${off.length ? `<div class="eyebrow" style="margin:12px 0 6px">Сняли запись — ${off.length}</div>
                       <div class="list">${off.map((r) => line(r, 0, true)).join("")}</div>` : ""}`;
+  }
+
+  // Финал месяца: состав считает база (vp_final_roster) — топ рейтинга без
+  // исключённых. Подтвердившие — это записи турнира, они же уходят в комнату.
+  function renderFinalRoster(id, data) {
+    const t = tours.find((x) => x.id === id) || {};
+    const box = $("regs-" + id);
+    const admin = isAdmin();
+    const open = t.final_confirmations_open === true;
+    const top = data.rows.filter((r) => !r.extra);
+    const extra = data.rows.filter((r) => r.extra);
+    const confirmed = data.rows.filter((r) => r.confirmed).length;
+    const declined = top.filter((r) => r.declined).length;
+    const btn = (act, pid, text, cls = "ghost") =>
+      `<button class="${cls} tiny" type="button" data-act="${act}" data-id="${id}" data-pid="${pid}">${text}</button>`;
+    const controls = (r) => {
+      if (!admin) return "";
+      if (r.declined) return btn("fin-exclude", r.player_id, "✓ Принять отказ", "danger") + btn("fin-reset", r.player_id, "↩ Вернуть");
+      if (r.confirmed) return btn("fin-exclude", r.player_id, "Исключить", "danger") + btn("fin-reset", r.player_id, "Снять");
+      return btn("fin-confirm", r.player_id, "✓ Подтвердить") + btn("fin-exclude", r.player_id, "Исключить", "danger");
+    };
+    const badge = (r) => r.declined ? ' <span class="tag hot">отказался — ждёт решения</span>'
+      : r.confirmed ? ' <span class="tag ok">✓ подтвердил</span>'
+      : open ? ' <span class="tag">не подтвердил</span>' : "";
+    const line = (r) => `<div class="listRow">
+        <span class="idx">${r.seat ?? "+"}</span>
+        <span class="avatar">${escHtml(initials(r.name || "?"))}</span>
+        <span class="nm">${escHtml(r.name || "—")}${badge(r)}
+          <div class="muted">${r.extra ? "сверх топа — добавлен вручную" : `${fmtInt(r.points)} оч. · ${fmtInt(r.ko || 0)} нок. · место в рейтинге ${fmtInt(r.rating_rank)}`}</div></span>
+        <span style="display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end">${r.extra ? (admin ? btn("fin-reset", r.player_id, "✕") : "") : controls(r)}</span>
+      </div>`;
+
+    box.innerHTML = `
+      <div class="cardHead" style="margin-bottom:8px">
+        <h2 style="font-size:15px">${open ? "Финалисты" : "Предварительный состав"}: ${top.length} · подтвердили ${confirmed}${declined ? ` · отказы ${declined}` : ""}</h2>
+        ${admin ? `<button class="ghost tiny" type="button" data-act="reg-add" data-id="${id}">+ Сверх топа</button>` : ""}
+      </div>
+      ${admin ? `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+          <button class="${open ? "danger" : ""} tiny" type="button" data-act="fin-gate" data-id="${id}" data-open="${open ? "0" : "1"}">
+            ${open ? "🔒 Закрыть подтверждения" : "🔓 Открыть подтверждения игрокам"}</button>
+          <span class="muted" style="font-size:12px">${open
+            ? "Игроки подтверждают участие или отказываются в приложении."
+            : "Игроки видят состав как предварительный и пока не подтверждают. Открой, когда рейтинг месяца окончательный."}</span>
+        </div>` : ""}
+      ${top.length ? `<div class="list">${top.map(line).join("")}</div>`
+        : '<div class="muted">В рейтинге этого месяца пока никого нет.</div>'}
+      ${extra.length ? `<div class="eyebrow" style="margin:12px 0 6px">Сверх топа — ${extra.length}</div>
+        <div class="list">${extra.map(line).join("")}</div>` : ""}
+      ${data.excluded.length ? `<div class="eyebrow" style="margin:12px 0 6px">Исключены — ${data.excluded.length}</div>
+        <div class="list">${data.excluded.map((e) => `<div class="listRow busted">
+          <span class="idx">—</span><span class="avatar">${escHtml(initials(e.name || "?"))}</span>
+          <span class="nm">${escHtml(e.name || "—")}</span>
+          ${admin ? btn("fin-reset", e.player_id, "↩ Вернуть") : ""}</div>`).join("")}</div>` : ""}`;
+  }
+
+  async function finalAction(tid, pid, action) {
+    const { error } = await sb.rpc("vp_final_admin_set", { p_tournament_id: tid, p_player_id: pid, p_action: action });
+    if (error) throw error;
   }
 
   // Добавление за игрока: ровно та же таблица, что и запись из приложения.
@@ -569,6 +643,8 @@ body.tournamentsPage #screenForm{margin-top:16px}
     $("fDate").value = toLocalInput(d.toISOString());
     $("fCardArt").value = "";
     $("fMonthlyFinal").checked = false;
+    $("fFinalMonth").value = "";
+    syncFinalField();
     $("fBlueprint").value = blueprints[0]?.id || "";
     applyBlueprint($("fBlueprint").value);
     $("formTitle").textContent = "Новый турнир";
@@ -594,6 +670,8 @@ body.tournamentsPage #screenForm{margin-top:16px}
     $("fFeatures").value = (Array.isArray(t.features) ? t.features : []).join("\n");
     $("fCardArt").value = t.card_art || "";
     $("fMonthlyFinal").checked = !!t.is_monthly_final;
+    $("fFinalMonth").value = t.final_rating_month || "";
+    syncFinalField();
     $("formTitle").textContent = "Правка турнира";
     $("btnSave").textContent = "Сохранить";
     $("btnCancelEdit").textContent = "Отменить правку";
@@ -625,6 +703,7 @@ body.tournamentsPage #screenForm{margin-top:16px}
       card_art: $("fCardArt").value || null,
       is_monthly_final: $("fMonthlyFinal").checked,
     };
+    if (payload.is_monthly_final || editId) payload.final_rating_month = payload.is_monthly_final ? ($("fFinalMonth").value || null) : null;
 
     const btn = $("btnSave"); btn.disabled = true; btn.textContent = "Сохраняю…";
     try {
@@ -646,9 +725,20 @@ body.tournamentsPage #screenForm{margin-top:16px}
         ? "Эта комната уже привязана к другому турниру."
         : /is_monthly_final/i.test(msg)
           ? "В базе нет поля финала месяца — примени migrations/022_monthly_final.sql."
-          : msg;
+          : /final_rating_month/i.test(msg)
+            ? "В базе нет полей нового финала — примени migrations/033_monthly_final_roster.sql."
+            : msg;
     } finally { btn.disabled = false; btn.textContent = editId ? "Сохранить" : "Создать турнир"; }
   }
+
+  function syncFinalField() {
+    $("fFinalMonthWrap").style.display = $("fMonthlyFinal").checked ? "" : "none";
+  }
+  // В финал проходит столько игроков, сколько мест: у Дойла это топ-27.
+  $("fMonthlyFinal").addEventListener("change", () => {
+    if ($("fMonthlyFinal").checked && (!editId || $("fSlots").value === "45")) $("fSlots").value = "27";
+    syncFinalField();
+  });
 
   $("fRoom").addEventListener("input", async () => {
     const v = $("fRoom").value.trim().toUpperCase();
@@ -699,13 +789,30 @@ body.tournamentsPage #screenForm{margin-top:16px}
       if (act === "reg-add") {
         const picked = await pickPlayer();
         if (!picked) return;
-        await addRegistration(id, picked.id);
+        // Финалисту сверх топа — то же подтверждение админом, без сообщения в группу.
+        if (tours.find((x) => x.id === id)?.is_monthly_final) await finalAction(id, picked.id, "confirm");
+        else await addRegistration(id, picked.id);
         await fetchRoster(id); renderRoster(id);
         await loadTours(); return;
       }
       if (act === "reg-drop") {
         await dropRegistration(id, pid);
         await fetchRoster(id); renderRoster(id);
+        await loadTours(); return;
+      }
+      if (act === "fin-confirm" || act === "fin-exclude" || act === "fin-reset") {
+        if (act === "fin-exclude" && !confirm("Исключить игрока из финала? Его место займёт следующий по рейтингу.")) return;
+        await finalAction(id, pid, act.slice(4));
+        await fetchRoster(id); renderRoster(id);
+        await loadTours(); return;
+      }
+      if (act === "fin-gate") {
+        const open = btn.dataset.open === "1";
+        if (!confirm(open
+          ? "Открыть игрокам подтверждение участия? Состав считается окончательным."
+          : "Закрыть подтверждения? Игроки снова увидят состав как предварительный.")) return;
+        const { error } = await sb.rpc("vp_final_set_confirmations", { p_tournament_id: id, p_open: open });
+        if (error) throw error;
         await loadTours(); return;
       }
       if (act === "reg-restore") {
