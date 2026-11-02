@@ -17,6 +17,8 @@ const places = st => st.players.filter(p=>p.present).sort((a,b)=>a.place-b.place
 const moved = C.correct(state,{type:'move',playerId:3,place:1});
 A.deepEqual(places(moved),[3,1,2]); A.deepEqual(places(state),[1,2,3]);
 A.deepEqual(places(C.correct(state,{type:'swap',playerId:1,otherId:3})),[3,2,1]);
+const guest=structuredClone(state); guest.players[1].player_id=null;
+A.equal(C.correct(guest,{type:'move',playerId:'name:Player 2',place:1}).players[1].place,1);
 const restored=C.correct(state,{type:'restore',playerId:4,person:{id:4,name:'Fourth'},place:2,reentries:0,buyIn:700,paid:700,method:'cash'});
 A.deepEqual(places(restored),[1,4,2,3]);
 A.deepEqual(restored.rating,state.rating);

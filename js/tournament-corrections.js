@@ -1,6 +1,7 @@
 (function (global) {
   'use strict';
   const VP = global.VP;
+  const playerKey = p => p.player_id == null ? 'name:' + p.name : String(p.player_id);
   function correct(original, action) {
     const st = structuredClone(original);
     VP.computeStatsFromPlayers(st);
@@ -12,7 +13,7 @@
         VP.computeStatsFromPlayers(st);
       }
     }
-    const player = action.playerId == null ? undefined : st.players.find(p => String(p.player_id) === String(action.playerId));
+    const player = action.playerId == null ? undefined : st.players.find(p => playerKey(p) === String(action.playerId));
     const finished = !!st.tournament?.finishedAt;
     let ranked = st.players.filter(p => p.present && p.status === 'busted').sort((a, b) => a.place - b.place);
     if (action.type === 'restore') {
@@ -47,7 +48,7 @@
         if (!Number.isSafeInteger(action.ko) || action.ko < 0) throw new Error('Укажи число нокаутов от нуля.');
         player.ko = action.ko;
       } else if (action.type === 'swap') {
-        const other = st.players.find(p => String(p.player_id) === String(action.otherId));
+        const other = st.players.find(p => playerKey(p) === String(action.otherId));
         const a = ranked.indexOf(player), b = ranked.indexOf(other);
         if (a < 0 || b < 0 || a === b) throw new Error('Выбери двух разных игроков с определёнными местами.');
         [ranked[a], ranked[b]] = [ranked[b], ranked[a]];

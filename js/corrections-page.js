@@ -8,7 +8,7 @@
   const fail = e => { $('notice').textContent = e.message || String(e); $('notice').className = 'err'; };
   const say = s => { $('notice').textContent = s; $('notice').className = ''; };
   const run = fn => async e => { e?.preventDefault(); try { await fn(); } catch (error) { fail(error); } };
-  const opts = list => '<option value="">Выбери игрока</option>' + list.map(p => `<option value="${esc(p.player_id)}">${esc(p.name)} — ${p.place || 'в игре'}</option>`).join('');
+  const opts = list => '<option value="">Выбери игрока</option>' + list.map(p => `<option value="${esc(p.player_id == null ? 'name:' + p.name : p.player_id)}">${esc(p.name)} — ${p.place || 'в игре'}</option>`).join('');
   function snapshot(st) {
     const normalized = structuredClone(st); VP.computeStatsFromPlayers(normalized);
     return st.tournament?.finishedAt || tournament.status === 'past'
@@ -34,7 +34,7 @@
       const winner = VPCrm.finishedWinner(normalized); if (winner) winner.place = 1;
     }
     const rows = normalized.players.filter(p => p.present).sort((a,b) => (a.place || 0) - (b.place || 0));
-    $('player').innerHTML = $('other').innerHTML = opts(rows.filter(p => p.player_id != null));
+    $('player').innerHTML = $('other').innerHTML = opts(rows);
     $('roster').innerHTML = '<table><thead><tr><th>Место</th><th>Игрок</th><th>Очки</th></tr></thead><tbody>' + rows.map(p => `<tr><td>${p.place || 'В игре'}</td><td>${esc(p.name)}</td><td>${VPCrm.pointsForPlace(normalized,p.place)}</td></tr>`).join('') + '</tbody></table>';
     $('roomLink').href = 'admin.html?room=' + encodeURIComponent(t.room_id);
     $('tournamentInfo').textContent = `${t.name} · ${rows.length} участников · ${t.status === 'past' || original.tournament?.finishedAt ? 'завершён' : 'текущий турнир'}`;
