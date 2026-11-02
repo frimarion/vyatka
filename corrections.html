@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Вятка — исправить результаты</title>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="stylesheet" href="css/corrections.css"/>
+</head>
+<body class="adminPage ornament">
+<main class="wrap corrections">
+  <header><a href="admin.html">← Админка</a><h1>Исправить результаты</h1>
+    <p class="muted">Места, состав и нокауты текущих и завершённых турниров.</p></header>
+  <p id="notice" role="status">Проверяю вход…</p>
+  <div id="editor" hidden>
+    <section class="card">
+      <h2>Турнир</h2>
+      <div class="field"><label for="tournament">Выбери турнир по дате</label><select id="tournament"></select></div>
+      <div class="correction-actions"><button id="refresh" type="button" class="ghost">Обновить</button><a id="roomLink" href="admin.html">Открыть таймер →</a></div>
+      <p id="tournamentInfo" class="muted"></p>
+    </section>
+    <div id="loaded" hidden>
+      <section class="card">
+        <h2>Что исправить</h2>
+        <form id="correctionForm">
+          <div class="field"><label for="operation">Действие</label><select id="operation">
+            <option value="move">Перенести игрока на другое место</option>
+            <option value="swap">Поменять двух игроков местами</option>
+            <option value="restore">Восстановить пропущенного игрока</option>
+            <option value="return">Вернуть ошибочно вылетевшего в игру</option>
+            <option value="ko">Исправить количество нокаутов</option>
+          </select></div>
+          <div class="field" id="playerField"><label for="player">Участник турнира</label><select id="player"></select></div>
+          <div id="restoreFields" hidden>
+            <div class="field"><label for="search">Поиск игрока в базе клуба</label><input id="search" type="search" autocomplete="off" placeholder="Введи имя или ник"/></div>
+            <div class="field"><label for="person">Пропущенный игрок</label><select id="person"><option value="">Сначала введи имя</option></select></div>
+            <p id="existingPlayer" class="muted"></p>
+            <div id="newPlayerMoney" class="correction-grid">
+              <div class="field"><label for="buyIn">Первый взнос, ₽ (0 — бесплатно)</label><input id="buyIn" type="number" min="0" step="1" inputmode="numeric"/></div>
+              <div class="field"><label for="reentries">Количество реентри</label><input id="reentries" type="number" min="0" step="1" value="0" inputmode="numeric"/></div>
+              <div class="field"><label for="paid">Уже оплачено, ₽ (0 — не оплачено)</label><input id="paid" type="number" min="0" step="1" inputmode="numeric"/></div>
+              <div class="field"><label for="method">Способ оплаты</label><select id="method"><option value="transfer">Перевод</option><option value="cash">Наличные</option><option value="card">Карта</option></select></div>
+            </div>
+            <p class="muted">Для нового участника укажи фактические суммы. Аддоны и несколько платежей можно уточнить в таймере, во вкладке «Оплата».</p>
+          </div>
+          <div class="field" id="otherField" hidden><label for="other">Второй участник</label><select id="other"></select></div>
+          <div class="field" id="placeField"><label for="place">Новое место</label><input id="place" type="number" min="1" step="1" inputmode="numeric"/><p class="muted">Игроки между старым и новым местом сдвинутся. При восстановлении во время игры оставь поле пустым, если участник ещё играет.</p></div>
+          <div class="field" id="koField" hidden><label for="ko">Правильное число нокаутов</label><input id="ko" type="number" min="0" step="1" inputmode="numeric"/></div>
+          <div class="field"><label for="reason">Причина исправления</label><input id="reason" minlength="3" maxlength="500" required placeholder="Например: ошибочно сняли Антона с участия"/></div>
+          <button id="previewButton" type="submit">Проверить изменения</button>
+        </form>
+      </section>
+      <section id="preview" class="card" hidden aria-labelledby="previewTitle">
+        <h2 id="previewTitle">Проверь перед сохранением</h2>
+        <div id="changes"></div><p id="moneyChanges"></p>
+        <p class="muted">Призовая шкала сохраняется. Очки следуют за местами. Текущий турнир продолжится; завершённый останется завершённым.</p>
+        <div class="correction-actions"><button id="save" type="button">Сохранить исправление</button><button id="cancel" type="button" class="ghost">Отмена</button></div>
+      </section>
+      <section class="card"><h2>Участники и места</h2><div id="roster" class="correction-table"></div></section>
+      <section class="card"><h2>История исправлений</h2><p class="muted">Отменить можно последнюю правку, если после неё состав, оплаты и призовая шкала не менялись.</p><div id="history"></div><button id="undo" type="button" class="ghost" hidden>Отменить последнюю правку</button></section>
+    </div>
+  </div>
+</main>
+<script src="lib/supabase-js.min.js"></script>
+<script src="js/config.js"></script>
+<script src="js/core.js"></script>
+<script src="js/crm.js"></script>
+<script src="js/tournament-corrections.js"></script>
+<script src="js/corrections-page.js"></script>
+</body></html>

@@ -1,0 +1,20 @@
+.corrections{max-width:900px;padding-bottom:60px}
+.corrections header{margin:20px 0 28px}
+.corrections a{color:var(--accent-deep);text-underline-offset:3px}
+.corrections h1{font-size:1.8rem;margin:16px 0 6px}
+.corrections h2{font-size:1.2rem;margin:0 0 16px}
+.corrections .card{padding:24px;margin-bottom:20px}
+.corrections [hidden]{display:none!important}
+.correction-actions{display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+.correction-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
+.correction-table{overflow-x:auto}
+.corrections table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums}
+.corrections th,.corrections td{text-align:left;padding:10px 8px;border-bottom:1px solid var(--line-strong)}
+.corrections th:first-child,.corrections td:first-child{width:80px}
+.corrections input,.corrections select{min-height:44px;width:100%}
+.corrections #notice{padding:12px 0;white-space:pre-wrap}
+.corrections #preview{border:2px solid var(--accent-dark)}
+.corrections .history-entry{padding:12px 0;border-bottom:1px solid var(--line-strong)}
+.corrections :focus-visible{outline:3px solid var(--accent-dark);outline-offset:3px}
+.corrections button:disabled{opacity:.6;cursor:wait}
+@media(max-width:600px){.correction-grid{grid-template-columns:1fr}.corrections .card{padding:18px}.corrections h1{font-size:1.5rem}.correction-actions button{width:100%}}

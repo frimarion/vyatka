@@ -51,6 +51,7 @@
     <span class="here">Таймер</span>
     <a href="tournaments.html">Расписание</a>
     <a href="crm.html">CRM</a>
+    <a id="navCorrections" href="corrections.html">Исправить результаты</a>
     <a id="navDisplay" href="display.html" target="_blank" rel="noopener" style="display:none">Дисплей ↗</a>
     <a href="./" target="_blank" rel="noopener">Приложение ↗</a>
   </nav>
@@ -1213,6 +1214,7 @@
     // «Дисплей ↗» в полоске ведёт на ТВ этой комнаты, а не на демо: без комнаты
     // он не нужен, поэтому и появляется только внутри неё.
     $("navDisplay").href = `display.html?room=${encodeURIComponent(id)}`;
+    $("navCorrections").href = `corrections.html?room=${encodeURIComponent(id)}`;
     $("navDisplay").style.display = id ? "" : "none";
   }
   $("copyAdmin").onclick = () => navigator.clipboard?.writeText($("adminLink").value);
