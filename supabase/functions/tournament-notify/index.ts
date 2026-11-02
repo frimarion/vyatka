@@ -235,6 +235,19 @@ async function channelId(): Promise<string | null> {
   return rows?.[0]?.value || null;
 }
 
+// Администратор может добавить медиа к текстовому посту уже после публикации.
+// В таком сообщении список становится подписью: editMessageText его не меняет.
+async function editChannelMessage(post: any, text: string) {
+  const target = { chat_id: post.chat_id, message_id: post.message_id, parse_mode: "HTML" };
+  let res = await tgRequest("editMessageText", { ...target, text });
+  if (!res.ok && res.error_code === 400 && /there is no text in the message to edit/i.test(res.description || "")) {
+    res = await tgRequest("editMessageCaption", { ...target, caption: text });
+  }
+  if (!res.ok && !/message is not modified/i.test(res.description || "")) {
+    throw new Error("Telegram error: " + JSON.stringify(res));
+  }
+}
+
 // Публикует пост (create) или приводит уже опубликованный к текущему списку.
 // Запись и отмена могут прийти почти одновременно, и правка по старому списку
 // может доехать до Telegram позже свежей. Поэтому после правки список читаем
@@ -272,12 +285,7 @@ async function syncChannelPost(t: any, create: boolean) {
   for (let i = 0; i < 3; i++) {
     const text = await buildChannelHtml(t, await getPlayers(t.id));
     if (text === last) break;
-    const res = await tgRequest("editMessageText", {
-      chat_id: post.chat_id, message_id: post.message_id, text, parse_mode: "HTML",
-    });
-    if (!res.ok && !/not modified/i.test(res.description || "")) {
-      throw new Error("Telegram error: " + JSON.stringify(res));
-    }
+    await editChannelMessage(post, text);
     await dbWrite("PATCH", `tg_channel_posts?tournament_id=eq.${t.id}`,
       { text, updated_at: new Date().toISOString() }, "return=minimal");
     last = text;
