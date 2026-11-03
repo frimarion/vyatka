@@ -49,6 +49,7 @@
   function fields() {
     const type = $('operation').value;
     $('playerField').hidden = type === 'restore'; $('restoreFields').hidden = type !== 'restore';
+    $('removeHint').hidden = type !== 'remove';
     $('otherField').hidden = type !== 'swap'; $('placeField').hidden = !['move','restore'].includes(type); $('koField').hidden = type !== 'ko';
     staged = null; $('preview').hidden = true;
   }
@@ -61,10 +62,11 @@
       if (!old) diffs.push(`${p.name}: восстановлен, ${p.place ? 'место ' + p.place : 'в игре'}, ${p.points} очков`);
       else if (old.place !== p.place || old.points !== p.points || old.ko !== p.ko) diffs.push(`${p.name}: место ${old.place || 'в игре'} → ${p.place || 'в игре'}, очки ${old.points} → ${p.points}, нокауты ${old.ko} → ${p.ko}`);
     }
-    for (const p of before.players) if (!after.players.some(x => x.player_id === p.player_id && x.name === p.name)) diffs.push(`${p.name}: участие будет отменено`);
+    for (const p of before.players) if (!after.players.some(x => x.player_id === p.player_id && x.name === p.name)) diffs.push(`${p.name}: будет удалён из участников и результатов турнира (${p.points} очков). Его входы и оплаты будут исключены из отчёта; профиль в клубе сохранится.`);
     $('changes').innerHTML = '<ul>' + diffs.map(s => `<li>${esc(s)}</li>`).join('') + '</ul>';
     $('moneyChanges').textContent = `К оплате: ${money(before.result.expected)} → ${money(after.result.expected)}. Оплачено: ${money(before.result.paid)} → ${money(after.result.paid)}. Долг: ${money(before.result.debt)} → ${money(after.result.debt)}.`;
     $('preview').hidden = false; $('preview').scrollIntoView({ behavior: 'smooth', block: 'start' }); $('save').focus();
+    $('save').textContent = undo === null && $('operation').value === 'remove' ? 'Удалить игрока из турнира' : 'Сохранить исправление';
   }
   $('correctionForm').onsubmit = run(() => {
     const type = $('operation').value;

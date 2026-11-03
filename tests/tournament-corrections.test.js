@@ -19,6 +19,13 @@ A.deepEqual(places(moved),[3,1,2]); A.deepEqual(places(state),[1,2,3]);
 A.deepEqual(places(C.correct(state,{type:'swap',playerId:1,otherId:3})),[3,2,1]);
 const guest=structuredClone(state); guest.players[1].player_id=null;
 A.equal(C.correct(guest,{type:'move',playerId:'name:Player 2',place:1}).players[1].place,1);
+const removed = C.correct(state,{type:'remove',playerId:2});
+A.deepEqual(places(removed),[1,3]); A.equal(removed.players.length,2);
+A.deepEqual(removed.rating,state.rating); A.equal(removed.stats.registered,2);
+A.equal(CRM.snapshotFromState(removed).result.paid,1400);
+A.equal(CRM.snapshotFromState(removed).result.entries,2);
+A.equal(C.correct(guest,{type:'remove',playerId:'name:Player 2'}).players.length,2);
+A.deepEqual(places(C.correct(state,{type:'remove',playerId:1})),[2,3]);
 const restored=C.correct(state,{type:'restore',playerId:4,person:{id:4,name:'Fourth'},place:2,reentries:0,buyIn:700,paid:700,method:'cash'});
 A.deepEqual(places(restored),[1,4,2,3]);
 A.deepEqual(restored.rating,state.rating);
@@ -28,6 +35,7 @@ A.throws(()=>C.correct(live,{type:'move',playerId:3,place:1}),/Допустим�
 const returned=C.correct(live,{type:'return',playerId:2}); A.equal(returned.stats.alive,2); A.equal(returned.players[1].place,null);
 const completed=structuredClone(state); completed.tournament.finishedAt='2026-11-01T20:00:00Z';
 A.throws(()=>C.correct(completed,{type:'return',playerId:2}),/Завершённый/);
+A.throws(()=>C.correct({...completed,players:completed.players.slice(0,2)},{type:'remove',playerId:2}),/минимум два/);
 A.equal(C.correct(completed,{type:'ko',playerId:2,ko:5}).players[1].ko,5);
 
 (async()=>{
@@ -76,6 +84,17 @@ A.equal(C.correct(completed,{type:'ko',playerId:2,ko:5}).players[1].ko,5);
     const restoredBefore=await call(saved.state,before,saved.correction_id);
     A.deepEqual(restoredBefore.state.players,before.players);
     A.equal((await db.query('select count(*)::int n from tournament_result_players')).rows[0].n,3);
+    const withoutSecond=C.correct(restoredBefore.state,{type:'remove',playerId:2});
+    const deletion=await call(restoredBefore.state,withoutSecond);
+    A.deepEqual((await db.query('select player_id,place,points from tournament_result_players order by place')).rows,
+      [{player_id:1,place:1,points:100},{player_id:3,place:2,points:70}]);
+    const head=(await db.query('select players_count,entries,paid,expected from tournament_results')).rows[0];
+    A.deepEqual(head,{players_count:2,entries:2,paid:1400,expected:1400});
+    A.equal((await db.query('select count(*)::int n from players where id=2')).rows[0].n,1);
+    A.equal(deletion.state.timer.isRunning,false);
+    const undoneDeletion=await call(deletion.state,restoredBefore.state,deletion.correction_id);
+    A.deepEqual(undoneDeletion.state.players,restoredBefore.state.players);
+    A.equal((await db.query('select paid from tournament_results')).rows[0].paid,2100);
     console.log('tournament-corrections: operations, live timer, permissions, conflicts, atomic final results and undo passed');
   }finally{await db.close();}
 })().catch(e=>{console.error(e);process.exitCode=1;});

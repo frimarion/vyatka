@@ -27,10 +27,12 @@
             <option value="move">Перенести игрока на другое место</option>
             <option value="swap">Поменять двух игроков местами</option>
             <option value="restore">Восстановить пропущенного игрока</option>
+            <option value="remove">Удалить игрока из турнира</option>
             <option value="return">Вернуть ошибочно вылетевшего в игру</option>
             <option value="ko">Исправить количество нокаутов</option>
           </select></div>
           <div class="field" id="playerField"><label for="player">Участник турнира</label><select id="player"></select></div>
+          <p id="removeHint" class="muted" hidden>Выбери человека, который не участвовал в турнире. Его результат, входы и оплаты будут исключены из отчёта этого турнира; места остальных сдвинутся вверх. Профиль игрока в клубе сохранится. Перед сохранением проверь изменения сумм.</p>
           <div id="restoreFields" hidden>
             <div class="field"><label for="search">Поиск игрока в базе клуба</label><input id="search" type="search" autocomplete="off" placeholder="Введи имя или ник"/></div>
             <div class="field"><label for="person">Пропущенный игрок</label><select id="person"><option value="">Сначала введи имя</option></select></div>

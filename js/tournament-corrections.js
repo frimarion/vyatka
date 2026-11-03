@@ -39,7 +39,14 @@
       }
     } else {
       if (!player?.present) throw new Error('Выбери участника турнира.');
-      if (action.type === 'return') {
+      if (action.type === 'remove') {
+        if (finished && st.players.filter(p => p.present).length <= 2) {
+          throw new Error('В завершённом турнире должно остаться минимум два участника.');
+        }
+        if (st.players.length <= 1) throw new Error('Нельзя оставить турнир без списка игроков.');
+        st.players = st.players.filter(p => p !== player);
+        ranked = ranked.filter(p => p !== player);
+      } else if (action.type === 'return') {
         if (finished) throw new Error('Завершённый турнир нельзя вернуть в игру. Исправь итоговое место.');
         if (player.status !== 'busted') throw new Error('Игрок ещё в игре.');
         player.status = 'active'; player.bustOrder = null; player.place = null;
