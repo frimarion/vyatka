@@ -1835,11 +1835,23 @@
       await saveWithReload((st) => {
         const p = findPlayer(st, name); if (!p) return st;
         p.addon = p.addon === tier ? 0 : tier;
+        if (!p.addon) p.addonFree = false;
         return recalcRating(computeStatsFromPlayers(st));
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, setAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
+  async function toggleAddonFree(name) {
+    try {
+      await saveWithReload((st) => {
+        const p = findPlayer(st, name);
+        if (!p?.present || !st.tournament.addonEnabled) return st;
+        p.addonFree = !p.addonFree;
+        p.addon = p.addonFree ? (p.addon || 1) : 0;
+        return recalcRating(computeStatsFromPlayers(st));
+      });
+    } catch (e) {}
+  }
+  window._vp = { togglePresent, addReentry, setAddon, toggleAddonFree, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
     payTariff, payFreeEntry, payClear };
 
   function renderPlayers() {
@@ -1877,6 +1889,7 @@
       const addonGrp = addonEnabled ? `
           <div class="pcGrp pcAddon"><div class="pcLbl">Аддон</div><div class="pcInline">
             ${[1, 2, 3].map((t) => `<button class="tiny ghost${p.addon === t ? " on" : ""}" type="button" onclick="_vp.setAddon(${j},${t})" ${p.present ? "" : "disabled"}>${t === 1 ? "А" : t + "А"}</button>`).join("")}
+            <button class="tiny ghost pcAddonFree${p.addonFree ? " on" : ""}" type="button" onclick="_vp.toggleAddonFree(${j})" aria-pressed="${!!p.addonFree}" title="${p.addonFree ? "Отменить бесплатный аддон" : "Выдать выбранный аддон бесплатно; без выбора — обычный аддон"}" ${p.present ? "" : "disabled"}>Беспл. аддон</button>
           </div></div>` : "";
       const bust = busted
         ? `<button class="tiny ghost" type="button" onclick="_vp.reentryPlayer(${j})" title="Вернуть в игру по реентри (ноки сохранятся)">↩ Реентри</button>
@@ -2131,6 +2144,7 @@
     if (free) bits.push(`free entry ×${free}`);
     const addonCost = addonCostFor(p, tour);
     if (addonCost) bits.push(`аддон ${NF.format(addonCost)} ₽`);
+    else if (tour?.addonEnabled && p.addon && p.addonFree) bits.push("аддон бесплатно");
     const expected = calcExpected(p, tour), paid = totalPaid(p);
     const parts = getPayments(p).map((x) => `${NF.format(x.amount)} ${payMethodLabel(x.method)}`).join(" + ");
     let tail;

@@ -269,6 +269,7 @@
           : null,
         // 0 = без аддона, 1/2/3 = выбранный размер (аддон/двойной/тройной)
         addon: [0, 1, 2, 3].includes(clampInt(p?.addon ?? 0, 0)) ? clampInt(p?.addon ?? 0, 0) : 0,
+        addonFree: !!p?.addonFree && [1, 2, 3].includes(clampInt(p?.addon ?? 0, 0)),
         // ── оплата ──
         buyIn: p?.buyIn == null ? null : clampInt(p.buyIn, 0),   // null = взнос турнира
         // Тариф, которым он был выбран: без неё "50%" от взноса 0 ₽ и "Free"
@@ -483,6 +484,7 @@
   }
   function addonCostFor(p, tour) {
     if (!tour?.addonEnabled) return 0;
+    if (p?.addonFree) return 0;
     const tier = clampInt(p?.addon ?? 0, 0);
     if (tier === 1) return clampInt(tour?.addon1Cost ?? 0, 0);
     if (tier === 2) return clampInt(tour?.addon2Cost ?? 0, 0);
