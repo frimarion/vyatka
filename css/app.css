@@ -425,8 +425,9 @@ input[type=checkbox]{width:auto;accent-color:var(--accent);transform:scale(1.3)}
 .payRow.is-collapsed .payMain{padding:7px 10px}
 /* ряд 1: способы | тарифы — шесть равных кнопок с зазором посередине */
 .payPick{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 4px repeat(3,minmax(0,1fr));gap:5px}
-/* ряд 2: Free entry · + платёж · Сохранить · ↺ */
-.payAct{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 36px;gap:5px;align-items:center}
+/* Бонусы отдельно от платежа: подписи помещаются и на узком телефоне. */
+.payBonuses{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
+.payAct{display:grid;grid-template-columns:repeat(2,minmax(0,1fr)) 36px;gap:5px;align-items:center}
 .payAct .payIcon{width:36px;height:36px;padding:0}
 .payTools button{padding:8px 4px;font-size:12px;border-radius:10px;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .payPick button[data-act="method"]{font-size:15px;padding:6px 4px}
@@ -438,10 +439,18 @@ button.paySaveBtn{background:var(--ok);color:#FFF}
 /* без ↺ «Сохранить» занимает и его ячейку — ряд кончается вровень с верхним */
 .paySaveBtn.wide{grid-column:span 2}
 .payInlineInput{padding:9px 12px;font-size:14px}
+@media(max-width:380px){
+  .payPick{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .payPick>span{display:none}
+  .payHead{display:grid;grid-template-columns:30px minmax(0,1fr) 29px}
+  .payRest{grid-column:2;text-align:left}
+  .payHead>.payIcon{grid-column:3;grid-row:1 / span 2}
+}
 @media(min-width:641px){
   .payTools{flex-direction:row;flex-wrap:wrap;align-items:center}
   .payPick{width:330px}
-  .payAct{width:340px}
+  .payBonuses{width:220px}
+  .payAct{width:260px}
   .payInlineInput{width:160px}
 }
 button.ghost.on{background:var(--accent-soft);color:var(--accent-dark);box-shadow:inset 0 0 0 1px var(--accent)}
@@ -605,9 +614,6 @@ button.pcRemove{width:28px;height:24px;padding:0;font-size:12px;letter-spacing:0
 .pcLbl{font-size:10px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);line-height:1.1;margin-bottom:4px}
 .pcInline{display:flex;align-items:center;gap:5px;min-height:36px}
 .pcInline button{min-width:36px;padding:8px 9px;font-size:13px}
-.pcAddon .pcInline{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));width:116px}
-.pcAddon .pcInline button{min-width:0;padding:8px 6px}
-.pcAddonFree{grid-column:1 / -1}
 .pcNum{min-width:2ch;text-align:center;font-weight:900;font-variant-numeric:tabular-nums}
 .pcCheck{margin:0 6px}
 input.pcCheck{transform:scale(1.45)}
@@ -654,6 +660,8 @@ input.pcCheck{transform:scale(1.45)}
   body.adminPage .headSide{width:100%;margin-left:0;flex-wrap:nowrap;gap:6px}
   body.adminPage #badgeRole,body.adminPage #badgeUser,body.adminPage #badgeSync{display:none !important}
   body.adminPage #logoutBtn{margin-left:auto}
+  body.adminPage #badgeRoom{min-width:0}
+  body.adminPage #metaRoom{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
   /* пояснения под разделами — на телефоне только занимают место */
   .mHint{display:none !important}

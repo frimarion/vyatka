@@ -1851,7 +1851,7 @@
       });
     } catch (e) {}
   }
-  window._vp = { togglePresent, addReentry, setAddon, toggleAddonFree, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
+  window._vp = { togglePresent, addReentry, setAddon, bustPlayer, undoBust, fixBust, reentryPlayer, removePlayer,
     payTariff, payFreeEntry, payClear };
 
   function renderPlayers() {
@@ -1889,7 +1889,6 @@
       const addonGrp = addonEnabled ? `
           <div class="pcGrp pcAddon"><div class="pcLbl">Аддон</div><div class="pcInline">
             ${[1, 2, 3].map((t) => `<button class="tiny ghost${p.addon === t ? " on" : ""}" type="button" onclick="_vp.setAddon(${j},${t})" ${p.present ? "" : "disabled"}>${t === 1 ? "А" : t + "А"}</button>`).join("")}
-            <button class="tiny ghost pcAddonFree${p.addonFree ? " on" : ""}" type="button" onclick="_vp.toggleAddonFree(${j})" aria-pressed="${!!p.addonFree}" title="${p.addonFree ? "Отменить бесплатный аддон" : "Выдать выбранный аддон бесплатно; без выбора — обычный аддон"}" ${p.present ? "" : "disabled"}>Беспл. аддон</button>
           </div></div>` : "";
       const bust = busted
         ? `<button class="tiny ghost" type="button" onclick="_vp.reentryPlayer(${j})" title="Вернуть в игру по реентри (ноки сохранятся)">↩ Реентри</button>
@@ -2120,12 +2119,13 @@
   }
 
   async function payClear(name) {
-    const ok = await confirm2("Сбросить оплату?", `${name}: тариф, free entry и все платежи.`);
+    const ok = await confirm2("Сбросить оплату?", `${name}: тариф, free entry, бесплатный аддон и все платежи.`);
     if (!ok) return;
     try {
       await saveWithReload((st) => {
         const p = findPlayer(st, name); if (!p) return st;
         p.buyIn = null; p.tariff = "full"; p.freeEntries = 0; p.payments = [];
+        if (p.addonFree) { p.addon = 0; p.addonFree = false; }
         return recalcRating(computeStatsFromPlayers(st));
       });
       resetPayDraft(name);
@@ -2202,7 +2202,7 @@
           : '<span class="payRest ok">оплачено</span>';
       // ↺ — только когда есть что сбрасывать, в конце ряда действий: в шапке
       // он отнимал у имени место, и имена переносились.
-      const touched = paid > 0 || effectiveFreeEntries(p) > 0 || p.buyIn != null || (p.tariff && p.tariff !== "full");
+      const touched = paid > 0 || effectiveFreeEntries(p) > 0 || p.buyIn != null || (p.tariff && p.tariff !== "full") || p.addonFree;
       const methods = PAY_METHODS.map((m) =>
         `<button type="button" class="ghost pm-${m.key}${d.method === m.key ? " on" : ""}" data-act="method" data-m="${m.key}" title="${escHtml(m.title)}">${m.label}</button>`).join("");
       const tariffs = [["full", "100%"], ["half", "50%"], ["free", "Free"]].map(([t, l]) =>
@@ -2218,11 +2218,14 @@
           </div>
           <div class="payTools">
             <div class="payPick">${methods}<span></span>${tariffs}</div>
+            <div class="payBonuses">
+              <button type="button" class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" data-act="free" aria-pressed="${effectiveFreeEntries(p) > 0}">Free entry</button>
+              ${tour?.addonEnabled ? `<button type="button" class="ghost${p.addonFree ? " on" : ""}" data-act="addonFree" aria-pressed="${!!p.addonFree}" title="${p.addonFree ? "Отменить бесплатный аддон" : "Выдать выбранный аддон бесплатно; без выбора — обычный аддон"}">Беспл. аддон</button>` : ""}
+            </div>
             <div class="payAct">
-              <button type="button" class="ghost${effectiveFreeEntries(p) > 0 ? " on" : ""}" data-act="free">Free entry</button>
               <button type="button" class="ghost${d.addPayment ? " on" : ""}" data-act="add">+ платёж</button>
               <button type="button" class="paySaveBtn${touched ? "" : " wide"}" data-act="save">Сохранить</button>
-              ${touched ? '<button type="button" class="payIcon danger" data-act="clear" title="Сбросить оплату: тариф, free entry и платежи" aria-label="Сбросить оплату">↺</button>' : ""}
+              ${touched ? '<button type="button" class="payIcon danger" data-act="clear" title="Сбросить оплату: тариф, free entry, бесплатный аддон и платежи" aria-label="Сбросить оплату">↺</button>' : ""}
             </div>
             ${d.addPayment ? `<input class="payInlineInput" type="number" min="0" step="100" inputmode="numeric" placeholder="сумма платежа" value="${escHtml(String(d.amount ?? ""))}"/>` : ""}
           </div>
@@ -2247,6 +2250,7 @@
       case "method": payMethod(name, el.dataset.m); break;
       case "tariff": payTariff(name, el.dataset.t); break;
       case "free": payFreeEntry(name); break;
+      case "addonFree": toggleAddonFree(name); break;
       case "add": payToggleAdd(name); break;
       case "save": paySave(name); break;
     }
