@@ -2144,7 +2144,7 @@
     if (free) bits.push(`free entry ×${free}`);
     const addonCost = addonCostFor(p, tour);
     if (addonCost) bits.push(`аддон ${NF.format(addonCost)} ₽`);
-    else if (tour?.addonEnabled && p.addon && p.addonFree) bits.push("аддон бесплатно");
+    else if (tour?.addonEnabled && p.addon && (p.addonFree || tariffOf(p, tour) === "free")) bits.push("аддон бесплатно");
     const expected = calcExpected(p, tour), paid = totalPaid(p);
     const parts = getPayments(p).map((x) => `${NF.format(x.amount)} ${payMethodLabel(x.method)}`).join(" + ");
     let tail;

@@ -473,7 +473,8 @@
   function effectiveFreeEntries(p) {
     return Math.max(0, Math.min(entriesOf(p), clampInt(p?.freeEntries ?? 0, 0)));
   }
-  // Аддон — отдельная докупка фишек, не вход: тариф/free entry на неё не действуют.
+  // Аддон — отдельная докупка фишек: free entry на неё не действует,
+  // а тариф Free обнуляет стоимость вместе со входом и реентри.
   function addonStackFor(p, tour) {
     if (!tour?.addonEnabled) return 0;
     const tier = clampInt(p?.addon ?? 0, 0);
@@ -484,7 +485,7 @@
   }
   function addonCostFor(p, tour) {
     if (!tour?.addonEnabled) return 0;
-    if (p?.addonFree) return 0;
+    if (p?.addonFree || tariffOf(p, tour) === "free") return 0;
     const tier = clampInt(p?.addon ?? 0, 0);
     if (tier === 1) return clampInt(tour?.addon1Cost ?? 0, 0);
     if (tier === 2) return clampInt(tour?.addon2Cost ?? 0, 0);

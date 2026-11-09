@@ -221,7 +221,20 @@ console.log('все проверки прошли');
   A.equal(VP.calcAddonChips(s4), 20000, 'бесплатный аддон входит в общее число фишек');
   p().addonFree = false;
   p().buyIn = VP.buyInForTariff('free', t);
-  A.equal(VP.calcExpected(p(), t), 900, 'free-тариф гасит вход, аддон остаётся платным');
+  p().tariff = 'free';
+  p().reentries = 2;
+  for (const tier of [1, 2, 3]) {
+    p().addon = tier;
+    A.equal(VP.calcExpected(p(), t), 0, `Free обнуляет вход, реентри и аддон ${tier}×`);
+    A.equal(VP.addonStackFor(p(), t), t[`addon${tier}Stack`], 'Free сохраняет фишки аддона');
+  }
+  p().addon = 2;
+  p().tariff = 'full';
+  A.equal(VP.calcExpected(p(), t), 2900, 'возврат с Free восстанавливает цену реентри и аддона');
+  p().reentries = 0;
+  p().tariff = null;
+  A.equal(VP.calcExpected(p(), t), 0, 'старый Free без явного тарифа также обнуляет аддон');
+  p().tariff = 'full';
   p().buyIn = VP.buyInForTariff('full', t);
   t.addonEnabled = false;
   A.equal(VP.calcExpected(p(), t), 1000, 'выключенный аддон не считается, даже если у игрока выбран размер');
