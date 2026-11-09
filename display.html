@@ -558,7 +558,8 @@ body.ornament::before{opacity:.3}
     if (pollInFlight) return;
     pollInFlight = true;
     try {
-      const { data, error } = await sb.from("rooms").select("state").eq("room_id", roomId).maybeSingle();
+      const { data: rows, error } = await sb.rpc("vp_display_rooms", { p_room_ids: [roomId] });
+      const data = rows?.[0];
       if (error) throw error;
       if (!data) throw new Error(`Комната «${roomId}» не найдена`);
       if (applyIncoming(data.state)) render();
@@ -571,13 +572,8 @@ body.ornament::before{opacity:.3}
   function subscribeRealtime() {
     if (!roomId) return;
     if (channel) sb.removeChannel(channel);
-    channel = sb.channel("rooms-" + roomId)
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "rooms", filter: `room_id=eq.${roomId}` }, (p) => {
-        if (p?.new?.state && applyIncoming(p.new.state)) render();
-      })
-      .on("broadcast", { event: "timer_state" }, ({ payload }) => {
-        if (payload?.state && applyIncoming(payload.state)) render();
-      })
+    channel = sb.channel("rooms-public-" + roomId)
+      .on("broadcast", { event: "timer_state" }, () => { poll(); })
       .subscribe((status) => {
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") setTimeout(subscribeRealtime, 3000);
       });

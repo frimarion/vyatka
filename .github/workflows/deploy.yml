@@ -42,6 +42,9 @@ jobs:
       - run: node tests/tournament-corrections.test.js
         env:
           VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite
+      - run: node tests/operator-access.test.js
+        env:
+          VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite
       - run: node tests/finish-tournament.test.js
         env:
           VP_PGLITE_MODULE: ${{ runner.temp }}/vyatka-sql-check/node_modules/@electric-sql/pglite

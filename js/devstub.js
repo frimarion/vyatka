@@ -949,6 +949,37 @@
   const client = {
     from: (t) => new Query(t),
     rpc: async (name, args) => {
+      if (["vp_display_rooms", "vp_operator_rooms", "vp_operator_timer"].includes(name)) {
+        const db = readDb();
+        const profile = db.profiles.find((p) => p.id === getProfileId());
+        const allowed = (rid) => profile?.role === "operator" && (db.tournament_operators || []).some((o) =>
+          o.profile_id === profile.id && db.tournaments.some((t) => t.id === o.tournament_id && t.room_id === rid));
+        const pick = (obj, keys) => Object.fromEntries(keys.filter((k) => obj && k in obj).map((k) => [k, obj[k]]));
+        const project = (st, display) => ({
+          _savedAt: st._savedAt,
+          tournament: pick(st.tournament, ["name", "createdAt", "finishedAt", "startStack", "lateRegUntilLevel", "addonEnabled", "addon1Stack", "addon2Stack", "addon3Stack"]),
+          timer: pick(st.timer, ["isRunning", "isPaused", "levelIndex", "levelEndAt", "pauseRemainingSec", "breakUntil", "savedRemainingSec", "finalTableActive"]),
+          structure: { levels: (st.structure?.levels || []).map((l) => pick(l, ["min", "sb", "bb", "anteMode", "isBreak", "label"])) },
+          stats: pick(st.stats, ["registered", "alive", "busted", "reentries"]),
+          display: pick(st.display, ["theme"]),
+          info: display ? pick(st.info, ["bonusHand", "comment"]) : {},
+          rating: display ? pick(st.rating, ["isActive", "entries", "r", "guarantee", "P", "TOTAL", "KO_POOL", "ITM_POOL", "payouts", "calculatedAt", "autoShown"]) : {},
+          players: display ? (st.players || []).map((p) => pick(p, ["name", "photo_url", "present", "status", "place", "bustOrder", "reentries", "addon", "ko"])) : [],
+        });
+        if (name === "vp_operator_timer") {
+          const room = db.rooms.find((r) => r.room_id === args.p_room_id);
+          if (!room || !allowed(room.room_id)) return { data: null, error: { message: "Нет доступа к таймеру" } };
+          if (args.p_timer) {
+            if (room.state.tournament?.finishedAt) return { data: null, error: { message: "Турнир завершён" } };
+            room.state.timer = args.p_timer;
+            room.state._savedAt = Math.max(Date.now(), (room.state._savedAt || 0) + 1);
+            writeDb(db);
+          }
+          return { data: project(room.state, false), error: null };
+        }
+        const rows = db.rooms.filter((r) => name === "vp_display_rooms" ? (args?.p_room_ids || []).includes(r.room_id) : allowed(r.room_id));
+        return { data: rows.map((r) => ({ ...r, state: project(r.state, name === "vp_display_rooms") })), error: null };
+      }
       if (name === "try_acquire_room_lock") {
         // В песочнице ведущий один — блокировку отдаём всегда.
         return { data: [{ lock_owner: args?.p_owner, lock_until: new Date(Date.now() + 6000).toISOString() }], error: null };

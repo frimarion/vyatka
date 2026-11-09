@@ -70,10 +70,11 @@ console.log('Tournament results — checks passed');
   context.roomStates = {};
   context.TBL = { rooms: 'rooms' };
   context.normalizeState = (s) => s;
-  context.sb = { from: () => ({ select: () => ({ in: async (_, ids) => {
-    requestedRooms = ids;
-    return { data: ids.map((room_id) => ({ room_id, state: { players: [] } })) };
-  } }) }) };
+  context.sb = { rpc: async (name, args) => {
+    assert.equal(name, 'vp_display_rooms');
+    requestedRooms = args.p_room_ids;
+    return { data: requestedRooms.map((room_id) => ({ room_id, state: { players: [] } })) };
+  } };
   vm.runInContext(html.match(/  async function loadRooms\(\) \{[\s\S]*?\n  \}/)[0], context);
   await context.loadRooms();
   assert.deepEqual(Array.from(requestedRooms), ['past-room', 'live-room']);

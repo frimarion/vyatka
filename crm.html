@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="192x192" href="assets/icons/admin-icon-192.png"/>
 <meta name="apple-mobile-web-app-title" content="Вятка CRM"/>
 <link rel="stylesheet" href="css/app.css"/>
-<script src="js/admin-nav.js?v=1"></script>
+<script src="js/admin-nav.js"></script>
 </head>
 <body class="ornament">
 
@@ -475,7 +475,7 @@
   // Пишет только админ (RLS в 029). Привязанный к турниру бонус получает дату
   // турнира и попадает в его месяц; «без турнира» — выбранную дату (по умолчанию
   // сегодня). Очки только положительные.
-  const isAdmin = () => !!profile && profile.role !== "operator";
+  const isAdmin = () => profile?.role === "admin";
   const BONUS_TBL = "rating_adjustments";
   let bonusPlayers = [];            // все игроки для выбора
   let bonusResults = [];            // последние турниры для привязки
@@ -603,13 +603,15 @@
   async function checkAuth() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { showLock(); return; }
-    hideLock();
     $("logoutBtn").style.display = "";
     $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
     try {
       const { data } = await sb.from(TBL.profiles).select("id,email,role").eq("id", session.user.id).maybeSingle();
       profile = data || null;
     } catch (e) { profile = null; }
+    if (profile?.role === "operator") { location.replace("admin.html"); return; }
+    if (profile?.role !== "admin") { showLock(); $("authError").textContent = "Раздел доступен только администратору"; return; }
+    hideLock();
     if (profile) {
       $("badgeUser").style.display = "";
       $("userText").textContent = `${profile.email || "—"} · ${profile.role === "operator" ? "оператор" : "админ"}`;

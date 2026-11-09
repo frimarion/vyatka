@@ -32,7 +32,7 @@ body.tournamentsPage .wrap{padding-bottom:32px}
 body.tournamentsPage .tabbar{display:none!important}
 body.tournamentsPage #screenForm{margin-top:16px}
 </style>
-<script src="js/admin-nav.js?v=1"></script>
+<script src="js/admin-nav.js"></script>
 </head>
 <body class="tournamentsPage ornament">
 
@@ -873,13 +873,15 @@ body.tournamentsPage #screenForm{margin-top:16px}
   async function checkAuth() {
     const { data: { session } } = await sb.auth.getSession();
     if (!session) { showLock(); return; }
-    hideLock();
     $("logoutBtn").style.display = "";
     $("logoutBtn").onclick = async () => { await sb.auth.signOut(); location.reload(); };
     try {
       const { data } = await sb.from(TBL.profiles).select("id,email,role").eq("id", session.user.id).maybeSingle();
       profile = data || null;
     } catch (e) { console.warn("profile", e); profile = null; }
+    if (profile?.role === "operator") { location.replace("admin.html"); return; }
+    if (profile?.role !== "admin") { showLock(); $("authError").textContent = "Раздел доступен только администратору"; return; }
+    hideLock();
     await loadMyTournaments();
     await loadBlueprints();
     setUi();

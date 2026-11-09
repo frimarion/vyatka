@@ -1667,7 +1667,7 @@ document.addEventListener("touchmove", e => {
       .map((t) => t.room_id);
     if (!ids.length) { roomStates = {}; return; }
     try {
-      const { data } = await sb.from(TBL.rooms).select("room_id,state").in("room_id", ids);
+      const { data } = await sb.rpc("vp_display_rooms", { p_room_ids: ids });
       const next = {};
       (data || []).forEach((r) => { const st = normalizeState(r.state); if (st) next[r.room_id] = st; });
       roomStates = next;
@@ -2489,8 +2489,8 @@ document.addEventListener("touchmove", e => {
     if (t.room_id) {
       delete roomStates[t.room_id];
       try {
-        const { data } = await sb.from(TBL.rooms).select("state").eq("room_id", t.room_id).maybeSingle();
-        const st = normalizeState(data?.state);
+        const { data } = await sb.rpc("vp_display_rooms", { p_room_ids: [t.room_id] });
+        const st = normalizeState(data?.[0]?.state);
         if (st) roomStates[t.room_id] = st;
       } catch (_) {}
     }
