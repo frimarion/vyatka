@@ -949,6 +949,28 @@
   const client = {
     from: (t) => new Query(t),
     rpc: async (name, args) => {
+      if (["vp_room_players", "vp_room_ensure_player"].includes(name)) {
+        const db = readDb(), profile = getProfileId();
+        const room = db.rooms.find((r) => r.room_id === args.p_room_id);
+        const allowed = room && (profile === "dev-admin" || (db.tournament_operators || []).some((o) =>
+          o.profile_id === profile && db.tournaments.some((t) => String(t.id) === String(o.tournament_id) && t.room_id === room.room_id)));
+        if (!allowed) return { data: null, error: { message: "Нет доступа к комнате" } };
+        if (name === "vp_room_ensure_player") {
+          const nameKey = (s) => String(s).toLowerCase().replace(/ё/g, "е").replace(/й/g, "и").replace(/\s+/g, " ").trim();
+          const name = args.p_name.trim().replace(/\s+/g, " ");
+          if (!name || name.length > 80) return { data: null, error: { message: "Некорректное имя" } };
+          let player = db.players.find((p) => nameKey(p.name) === nameKey(name));
+          if (!player) { player = { id: Math.max(0, ...db.players.map((p) => Number(p.id))) + 1, name }; db.players.push(player); writeDb(db); }
+          return { data: [{ id: player.id, photo_url: player.photo_url || null }], error: null };
+        }
+        const registered = (id) => db.registrations.some((r) => String(r.player_id) === String(id) && r.status === "registered" &&
+          db.tournaments.some((t) => String(t.id) === String(r.tournament_id) && t.room_id === room.room_id));
+        const rows = db.players.filter((p) => args.p_registrations ? registered(p.id) : args.p_ids
+          ? args.p_ids.includes(p.id) && (registered(p.id) || room.state.players?.some((r) => r.player_id === p.id))
+          : (args.p_patterns || []).some((q) => q.length >= 2 && [p.name, p.full_name].some((s) => String(s || "").toLowerCase().includes(q.toLowerCase()))));
+        return { data: rows.slice(0, args.p_registrations || args.p_ids ? 500 : 20).map((p) =>
+          ({ id: p.id, name: p.name, full_name: p.full_name || null, photo_url: p.photo_url || null })), error: null };
+      }
       if (["vp_display_rooms", "vp_operator_rooms", "vp_operator_timer"].includes(name)) {
         const db = readDb();
         const profile = db.profiles.find((p) => p.id === getProfileId());

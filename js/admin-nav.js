@@ -89,8 +89,8 @@
     var secBox = nav.querySelector('.anav-sections'), pageBox = nav.querySelector('.anav-pages');
 
     function sync(){
-      var timerOnly = document.body.dataset.timerOnly === 'true';
-      nav.querySelector('.anav-brand').href = timerOnly ? 'admin.html' : 'start.html';
+      var roomOperator = document.body.dataset.operatorRoom === 'true';
+      nav.querySelector('.anav-brand').href = roomOperator ? 'admin.html' : 'start.html';
       var sec = '';
       if (tabbar && tabbar.style.display !== 'none'){
         tabbar.querySelectorAll('button[data-tab]').forEach(function(b){
@@ -128,7 +128,7 @@
     var opts = { attributes:true, attributeFilter:['class','style','href'], subtree:true, childList:true, characterData:true };
     if (tabbar) mo.observe(tabbar, opts);
     if (pagenav) mo.observe(pagenav, opts);
-    mo.observe(document.body, { attributes:true, attributeFilter:['data-timer-only'] });
+    mo.observe(document.body, { attributes:true, attributeFilter:['data-operator-room'] });
     document.body.insertBefore(nav, document.body.firstChild);
   }
 

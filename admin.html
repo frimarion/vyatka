@@ -299,11 +299,11 @@
       <div class="kpi"><div class="kpiLabel">💳 Карта</div><div class="kpiValue num" id="sumCard">0</div></div>
       <div class="kpi hot"><div class="kpiLabel">Собрано</div><div class="kpiValue num" id="sumTotal">0</div></div>
     </div>
-    <div class="btnrow" style="margin-top:12px">
+    <div class="btnrow" id="paymentsReportActions" style="margin-top:12px">
       <button id="btnPaymentsReport" type="button">💾 Сохранить отчёт</button>
       <span class="muted" id="paymentsReportInfo" style="align-self:center"></span>
     </div>
-    <div class="sub mHint">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
+    <div class="sub mHint" id="paymentsReportHint">Снимок турнира — места, ноки, входы и оплата — уезжает в CRM.
       Сохранять можно сколько угодно раз: отчёт перезаписывается, а не дублируется.</div>
     </div>
   </section>
@@ -616,16 +616,18 @@
   }
 
   function setUserUi() {
-    document.body.dataset.timerOnly = String(isOperator());
+    document.body.dataset.operatorRoom = String(isOperator());
     document.querySelector(".logoLink").href = isOperator() ? "admin.html" : "start.html";
     document.querySelectorAll(".pagenav > *").forEach((el) => {
       el.style.display = isOperator() ? "none" : "";
     });
-    document.querySelectorAll("#tabbar button").forEach((b) => {
-      b.style.display = isOperator() && b.dataset.tab !== "timer" ? "none" : "";
-    });
-    $("btnFinishTournament").style.display = isAdmin() ? "" : "none";
-    $("finishTournamentInfo").style.display = isAdmin() ? "" : "none";
+    document.querySelectorAll("#tabbar button").forEach((b) => { b.style.display = ""; });
+    $("btnFinishTournament").style.display = "";
+    $("finishTournamentInfo").style.display = "";
+    $("btnPaymentsReport").style.display = isAdmin() ? "" : "none";
+    $("paymentsReportInfo").style.display = isAdmin() ? "" : "none";
+    $("paymentsReportActions").style.display = isAdmin() ? "" : "none";
+    $("paymentsReportHint").style.display = isAdmin() ? "" : "none";
     const badge = $("badgeUser");
     if (!profile) { badge.style.display = "none"; return; }
     badge.style.display = "";
@@ -648,11 +650,6 @@
 
   // ── Хранилище: та же таблица rooms, что у Дойла ───────────────────────────
   async function loadStateFresh() {
-    if (isOperator()) {
-      const { data, error } = await sb.rpc("vp_operator_timer", { p_room_id: roomId });
-      if (error) throw error;
-      return normalizeState(data);
-    }
     const { data, error } = await sb.from(TBL.rooms).select("state").eq("room_id", roomId).maybeSingle();
     if (error) throw new Error(`Ошибка загрузки: ${error.message}`);
     if (!data) throw new Error(`Комната «${roomId}» не найдена`);
@@ -660,14 +657,7 @@
   }
 
   async function saveState(next) {
-    if (isOperator()) {
-      const { data, error } = await sb.rpc("vp_operator_timer", { p_room_id: roomId, p_timer: next.timer });
-      if (error) throw error;
-      Object.assign(next, normalizeState(data));
-      realtimeChannel?.send({ type: "broadcast", event: "timer_state", payload: {} });
-      return;
-    }
-    if (!isAdmin()) throw new Error("Нет доступа");
+    if (!isAdmin() && !isOperator()) throw new Error("Нет доступа");
     // Метка записи — дисплей отбрасывает по ней состояния, доехавшие с опозданием.
     next._savedAt = Math.max(nowMs(), (Number(next._savedAt) || 0) + 1);
     const { error } = await sb.from(TBL.rooms).update({ state: next }).eq("room_id", roomId);
@@ -748,10 +738,9 @@
   }
   function switchTab(tab, scroll = true) {
     if (tab) currentTab = tab;
-    if (isOperator()) currentTab = "timer";
-    const onepage = !isOperator() && ONEPAGE.matches;
+    const onepage = ONEPAGE.matches;
     ALL_SCREENS.forEach((id) => { $(id).style.display = "none"; });
-    (isOperator() ? ["screenTimer"] : onepage ? ROOM_SCREENS : (TABS[currentTab] || TABS.timer)).forEach((id) => { $(id).style.display = ""; });
+    (onepage ? ROOM_SCREENS : (TABS[currentTab] || TABS.timer)).forEach((id) => { $(id).style.display = ""; });
     document.querySelectorAll("#tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.tab === currentTab));
     $("tabbar").style.display = onepage ? "none" : "";
     $("screens").classList.toggle("onepage", onepage);
@@ -1152,6 +1141,11 @@
   }
 
   async function fetchRegPlayers(tid) {
+    if (isOperator()) {
+      const { data, error } = await sb.rpc("vp_room_players", { p_room_id: roomId, p_registrations: true });
+      if (error) throw error;
+      return (data || []).map((p) => ({ player_id: p.id, name: p.name, photo_url: p.photo_url }));
+    }
     const { data, error } = await sb.from(TBL.registrations)
       .select(`player_id, ${TBL.players}(name, photo_url)`).eq("tournament_id", tid)
       .order("created_at", { ascending: true });
@@ -1584,8 +1578,9 @@
         const seq = ++reqSeq;
         const or = pats.map((p) => `name.ilike.%${p}%,full_name.ilike.%${p}%`).join(",");
         try {
-          const { data, error } = await sb.from(TBL.players)
-            .select("id,name,full_name,photo_url").or(or).order("name").limit(20);
+          const { data, error } = await (isOperator()
+            ? sb.rpc("vp_room_players", { p_room_id: roomId, p_patterns: pats })
+            : sb.from(TBL.players).select("id,name,full_name,photo_url").or(or).order("name").limit(20));
           if (seq !== reqSeq) return;
           if (error) throw error;
           if (!data?.length) { note("В базе не нашлось — можно добавить как есть"); selected = null; add.disabled = false; return; }
@@ -1637,6 +1632,12 @@
   // Ключ — та же свёртка, что players.name_key в базе.
   const dbNameKey = (s) => keyName(s).replace(/ё/g, "е").replace(/й/g, "и");
   async function ensureDbPlayer(name) {
+    if (isOperator()) {
+      const { data, error } = await sb.rpc("vp_room_ensure_player", { p_room_id: roomId, p_name: name });
+      if (error) throw error;
+      if (!data?.[0]) throw new Error("Не удалось добавить игрока");
+      return data[0];
+    }
     const { data: found, error } = await sb.from(TBL.players).select("id,photo_url")
       .eq("name_key", dbNameKey(name)).maybeSingle();
     if (error) throw error;
@@ -1655,7 +1656,7 @@
           .eq("tournament_id", t.id).eq("player_id", playerId);
     const { error } = await q;
     if (error) throw error;
-    if (isAdmin()) refreshLinkedTournament().catch(() => {});
+    refreshLinkedTournament().catch(() => {});
   }
 
   $("btnPlayerAdd").onclick = async () => {
@@ -1974,7 +1975,9 @@
     if (!ids.length) return;
     ids.forEach((id) => photoAsked.add(id));
     try {
-      const { data, error } = await sb.from(TBL.players).select("id,photo_url").in("id", ids);
+      const { data, error } = await (isOperator()
+        ? sb.rpc("vp_room_players", { p_room_id: roomId, p_ids: ids })
+        : sb.from(TBL.players).select("id,photo_url").in("id", ids));
       if (error) throw error;
       const got = (data || []).filter((r) => r.photo_url);
       got.forEach((r) => photoById.set(r.id, r.photo_url));
@@ -2296,6 +2299,7 @@
   // Снимок берётся со СВЕЖЕГО состояния: вылеты и оплату мог вносить второй
   // оператор, и сохранённое по своей копии разошлось бы с залом.
   async function saveReportSnapshot() {
+    if (!isAdmin()) throw new Error("Отчёты доступны только администратору");
     const st = await loadStateFresh();
     state = st; renderAll();
     const present = (st.players || []).filter((p) => p.present);
@@ -2925,11 +2929,6 @@
   const safe = (fn, label) => { try { fn(); } catch (e) { console.error(`render ${label}`, e); } };
   function renderAll() {
     if (!state) return;
-    if (isOperator()) {
-      $("headTitle").textContent = state.tournament?.name || "Таймер";
-      safe(renderTimerCard, "timer");
-      return;
-    }
     safe(fillFields, "fields");
     safe(renderTheme, "theme");
     safe(renderTimerCard, "timer");
@@ -2966,7 +2965,7 @@
     setSync("loading");
     try {
       state = await loadStateFresh(); renderAll(); setSync("ok");
-      if (isAdmin()) await refreshLinkedTournament().catch(() => {});
+      await refreshLinkedTournament().catch(() => {});
     } catch (e) { setSync("error"); setErr(e); }
   };
 
@@ -2979,9 +2978,9 @@
     $("btnBackRooms").textContent = isOperator() ? "← Турниры" : "← Комнаты";
     switchTab("timer", false);
     state = firstState; renderAll(); setSync("ok");
-    if (isAdmin()) loadBlueprints().catch(() => {});
+    loadBlueprints().catch(() => {});
     subscribeRealtime();
-    if (isAdmin()) refreshLinkedTournament().catch(() => {});
+    refreshLinkedTournament().catch(() => {});
     acquireLockOnce().catch(() => {});
     setInterval(() => acquireLockOnce().catch(() => {}), 2000);
     setInterval(() => { tickLeader().catch(() => {}); }, 1000);
@@ -2994,7 +2993,7 @@
         if (saveInFlight) return;
         state = fresh; renderAll();
       } catch (e) {}
-    }, isOperator() ? 2000 : 10000);
+    }, 10000);
     document.addEventListener("visibilitychange", () => {
       if (document.visibilityState === "visible") tickLeader().catch(() => {});
     });
