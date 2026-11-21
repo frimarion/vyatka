@@ -2674,8 +2674,7 @@
         list = (await readBlueprintRoom()) || Object.values(PRESETS);
         list = list.map(normPreset);
       }
-      list = list.filter((p) => p.name && p.levels.length)
-        .sort((a, b) => a.sortOrder - b.sortOrder);
+      list = list.filter((p) => p.name && p.levels.length);
       if (!list.length) throw new Error("макетов нет");
       const next = {};
       list.forEach((p) => { next[p.id] = p; });
@@ -2704,7 +2703,11 @@
   function buildPresetGrid() {
     $("presetSrc").textContent = presetsFromDb ? "из базы" : "встроенные";
     $("bpAdminRow").style.display = (presetsFromDb && isAdmin()) ? "" : "none";
-    $("presetGrid").innerHTML = Object.values(presets).map((p) => {
+    const list = Object.values(presets);
+    if (presetsFromDb) {
+      list.sort((a, b) => (a.sortOrder - b.sortOrder) || (BP_TABLE ? Number(a.id) - Number(b.id) : 0));
+    }
+    $("presetGrid").innerHTML = list.map((p) => {
       const lvl = p.levels.filter((l) => !l.isBreak).length;
       const edit = (presetsFromDb && isAdmin())
         ? `<button class="bpEdit" data-edit="${escHtml(p.id)}" type="button" title="Редактировать макет">✎</button>` : "";
@@ -2800,8 +2803,12 @@
           const { error } = await sb.from(BP_TABLE).update(payload).eq("id", bpEditingId);
           if (error) throw error;
         } else {
-          // sort_order временем создания: новый макет встаёт в конец списка
-          const { error } = await sb.from(BP_TABLE).insert({ ...payload, sort_order: Date.now() });
+          const { data: last, error: orderError } = await sb.from(BP_TABLE)
+            .select("sort_order").order("sort_order", { ascending: false }).limit(1).maybeSingle();
+          if (orderError) throw orderError;
+          // При одинаковом sort_order новые макеты идут дальше по id.
+          const sortOrder = Math.min((last?.sort_order ?? 0) + 1, 2147483647);
+          const { error } = await sb.from(BP_TABLE).insert({ ...payload, sort_order: sortOrder });
           if (error) throw error;
         }
       } else {
